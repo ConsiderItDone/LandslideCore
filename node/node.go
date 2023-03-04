@@ -252,7 +252,7 @@ func CreateAndStartProxyAppConns(clientCreator proxy.ClientCreator, logger log.L
 	return proxyApp, nil
 }
 
-func createAndStartEventBus(logger log.Logger) (*types.EventBus, error) {
+func CreateAndStartEventBus(logger log.Logger) (*types.EventBus, error) {
 	eventBus := types.NewEventBus()
 	eventBus.SetLogger(logger.With("module", "events"))
 	if err := eventBus.Start(); err != nil {
@@ -693,7 +693,7 @@ func NewNode(config *cfg.Config,
 	// we might need to index the txs of the replayed block as this might not have happened
 	// when the node stopped last time (i.e. the node stopped after it saved the block
 	// but before it indexed the txs, or, endblocker panicked)
-	eventBus, err := createAndStartEventBus(logger)
+	eventBus, err := CreateAndStartEventBus(logger)
 	if err != nil {
 		return nil, err
 	}
