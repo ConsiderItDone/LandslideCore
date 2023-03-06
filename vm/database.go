@@ -5,7 +5,9 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
-var _ dbm.DB = &Database{}
+var (
+	_ dbm.DB = &Database{}
+)
 
 type Database struct {
 	database.Database

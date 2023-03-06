@@ -57,6 +57,8 @@ import (
 
 //------------------------------------------------------------------------------
 
+var ErrNoGenesisDoc = errors.New("genesis doc not found")
+
 // DBContext specifies config information for loading a new DB.
 type DBContext struct {
 	ID     string
@@ -1363,7 +1365,7 @@ func LoadStateFromDBOrGenesisDocProvider(
 	genesisDocProvider GenesisDocProvider,
 ) (sm.State, *types.GenesisDoc, error) {
 	// Get genesis doc
-	genDoc, err := loadGenesisDoc(stateDB)
+	genDoc, err := LoadGenesisDoc(stateDB)
 	if err != nil {
 		genDoc, err = genesisDocProvider()
 		if err != nil {
@@ -1371,7 +1373,7 @@ func LoadStateFromDBOrGenesisDocProvider(
 		}
 		// save genesis doc to prevent a certain class of user errors (e.g. when it
 		// was changed, accidentally or not). Also good for audit trail.
-		if err := saveGenesisDoc(stateDB, genDoc); err != nil {
+		if err := SaveGenesisDoc(stateDB, genDoc); err != nil {
 			return sm.State{}, nil, err
 		}
 	}
@@ -1384,13 +1386,13 @@ func LoadStateFromDBOrGenesisDocProvider(
 }
 
 // panics if failed to unmarshal bytes
-func loadGenesisDoc(db dbm.DB) (*types.GenesisDoc, error) {
+func LoadGenesisDoc(db dbm.DB) (*types.GenesisDoc, error) {
 	b, err := db.Get(genesisDocKey)
 	if err != nil {
 		panic(err)
 	}
 	if len(b) == 0 {
-		return nil, errors.New("genesis doc not found")
+		return nil, ErrNoGenesisDoc
 	}
 	var genDoc *types.GenesisDoc
 	err = tmjson.Unmarshal(b, &genDoc)
@@ -1401,7 +1403,7 @@ func loadGenesisDoc(db dbm.DB) (*types.GenesisDoc, error) {
 }
 
 // panics if failed to marshal the given genesis document
-func saveGenesisDoc(db dbm.DB, genDoc *types.GenesisDoc) error {
+func SaveGenesisDoc(db dbm.DB, genDoc *types.GenesisDoc) error {
 	b, err := tmjson.Marshal(genDoc)
 	if err != nil {
 		return fmt.Errorf("failed to save genesis doc due to marshaling error: %w", err)

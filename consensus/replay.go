@@ -340,7 +340,8 @@ func (h *Handshaker) ReplayBlocks(
 				state.NextValidators = types.NewValidatorSet(vals).CopyIncrementProposerPriority(1)
 			} else if len(h.genDoc.Validators) == 0 {
 				// If validator set is not set in genesis and still empty after InitChain, exit.
-				return nil, fmt.Errorf("validator set is nil in genesis and still empty after InitChain")
+				// In Landslide we don't care about Validators
+				//return nil, fmt.Errorf("validator set is nil in genesis and still empty after InitChain")
 			}
 
 			if res.ConsensusParams != nil {
@@ -349,6 +350,7 @@ func (h *Handshaker) ReplayBlocks(
 			}
 			// We update the last results hash with the empty hash, to conform with RFC-6962.
 			state.LastResultsHash = merkle.HashFromByteSlices(nil)
+			//h.logger.Info("state", "s", state)
 			if err := h.stateStore.Save(state); err != nil {
 				return nil, err
 			}

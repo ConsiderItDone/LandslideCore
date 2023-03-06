@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/tendermint/tendermint/abci/example/counter"
 	"github.com/tendermint/tendermint/vm"
 	"os"
 
@@ -18,5 +19,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	rpcchainvm.Serve(context.Background(), &vm.VM{})
+	vm := vm.NewVM(counter.NewApplication(true))
+
+	rpcchainvm.Serve(context.Background(), vm)
 }

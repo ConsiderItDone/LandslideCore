@@ -15,7 +15,10 @@ import (
 	"testing"
 )
 
-var blockchainID = ids.ID{1, 2, 3}
+var (
+	blockchainID = ids.ID{1, 2, 3}
+	genesis      = "{\"genesis_time\":\"2023-03-04T03:46:06.533236098Z\",\"chain_id\":\"test-chain-U8te75\",\"initial_height\":\"0\",\"consensus_params\":{\"block\":{\"max_bytes\":\"22020096\",\"max_gas\":\"-1\",\"time_iota_ms\":\"1000\"},\"evidence\":{\"max_age_num_blocks\":\"100000\",\"max_age_duration\":\"172800000000000\",\"max_bytes\":\"1048576\"},\"validator\":{\"pub_key_types\":[\"ed25519\"]},\"version\":{}},\"app_hash\":\"\"}"
+)
 
 func TestInitVm(t *testing.T) {
 	//ctx := context.TODO()
@@ -23,6 +26,12 @@ func TestInitVm(t *testing.T) {
 	vm, _, _, err := newTestVM()
 	assert.NoError(t, err)
 	assert.NotNil(t, vm)
+
+	blk, err := vm.BuildBlock(context.Background())
+	assert.ErrorIs(t, err, errNoPendingTxs, "expecting error no txs")
+	assert.Nil(t, blk)
+	//t.Logf("Build block %v, err: %v", blk, err)
+	//vm.SetState()
 
 	//lastAcceptedID, err := vm.LastAccepted(context.Background())
 	//assert.NoError(t, err)
@@ -48,6 +57,7 @@ func newTestVM() (*VM, *snow.Context, chan common.Message, error) {
 		),
 	)
 	snowCtx.ChainID = blockchainID
-	err := vm.Initialize(context.TODO(), snowCtx, dbManager, []byte{0, 0, 0, 0, 0}, nil, nil, msgChan, nil, nil)
+	err := vm.Initialize(context.TODO(), snowCtx, dbManager, []byte(genesis), nil, nil, msgChan, nil, nil)
+
 	return vm, snowCtx, msgChan, err
 }
