@@ -2,9 +2,11 @@ package vm
 
 import (
 	"context"
+	"fmt"
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/snow/choices"
 	"github.com/ava-labs/avalanchego/snow/consensus/snowman"
+	abci "github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/types"
 	"time"
 )
@@ -39,6 +41,50 @@ func (b *Block) ID() ids.ID {
 
 func (b *Block) Accept(ctx context.Context) error {
 	b.SetStatus(choices.Accepted)
+
+	vm := b.vm
+
+	// TODO: implement blockExecutor.ApplyBlock
+
+	vm.mempool.Lock()
+	defer vm.mempool.Unlock()
+
+	// while mempool is Locked, flush to ensure all async requests have completed
+	// in the ABCI app before Commit.
+	err := vm.mempool.FlushAppConn()
+	if err != nil {
+		vm.tmLogger.Error("client error during mempool.FlushAppConn", "err", err)
+		return err
+	}
+
+	// Commit block, get hash back
+	res, err := vm.proxyApp.Consensus().CommitSync()
+	if err != nil {
+		vm.tmLogger.Error("client error during proxyAppConn.CommitSync", "err", err)
+		return err
+	}
+
+	// ResponseCommit has no error code - just data
+	vm.tmLogger.Info(
+		"committed state",
+		"height", b.Height,
+		"num_txs", len(b.tmBlock.Txs),
+		"app_hash", fmt.Sprintf("%X", res.Data),
+	)
+
+	deliverTxResponses := make([]*abci.ResponseDeliverTx, len(b.tmBlock.Txs))
+	for i := range b.tmBlock.Txs {
+		deliverTxResponses[i] = &abci.ResponseDeliverTx{Code: abci.CodeTypeOK}
+	}
+
+	// Update mempool.
+	err = vm.mempool.Update(
+		b.tmBlock.Height,
+		b.tmBlock.Txs,
+		deliverTxResponses,
+		nil,
+		nil,
+	)
 
 	return nil
 }

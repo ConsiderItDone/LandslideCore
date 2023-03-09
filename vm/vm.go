@@ -347,14 +347,15 @@ func (vm *VM) buildBlock(_ context.Context) (snowman.Block, error) {
 		return nil, errNoPendingTxs
 	}
 	height := vm.tmState.LastBlockHeight + 1
-	block, partSet := vm.tmState.MakeBlock(height, txs, nil, nil, nil)
-	vm.tmLogger.Info("buildBlock block", "b", block, "part set", partSet)
+	block, _ := vm.tmState.MakeBlock(height, txs, nil, nil, nil)
 
 	// Note: the status of block is set by ChainState
 	blk, err := vm.newBlock(block)
+	blk.SetStatus(choices.Processing)
 	if err != nil {
 		return nil, err
 	}
+	vm.tmLogger.Debug(fmt.Sprintf("Built block %s", blk.ID()))
 
 	return blk, nil
 }

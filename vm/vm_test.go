@@ -9,8 +9,11 @@ import (
 	"github.com/ava-labs/avalanchego/snow/engine/common"
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/avalanchego/version"
+	"github.com/ava-labs/avalanchego/vms/components/chain"
 	"github.com/stretchr/testify/assert"
 	"github.com/tendermint/tendermint/abci/example/counter"
+	"github.com/tendermint/tendermint/abci/types"
+	ctypes "github.com/tendermint/tendermint/rpc/core/types"
 	"os"
 	"testing"
 )
@@ -27,26 +30,64 @@ func TestInitVm(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, vm)
 
-	blk, err := vm.BuildBlock(context.Background())
+	blk0, err := vm.BuildBlock(context.Background())
 	assert.ErrorIs(t, err, errNoPendingTxs, "expecting error no txs")
-	assert.Nil(t, blk)
+	assert.Nil(t, blk0)
 
-	//service := &Service{
-	//	vm: vm,
-	//}
-	//
-	//service.BroadcastTxCommit(...)
-	//t.Logf("Build block %v, err: %v", blk, err)
-	//vm.SetState()
+	service := Service{vm}
 
-	//service.BroadcastTxCommit(...)
+	// submit first tx (0x00)
+	args := &BroadcastTxArgs{
+		Tx: []byte{0x00},
+	}
+	reply := &ctypes.ResultBroadcastTx{}
+	err = service.BroadcastTxSync(nil, args, reply)
+	assert.NoError(t, err)
+	assert.Equal(t, types.CodeTypeOK, reply.Code)
 
-	//vm.BuildBlock(context.Background())
+	// build 1st block
+	blk1, err := vm.BuildBlock(context.Background())
+	assert.NoError(t, err)
+	assert.NotNil(t, blk1)
 
-	//lastAcceptedID, err := vm.LastAccepted(context.Background())
-	//assert.NoError(t, err)
-	//
-	//t.Log(lastAcceptedID)
+	err = blk1.Accept(context.Background())
+	assert.NoError(t, err)
+
+	tmBlk1 := blk1.(*chain.BlockWrapper).Block.(*Block).tmBlock
+
+	t.Logf("Block: %d", blk1.Height())
+	t.Logf("TM Block Tx count: %d", len(tmBlk1.Data.Txs))
+
+	// submit second tx (0x01)
+	args = &BroadcastTxArgs{
+		Tx: []byte{0x01},
+	}
+	reply = &ctypes.ResultBroadcastTx{}
+	err = service.BroadcastTxSync(nil, args, reply)
+	assert.NoError(t, err)
+	assert.Equal(t, types.CodeTypeOK, reply.Code)
+
+	// submit 3rd tx (0x02)
+	args = &BroadcastTxArgs{
+		Tx: []byte{0x02},
+	}
+	reply = &ctypes.ResultBroadcastTx{}
+	err = service.BroadcastTxSync(nil, args, reply)
+	assert.NoError(t, err)
+	assert.Equal(t, types.CodeTypeOK, reply.Code)
+
+	// build second block with 2 TX together
+	blk2, err := vm.BuildBlock(context.Background())
+	assert.NoError(t, err)
+	assert.NotNil(t, blk2)
+
+	err = blk2.Accept(context.Background())
+	assert.NoError(t, err)
+
+	tmBlk2 := blk2.(*chain.BlockWrapper).Block.(*Block).tmBlock
+
+	t.Logf("Block: %d", blk2.Height())
+	t.Logf("TM Block Tx count: %d", len(tmBlk2.Data.Txs))
 }
 
 func newTestVM() (*VM, *snow.Context, chan common.Message, error) {

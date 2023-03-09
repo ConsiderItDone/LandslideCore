@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/tendermint/tendermint/abci/example/counter"
-	"github.com/tendermint/tendermint/vm"
+	landslideCoreVM "github.com/tendermint/tendermint/vm"
 	"os"
 
 	"github.com/ava-labs/avalanchego/utils/logging"
@@ -19,7 +19,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	vm := vm.NewVM(counter.NewApplication(true))
+	vm := landslideCoreVM.NewVM(counter.NewApplication(true))
 
 	rpcchainvm.Serve(context.Background(), vm)
 }

@@ -127,9 +127,9 @@ func (b *Block) Hash() tmbytes.HexBytes {
 	b.mtx.Lock()
 	defer b.mtx.Unlock()
 
-	if b.LastCommit == nil {
-		return nil
-	}
+	//if b.LastCommit == nil {
+	//	return nil
+	//}
 	b.fillHeader()
 	return b.Header.Hash()
 }
