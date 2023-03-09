@@ -16,6 +16,7 @@ import (
 	"github.com/ava-labs/avalanchego/snow/engine/snowman/block"
 	"github.com/ava-labs/avalanchego/version"
 	"github.com/ava-labs/avalanchego/vms/components/chain"
+	"github.com/gorilla/rpc/v2"
 	"github.com/prometheus/client_golang/prometheus"
 	abciTypes "github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/config"
@@ -25,10 +26,13 @@ import (
 	"github.com/tendermint/tendermint/node"
 	tmproto "github.com/tendermint/tendermint/proto/tendermint/types"
 	"github.com/tendermint/tendermint/proxy"
+	rpccore "github.com/tendermint/tendermint/rpc/core"
+	rpcserver "github.com/tendermint/tendermint/rpc/jsonrpc/server"
 	sm "github.com/tendermint/tendermint/state"
 	"github.com/tendermint/tendermint/store"
 	"github.com/tendermint/tendermint/types"
 	dbm "github.com/tendermint/tm-db"
+	"net/http"
 	"time"
 )
 
@@ -37,6 +41,8 @@ var (
 )
 
 const (
+	Name = "LandslideCore"
+
 	decidedCacheSize    = 100
 	missingCacheSize    = 50
 	unverifiedCacheSize = 50
@@ -377,24 +383,29 @@ func (vm *VM) CreateStaticHandlers(ctx context.Context) (map[string]*common.HTTP
 }
 
 func (vm *VM) CreateHandlers(ctx context.Context) (map[string]*common.HTTPHandler, error) {
-	//TODO implement me
-	panic("implement me")
-}
+	mux := http.NewServeMux()
+	rpcLogger := vm.tmLogger.With("module", "rpc-server")
+	rpcserver.RegisterRPCFuncs(mux, rpccore.Routes, rpcLogger)
 
-func (vm *VM) GetBlock(ctx context.Context, blkID ids.ID) (snowman.Block, error) {
-	//TODO implement me
-	panic("implement me")
+	server := rpc.NewServer()
+	//server.RegisterCodec(json.NewCodec(), "application/json")
+	//server.RegisterCodec(json.NewCodec(), "application/json;charset=UTF-8")
+	if err := server.RegisterService(&Service{vm: vm}, Name); err != nil {
+		return nil, err
+	}
+
+	return map[string]*common.HTTPHandler{
+		"": {
+			LockOptions: common.WriteLock,
+			Handler:     mux,
+		},
+	}, nil
 }
 
 func (vm *VM) ParseBlock(ctx context.Context, blockBytes []byte) (snowman.Block, error) {
 	//TODO implement me
 	panic("implement me")
 }
-
-//func (vm *VM) BuildBlock(ctx context.Context) (snowman.Block, error) {
-//	//TODO implement me
-//	panic("implement me")
-//}
 
 func (vm *VM) SetPreference(ctx context.Context, blkID ids.ID) error {
 	return nil

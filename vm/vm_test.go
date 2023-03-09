@@ -33,6 +33,10 @@ func TestInitVm(t *testing.T) {
 	//t.Logf("Build block %v, err: %v", blk, err)
 	//vm.SetState()
 
+	//service.BroadcastTxCommit(...)
+
+	//vm.BuildBlock(context.Background())
+
 	//lastAcceptedID, err := vm.LastAccepted(context.Background())
 	//assert.NoError(t, err)
 	//
