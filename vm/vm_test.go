@@ -30,6 +30,12 @@ func TestInitVm(t *testing.T) {
 	blk, err := vm.BuildBlock(context.Background())
 	assert.ErrorIs(t, err, errNoPendingTxs, "expecting error no txs")
 	assert.Nil(t, blk)
+
+	//service := &Service{
+	//	vm: vm,
+	//}
+	//
+	//service.BroadcastTxCommit(...)
 	//t.Logf("Build block %v, err: %v", blk, err)
 	//vm.SetState()
 

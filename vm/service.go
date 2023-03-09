@@ -23,6 +23,9 @@ type ProposeBlockArgs struct {
 type ProposeBlockReply struct{ Success bool }
 
 func (s *Service) BroadcastTxCommit(_ *http.Request, args *ProposeBlockArgs, reply *ProposeBlockReply) error {
+	//s.vm.eventBus...
+	//s.vm.mempool.
+
 	//bytes, err := formatting.Decode(formatting.Hex, args.Data)
 	//if err != nil || len(bytes) != DataLen {
 	//	return errBadData
