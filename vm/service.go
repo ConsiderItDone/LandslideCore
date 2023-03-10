@@ -58,7 +58,7 @@ type (
 
 		// Writing to abci app
 		BroadcastTxCommit(_ *http.Request, args *BroadcastTxArgs, reply *ctypes.ResultBroadcastTxCommit) error
-		BroadcastTxAsync(_ *http.Request, args *BroadcastTxArgs, reply *ctypes.ResultBroadcastTxCommit) error
+		BroadcastTxAsync(_ *http.Request, args *BroadcastTxArgs, reply *ctypes.ResultBroadcastTx) error
 		BroadcastTxSync(_ *http.Request, args *BroadcastTxArgs, reply *ctypes.ResultBroadcastTx) error
 
 		Block(_ *http.Request, args *BlockHeightArgs, reply *ctypes.ResultBlock) error
@@ -187,7 +187,7 @@ func (s *LocalService) BroadcastTxCommit(
 func (s *LocalService) BroadcastTxAsync(
 	_ *http.Request,
 	args *BroadcastTxArgs,
-	reply *ctypes.ResultBroadcastTxCommit,
+	reply *ctypes.ResultBroadcastTx,
 ) error {
 	err := s.vm.mempool.CheckTx(args.Tx, nil, mempl.TxInfo{})
 	if err != nil {

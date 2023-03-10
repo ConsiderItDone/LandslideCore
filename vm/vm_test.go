@@ -67,11 +67,13 @@ func TestBroadcastTxSync(t *testing.T) {
 	for i := range testData {
 		args := &BroadcastTxArgs{testData[i]}
 		t.Run(fmt.Sprintf("iteration %d", i), func(t *testing.T) {
-			reply := new(ctypes.ResultBroadcastTx)
+			replyTx := new(ctypes.ResultBroadcastTx)
+			replyInfo := new(ctypes.ResultABCIInfo)
+
 			if args.Tx != nil {
-				err := service.BroadcastTxSync(nil, args, reply)
-				assert.NoError(t, err)
-				assert.Equal(t, types.CodeTypeOK, reply.Code)
+				assert.NoError(t, service.BroadcastTxSync(nil, args, replyTx))
+				assert.NoError(t, service.ABCIInfo(nil, nil, replyInfo))
+				assert.Equal(t, types.CodeTypeOK, replyTx.Code)
 			}
 
 			blk, err := vm.BuildBlock(context.Background())
@@ -84,10 +86,44 @@ func TestBroadcastTxSync(t *testing.T) {
 				assert.NoError(t, err)
 				assert.NotNil(t, blk)
 				assert.NoError(t, blk.Accept(context.Background()))
+				assert.NotNil(t, replyInfo)
 
 				tmBlk := blk.(*chain.BlockWrapper).Block.(*Block).tmBlock
 				t.Logf("Height: %d, Txs: %d", blk.Height(), len(tmBlk.Data.Txs))
+
+				height := int64(blk.Height())
+				replyBlock := new(ctypes.ResultBlock)
+				assert.NoError(t, service.Block(nil, &BlockHeightArgs{Height: &height}, replyBlock))
 			}
 		})
 	}
+}
+
+func TestBroadcastTxAsync(t *testing.T) {
+	vm, service := mustNewTestVm(t)
+	height := vm.blockStore.Height()
+	testData := [][]byte{{0x00}, {0x01}, {0x02}}
+	for i := range testData {
+		args := &BroadcastTxArgs{testData[i]}
+		t.Run(fmt.Sprintf("iteration %d", i), func(t *testing.T) {
+			reply := new(ctypes.ResultBroadcastTx)
+			if args.Tx != nil {
+				err := service.BroadcastTxAsync(nil, args, reply)
+				assert.NoError(t, err)
+				assert.Equal(t, types.CodeTypeOK, reply.Code)
+				assert.Equal(t, args.Tx.Hash(), reply.Hash.Bytes())
+				assert.Equal(t, height, vm.blockStore.Height())
+			}
+		})
+	}
+}
+
+func TestABCIInfo(t *testing.T) {
+	_, service := mustNewTestVm(t)
+	reply := new(ctypes.ResultABCIInfo)
+	assert.NoError(t, service.ABCIInfo(nil, nil, reply))
+	assert.Equal(t, uint64(0), reply.Response.AppVersion)
+	assert.Equal(t, int64(0), reply.Response.LastBlockHeight)
+	assert.Equal(t, []uint8([]byte(nil)), reply.Response.LastBlockAppHash)
+	t.Logf("%+v", reply)
 }
