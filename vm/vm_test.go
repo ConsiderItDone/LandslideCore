@@ -16,7 +16,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/tendermint/tendermint/abci/example/counter"
 	"github.com/tendermint/tendermint/abci/types"
-	ctypes "github.com/tendermint/tendermint/rpc/core/types"
 )
 
 var (
@@ -38,13 +37,9 @@ func TestInitVm(t *testing.T) {
 	service := NewService(vm)
 
 	// submit first tx (0x00)
-	args := &BroadcastTxArgs{
-		Tx: []byte{0x00},
-	}
-	reply := &ctypes.ResultBroadcastTx{}
-	err = service.BroadcastTxSync(nil, args, reply)
+	reply0, err := service.BroadcastTxSync(context.Background(), []byte{0x00})
 	assert.NoError(t, err)
-	assert.Equal(t, types.CodeTypeOK, reply.Code)
+	assert.Equal(t, types.CodeTypeOK, reply0.Code)
 
 	// build 1st block
 	blk1, err := vm.BuildBlock(context.Background())
@@ -60,22 +55,14 @@ func TestInitVm(t *testing.T) {
 	t.Logf("TM Block Tx count: %d", len(tmBlk1.Data.Txs))
 
 	// submit second tx (0x01)
-	args = &BroadcastTxArgs{
-		Tx: []byte{0x01},
-	}
-	reply = &ctypes.ResultBroadcastTx{}
-	err = service.BroadcastTxSync(nil, args, reply)
+	reply1, err := service.BroadcastTxSync(context.Background(), []byte{0x01})
 	assert.NoError(t, err)
-	assert.Equal(t, types.CodeTypeOK, reply.Code)
+	assert.Equal(t, types.CodeTypeOK, reply1.Code)
 
 	// submit 3rd tx (0x02)
-	args = &BroadcastTxArgs{
-		Tx: []byte{0x02},
-	}
-	reply = &ctypes.ResultBroadcastTx{}
-	err = service.BroadcastTxSync(nil, args, reply)
+	reply2, err := service.BroadcastTxSync(context.Background(), []byte{0x02})
 	assert.NoError(t, err)
-	assert.Equal(t, types.CodeTypeOK, reply.Code)
+	assert.Equal(t, types.CodeTypeOK, reply2.Code)
 
 	// build second block with 2 TX together
 	blk2, err := vm.BuildBlock(context.Background())
