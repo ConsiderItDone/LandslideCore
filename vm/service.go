@@ -53,7 +53,7 @@ type (
 	Service interface {
 		// Reading from abci app
 		ABCIInfo(_ *http.Request, args *ABCIInfoArgs, reply *ctypes.ResultABCIInfo) error
-		ABCIQuery(_ *http.Request, path string, args *ABCIQueryArgs, reply *ctypes.ResultABCIQuery) error
+		ABCIQuery(_ *http.Request, args *ABCIQueryArgs, reply *ctypes.ResultABCIQuery) error
 		ABCIQueryWithOptions(_ *http.Request, args *ABCIQueryWithOptionsArgs, reply *ctypes.ResultABCIQuery) error
 
 		// Writing to abci app
@@ -88,11 +88,15 @@ func (s *LocalService) ABCIInfo(_ *http.Request, args *ABCIInfoArgs, reply *ctyp
 	return nil
 }
 
-func (s *LocalService) ABCIQuery(req *http.Request, path string, args *ABCIQueryArgs, reply *ctypes.ResultABCIQuery) error {
+func (s *LocalService) ABCIQuery(req *http.Request, args *ABCIQueryArgs, reply *ctypes.ResultABCIQuery) error {
 	return s.ABCIQueryWithOptions(req, &ABCIQueryWithOptionsArgs{args.Path, args.Data, DefaultABCIQueryOptions}, reply)
 }
 
-func (s *LocalService) ABCIQueryWithOptions(_ *http.Request, args *ABCIQueryWithOptionsArgs, reply *ctypes.ResultABCIQuery) error {
+func (s *LocalService) ABCIQueryWithOptions(
+	_ *http.Request,
+	args *ABCIQueryWithOptionsArgs,
+	reply *ctypes.ResultABCIQuery,
+) error {
 	resQuery, err := s.vm.proxyApp.Query().QuerySync(abci.RequestQuery{
 		Path:   args.Path,
 		Data:   args.Data,
@@ -106,7 +110,11 @@ func (s *LocalService) ABCIQueryWithOptions(_ *http.Request, args *ABCIQueryWith
 	return nil
 }
 
-func (s *LocalService) BroadcastTxCommit(_ *http.Request, args *BroadcastTxArgs, reply *ctypes.ResultBroadcastTxCommit) error {
+func (s *LocalService) BroadcastTxCommit(
+	_ *http.Request,
+	args *BroadcastTxArgs,
+	reply *ctypes.ResultBroadcastTxCommit,
+) error {
 	subscriber := ""
 
 	// Subscribe to tx being committed in block.
@@ -142,7 +150,7 @@ func (s *LocalService) BroadcastTxCommit(_ *http.Request, args *BroadcastTxArgs,
 		*reply = ctypes.ResultBroadcastTxCommit{
 			CheckTx:   *checkTxRes,
 			DeliverTx: abci.ResponseDeliverTx{},
-			Hash:      types.Tx(args.Tx).Hash(),
+			Hash:      args.Tx.Hash(),
 		}
 		return nil
 	}
@@ -154,7 +162,7 @@ func (s *LocalService) BroadcastTxCommit(_ *http.Request, args *BroadcastTxArgs,
 		*reply = ctypes.ResultBroadcastTxCommit{
 			CheckTx:   *checkTxRes,
 			DeliverTx: deliverTxRes.Result,
-			Hash:      types.Tx(args.Tx).Hash(),
+			Hash:      args.Tx.Hash(),
 			Height:    deliverTxRes.Height,
 		}
 		return nil
@@ -176,7 +184,11 @@ func (s *LocalService) BroadcastTxCommit(_ *http.Request, args *BroadcastTxArgs,
 	}
 }
 
-func (s *LocalService) BroadcastTxAsync(_ *http.Request, args *BroadcastTxArgs, reply *ctypes.ResultBroadcastTxCommit) error {
+func (s *LocalService) BroadcastTxAsync(
+	_ *http.Request,
+	args *BroadcastTxArgs,
+	reply *ctypes.ResultBroadcastTxCommit,
+) error {
 	err := s.vm.mempool.CheckTx(args.Tx, nil, mempl.TxInfo{})
 	if err != nil {
 		return err
@@ -200,7 +212,7 @@ func (s *LocalService) BroadcastTxSync(_ *http.Request, args *BroadcastTxArgs, r
 	reply.Data = r.Data
 	reply.Log = r.Log
 	reply.Codespace = r.Codespace
-	reply.Hash = types.Tx(args.Tx).Hash()
+	reply.Hash = args.Tx.Hash()
 
 	return nil
 }
