@@ -4,26 +4,66 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"time"
 
 	abci "github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/libs/bytes"
 	mempl "github.com/tendermint/tendermint/mempool"
 	"github.com/tendermint/tendermint/proxy"
-	"github.com/tendermint/tendermint/rpc/client"
 	"github.com/tendermint/tendermint/rpc/core"
 	ctypes "github.com/tendermint/tendermint/rpc/core/types"
 	"github.com/tendermint/tendermint/types"
 )
 
 type (
+	// BroadcastTxArgs is the arguments to functions BroadcastTxCommit, BroadcastTxAsync, BroadcastTxSync
+	BroadcastTxArgs struct {
+		Tx types.Tx `json:"tx"`
+	}
+
+	BlockHeightArgs struct {
+		Height *int64 `json:"height"`
+	}
+
+	BlockHashArgs struct {
+		Hash []byte `json:"hash"`
+	}
+
+	ABCIInfoArgs struct {
+	}
+
+	ABCIQueryArgs struct {
+		Path string         `json:"path"`
+		Data bytes.HexBytes `json:"data"`
+	}
+
+	ABCIQueryOptions struct {
+		Height int64 `json:"height"`
+		Prove  bool  `json:"prove"`
+	}
+
+	ABCIQueryWithOptionsArgs struct {
+		Path string           `json:"path"`
+		Data bytes.HexBytes   `json:"data"`
+		Opts ABCIQueryOptions `json:"opts"`
+	}
+
 	// Service is the API service for this VM
 	Service interface {
-		client.ABCIClient
+		// Reading from abci app
+		ABCIInfo(_ *http.Request, args *ABCIInfoArgs, reply *ctypes.ResultABCIInfo) error
+		ABCIQuery(_ *http.Request, path string, args *ABCIQueryArgs, reply *ctypes.ResultABCIQuery) error
+		ABCIQueryWithOptions(_ *http.Request, args *ABCIQueryWithOptionsArgs, reply *ctypes.ResultABCIQuery) error
 
-		Block(ctx context.Context, height *int64) (*ctypes.ResultBlock, error)
-		BlockByHash(ctx context.Context, hash []byte) (*ctypes.ResultBlock, error)
-		BlockResults(ctx context.Context, height *int64) (*ctypes.ResultBlockResults, error)
+		// Writing to abci app
+		BroadcastTxCommit(_ *http.Request, args *BroadcastTxArgs, reply *ctypes.ResultBroadcastTxCommit) error
+		BroadcastTxAsync(_ *http.Request, args *BroadcastTxArgs, reply *ctypes.ResultBroadcastTxCommit) error
+		BroadcastTxSync(_ *http.Request, args *BroadcastTxArgs, reply *ctypes.ResultBroadcastTx) error
+
+		Block(_ *http.Request, args *BlockHeightArgs, reply *ctypes.ResultBlock) error
+		BlockByHash(_ *http.Request, args *BlockHashArgs, reply *ctypes.ResultBlock) error
+		BlockResults(_ *http.Request, args *BlockHeightArgs, reply *ctypes.ResultBlockResults) error
 	}
 
 	LocalService struct {
@@ -31,57 +71,54 @@ type (
 	}
 )
 
+var (
+	DefaultABCIQueryOptions = ABCIQueryOptions{Height: 0, Prove: false}
+)
+
 func NewService(vm *VM) Service {
 	return &LocalService{vm}
 }
 
-func (s *LocalService) ABCIInfo(context.Context) (*ctypes.ResultABCIInfo, error) {
+func (s *LocalService) ABCIInfo(_ *http.Request, args *ABCIInfoArgs, reply *ctypes.ResultABCIInfo) error {
 	resInfo, err := s.vm.proxyApp.Query().InfoSync(proxy.RequestInfo)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	return &ctypes.ResultABCIInfo{Response: *resInfo}, nil
+	reply.Response = *resInfo
+	return nil
 }
 
-func (s *LocalService) ABCIQuery(
-	ctx context.Context,
-	path string,
-	data bytes.HexBytes,
-) (*ctypes.ResultABCIQuery, error) {
-	return s.ABCIQueryWithOptions(ctx, path, data, client.DefaultABCIQueryOptions)
+func (s *LocalService) ABCIQuery(req *http.Request, path string, args *ABCIQueryArgs, reply *ctypes.ResultABCIQuery) error {
+	return s.ABCIQueryWithOptions(req, &ABCIQueryWithOptionsArgs{args.Path, args.Data, DefaultABCIQueryOptions}, reply)
 }
 
-func (s *LocalService) ABCIQueryWithOptions(
-	ctx context.Context,
-	path string,
-	data bytes.HexBytes,
-	opts client.ABCIQueryOptions,
-) (*ctypes.ResultABCIQuery, error) {
+func (s *LocalService) ABCIQueryWithOptions(_ *http.Request, args *ABCIQueryWithOptionsArgs, reply *ctypes.ResultABCIQuery) error {
 	resQuery, err := s.vm.proxyApp.Query().QuerySync(abci.RequestQuery{
-		Path:   path,
-		Data:   data,
-		Height: opts.Height,
-		Prove:  opts.Prove,
+		Path:   args.Path,
+		Data:   args.Data,
+		Height: args.Opts.Height,
+		Prove:  args.Opts.Prove,
 	})
 	if err != nil {
-		return nil, err
+		return err
 	}
-	return &ctypes.ResultABCIQuery{Response: *resQuery}, nil
+	reply.Response = *resQuery
+	return nil
 }
 
-func (s *LocalService) BroadcastTxCommit(ctx context.Context, tx types.Tx) (*ctypes.ResultBroadcastTxCommit, error) {
+func (s *LocalService) BroadcastTxCommit(_ *http.Request, args *BroadcastTxArgs, reply *ctypes.ResultBroadcastTxCommit) error {
 	subscriber := ""
 
 	// Subscribe to tx being committed in block.
-	subCtx, cancel := context.WithTimeout(ctx, core.SubscribeTimeout)
+	subCtx, cancel := context.WithTimeout(context.Background(), core.SubscribeTimeout)
 	defer cancel()
 
-	q := types.EventQueryTxFor(tx)
+	q := types.EventQueryTxFor(args.Tx)
 	deliverTxSub, err := s.vm.eventBus.Subscribe(subCtx, subscriber, q)
 	if err != nil {
 		err = fmt.Errorf("failed to subscribe to tx: %w", err)
 		s.vm.tmLogger.Error("Error on broadcast_tx_commit", "err", err)
-		return nil, err
+		return err
 	}
 
 	defer func() {
@@ -92,33 +129,35 @@ func (s *LocalService) BroadcastTxCommit(ctx context.Context, tx types.Tx) (*cty
 
 	// Broadcast tx and wait for CheckTx result
 	checkTxResCh := make(chan *abci.Response, 1)
-	err = s.vm.mempool.CheckTx(tx, func(res *abci.Response) {
+	err = s.vm.mempool.CheckTx(args.Tx, func(res *abci.Response) {
 		checkTxResCh <- res
 	}, mempl.TxInfo{})
 	if err != nil {
 		s.vm.tmLogger.Error("Error on broadcastTxCommit", "err", err)
-		return nil, fmt.Errorf("error on broadcastTxCommit: %v", err)
+		return fmt.Errorf("error on broadcastTxCommit: %v", err)
 	}
 	checkTxResMsg := <-checkTxResCh
 	checkTxRes := checkTxResMsg.GetCheckTx()
 	if checkTxRes.Code != abci.CodeTypeOK {
-		return &ctypes.ResultBroadcastTxCommit{
+		*reply = ctypes.ResultBroadcastTxCommit{
 			CheckTx:   *checkTxRes,
 			DeliverTx: abci.ResponseDeliverTx{},
-			Hash:      tx.Hash(),
-		}, nil
+			Hash:      types.Tx(args.Tx).Hash(),
+		}
+		return nil
 	}
 
 	// Wait for the tx to be included in a block or timeout.
 	select {
 	case msg := <-deliverTxSub.Out(): // The tx was included in a block.
 		deliverTxRes := msg.Data().(types.EventDataTx)
-		return &ctypes.ResultBroadcastTxCommit{
+		*reply = ctypes.ResultBroadcastTxCommit{
 			CheckTx:   *checkTxRes,
 			DeliverTx: deliverTxRes.Result,
-			Hash:      tx.Hash(),
+			Hash:      types.Tx(args.Tx).Hash(),
 			Height:    deliverTxRes.Height,
-		}, nil
+		}
+		return nil
 	case <-deliverTxSub.Cancelled():
 		var reason string
 		if deliverTxSub.Err() == nil {
@@ -128,90 +167,88 @@ func (s *LocalService) BroadcastTxCommit(ctx context.Context, tx types.Tx) (*cty
 		}
 		err = fmt.Errorf("deliverTxSub was cancelled (reason: %s)", reason)
 		s.vm.tmLogger.Error("Error on broadcastTxCommit", "err", err)
-		return &ctypes.ResultBroadcastTxCommit{
-			CheckTx:   *checkTxRes,
-			DeliverTx: abci.ResponseDeliverTx{},
-			Hash:      tx.Hash(),
-		}, err
-	// ToDo: implement me (use config for timeout)
+		return err
+	// TODO: use config for timeout
 	case <-time.After(10 * time.Second):
 		err = errors.New("timed out waiting for tx to be included in a block")
 		s.vm.tmLogger.Error("Error on broadcastTxCommit", "err", err)
-		return &ctypes.ResultBroadcastTxCommit{
-			CheckTx:   *checkTxRes,
-			DeliverTx: abci.ResponseDeliverTx{},
-			Hash:      tx.Hash(),
-		}, err
+		return err
 	}
 }
 
-func (s *LocalService) BroadcastTxAsync(ctx context.Context, tx types.Tx) (*ctypes.ResultBroadcastTx, error) {
-	err := s.vm.mempool.CheckTx(tx, nil, mempl.TxInfo{})
-
+func (s *LocalService) BroadcastTxAsync(_ *http.Request, args *BroadcastTxArgs, reply *ctypes.ResultBroadcastTxCommit) error {
+	err := s.vm.mempool.CheckTx(args.Tx, nil, mempl.TxInfo{})
 	if err != nil {
-		return nil, err
+		return err
 	}
-	return &ctypes.ResultBroadcastTx{Hash: tx.Hash()}, nil
+	reply.Hash = args.Tx.Hash()
+	return nil
 }
 
-func (s *LocalService) BroadcastTxSync(ctx context.Context, tx types.Tx) (*ctypes.ResultBroadcastTx, error) {
+func (s *LocalService) BroadcastTxSync(_ *http.Request, args *BroadcastTxArgs, reply *ctypes.ResultBroadcastTx) error {
 	resCh := make(chan *abci.Response, 1)
-	err := s.vm.mempool.CheckTx(tx, func(res *abci.Response) {
+	err := s.vm.mempool.CheckTx(args.Tx, func(res *abci.Response) {
 		resCh <- res
 	}, mempl.TxInfo{})
 	if err != nil {
-		return nil, err
+		return err
 	}
 	res := <-resCh
 	r := res.GetCheckTx()
-	return &ctypes.ResultBroadcastTx{
-		Code:      r.Code,
-		Data:      r.Data,
-		Log:       r.Log,
-		Codespace: r.Codespace,
-		Hash:      tx.Hash(),
-	}, nil
+
+	reply.Code = r.Code
+	reply.Data = r.Data
+	reply.Log = r.Log
+	reply.Codespace = r.Codespace
+	reply.Hash = types.Tx(args.Tx).Hash()
+
+	return nil
 }
 
-func (s *LocalService) Block(ctx context.Context, heightPtr *int64) (*ctypes.ResultBlock, error) {
-	height, err := getHeight(s.vm.blockStore, heightPtr)
+func (s *LocalService) Block(_ *http.Request, args *BlockHeightArgs, reply *ctypes.ResultBlock) error {
+	height, err := getHeight(s.vm.blockStore, args.Height)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	block := s.vm.blockStore.LoadBlock(height)
 	blockMeta := s.vm.blockStore.LoadBlockMeta(height)
-	if blockMeta == nil {
-		return &ctypes.ResultBlock{BlockID: types.BlockID{}, Block: block}, nil
+
+	if blockMeta != nil {
+		reply.BlockID = blockMeta.BlockID
 	}
-	return &ctypes.ResultBlock{BlockID: blockMeta.BlockID, Block: block}, nil
+	reply.Block = block
+	return nil
 }
 
-func (s *LocalService) BlockByHash(ctx context.Context, hash []byte) (*ctypes.ResultBlock, error) {
-	block := s.vm.blockStore.LoadBlockByHash(hash)
+func (s *LocalService) BlockByHash(_ *http.Request, args *BlockHashArgs, reply *ctypes.ResultBlock) error {
+	block := s.vm.blockStore.LoadBlockByHash(args.Hash)
 	if block == nil {
-		return &ctypes.ResultBlock{BlockID: types.BlockID{}, Block: nil}, nil
+		reply.BlockID = types.BlockID{}
+		reply.Block = nil
+		return nil
 	}
 	blockMeta := s.vm.blockStore.LoadBlockMeta(block.Height)
-	return &ctypes.ResultBlock{BlockID: blockMeta.BlockID, Block: block}, nil
+	reply.BlockID = blockMeta.BlockID
+	reply.Block = block
+	return nil
 }
 
-func (s *LocalService) BlockResults(ctx context.Context, heightPtr *int64) (*ctypes.ResultBlockResults, error) {
-	height, err := getHeight(s.vm.blockStore, heightPtr)
+func (s *LocalService) BlockResults(_ *http.Request, args *BlockHeightArgs, reply *ctypes.ResultBlockResults) error {
+	height, err := getHeight(s.vm.blockStore, args.Height)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	results, err := s.vm.stateStore.LoadABCIResponses(height)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	return &ctypes.ResultBlockResults{
-		Height:                height,
-		TxsResults:            results.DeliverTxs,
-		BeginBlockEvents:      results.BeginBlock.Events,
-		EndBlockEvents:        results.EndBlock.Events,
-		ValidatorUpdates:      results.EndBlock.ValidatorUpdates,
-		ConsensusParamUpdates: results.EndBlock.ConsensusParamUpdates,
-	}, nil
+	reply.Height = height
+	reply.TxsResults = results.DeliverTxs
+	reply.BeginBlockEvents = results.BeginBlock.Events
+	reply.EndBlockEvents = results.EndBlock.Events
+	reply.ValidatorUpdates = results.EndBlock.ValidatorUpdates
+	reply.ConsensusParamUpdates = results.EndBlock.ConsensusParamUpdates
+	return nil
 }
