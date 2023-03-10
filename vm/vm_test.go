@@ -3,6 +3,9 @@ package vm
 import (
 	"context"
 	"fmt"
+	"os"
+	"testing"
+
 	"github.com/ava-labs/avalanchego/database/manager"
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/snow"
@@ -14,8 +17,6 @@ import (
 	"github.com/tendermint/tendermint/abci/example/counter"
 	"github.com/tendermint/tendermint/abci/types"
 	ctypes "github.com/tendermint/tendermint/rpc/core/types"
-	"os"
-	"testing"
 )
 
 var (
@@ -34,7 +35,7 @@ func TestInitVm(t *testing.T) {
 	assert.ErrorIs(t, err, errNoPendingTxs, "expecting error no txs")
 	assert.Nil(t, blk0)
 
-	service := Service{vm}
+	service := NewService(vm)
 
 	// submit first tx (0x00)
 	args := &BroadcastTxArgs{

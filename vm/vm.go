@@ -4,6 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
+	"time"
+
 	avalanchegoMetrics "github.com/ava-labs/avalanchego/api/metrics"
 	"github.com/ava-labs/avalanchego/database"
 	"github.com/ava-labs/avalanchego/database/manager"
@@ -32,8 +35,6 @@ import (
 	"github.com/tendermint/tendermint/store"
 	"github.com/tendermint/tendermint/types"
 	dbm "github.com/tendermint/tm-db"
-	"net/http"
-	"time"
 )
 
 var (
@@ -391,7 +392,7 @@ func (vm *VM) CreateHandlers(ctx context.Context) (map[string]*common.HTTPHandle
 	server := rpc.NewServer()
 	//server.RegisterCodec(json.NewCodec(), "application/json")
 	//server.RegisterCodec(json.NewCodec(), "application/json;charset=UTF-8")
-	if err := server.RegisterService(&Service{vm: vm}, Name); err != nil {
+	if err := server.RegisterService(NewService(vm), Name); err != nil {
 		return nil, err
 	}
 

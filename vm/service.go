@@ -4,33 +4,43 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
+	"time"
+
 	abci "github.com/tendermint/tendermint/abci/types"
 	mempl "github.com/tendermint/tendermint/mempool"
 	"github.com/tendermint/tendermint/rpc/core"
 	ctypes "github.com/tendermint/tendermint/rpc/core/types"
 	"github.com/tendermint/tendermint/types"
-	"net/http"
-	"time"
 )
 
-// Service is the API service for this VM
-type Service struct {
-	vm *VM
+type (
+	// ProposeBlockReply is the reply from function ProposeBlock
+	ProposeBlockReply struct {
+		Success bool
+	}
+
+	//BroadcastTxArgs are the arguments to function BroadcastTxCommit
+	BroadcastTxArgs struct {
+		Tx []byte `json:"tx"`
+	}
+
+	// Service is the API service for this VM
+	Service interface {
+		BroadcastTxCommit(_ *http.Request, args *BroadcastTxArgs, reply *ctypes.ResultBroadcastTxCommit) error
+		BroadcastTxSync(_ *http.Request, args *BroadcastTxArgs, reply *ctypes.ResultBroadcastTx) error
+	}
+
+	LocalService struct {
+		vm *VM
+	}
+)
+
+func NewService(vm *VM) Service {
+	return &LocalService{vm}
 }
 
-type HTTP interface {
-	BroadcastTxCommit(_ *http.Request, args *BroadcastTxArgs, reply *ctypes.ResultBroadcastTxCommit) error
-}
-
-// BroadcastTxArgs are the arguments to function BroadcastTxCommit
-type BroadcastTxArgs struct {
-	Tx []byte `json:"tx"`
-}
-
-// ProposeBlockReply is the reply from function ProposeBlock
-type ProposeBlockReply struct{ Success bool }
-
-func (s *Service) BroadcastTxCommit(_ *http.Request, args *BroadcastTxArgs, reply *ctypes.ResultBroadcastTxCommit) error {
+func (s *LocalService) BroadcastTxCommit(_ *http.Request, args *BroadcastTxArgs, reply *ctypes.ResultBroadcastTxCommit) error {
 	subscriber := ""
 
 	// Subscribe to tx being committed in block.
@@ -100,7 +110,7 @@ func (s *Service) BroadcastTxCommit(_ *http.Request, args *BroadcastTxArgs, repl
 	}
 }
 
-func (s *Service) BroadcastTxSync(_ *http.Request, args *BroadcastTxArgs, reply *ctypes.ResultBroadcastTx) error {
+func (s *LocalService) BroadcastTxSync(_ *http.Request, args *BroadcastTxArgs, reply *ctypes.ResultBroadcastTx) error {
 	resCh := make(chan *abci.Response, 1)
 	err := s.vm.mempool.CheckTx(args.Tx, func(res *abci.Response) {
 		resCh <- res
