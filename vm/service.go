@@ -20,6 +20,10 @@ type (
 	// Service is the API service for this VM
 	Service interface {
 		client.ABCIClient
+
+		Block(ctx context.Context, height *int64) (*ctypes.ResultBlock, error)
+		BlockByHash(ctx context.Context, hash []byte) (*ctypes.ResultBlock, error)
+		BlockResults(ctx context.Context, height *int64) (*ctypes.ResultBlockResults, error)
 	}
 
 	LocalService struct {
@@ -120,6 +124,7 @@ func (s *LocalService) BroadcastTxCommit(ctx context.Context, tx types.Tx) (*cty
 			DeliverTx: abci.ResponseDeliverTx{},
 			Hash:      tx.Hash(),
 		}, err
+	// ToDo: implement me (use config for timeout)
 	case <-time.After(10 * time.Second):
 		err = errors.New("timed out waiting for tx to be included in a block")
 		s.vm.tmLogger.Error("Error on broadcastTxCommit", "err", err)
@@ -156,5 +161,48 @@ func (s *LocalService) BroadcastTxSync(ctx context.Context, tx types.Tx) (*ctype
 		Log:       r.Log,
 		Codespace: r.Codespace,
 		Hash:      tx.Hash(),
+	}, nil
+}
+
+func (s *LocalService) Block(ctx context.Context, heightPtr *int64) (*ctypes.ResultBlock, error) {
+	height, err := getHeight(s.vm.blockStore, heightPtr)
+	if err != nil {
+		return nil, err
+	}
+	block := s.vm.blockStore.LoadBlock(height)
+	blockMeta := s.vm.blockStore.LoadBlockMeta(height)
+	if blockMeta == nil {
+		return &ctypes.ResultBlock{BlockID: types.BlockID{}, Block: block}, nil
+	}
+	return &ctypes.ResultBlock{BlockID: blockMeta.BlockID, Block: block}, nil
+}
+
+func (s *LocalService) BlockByHash(ctx context.Context, hash []byte) (*ctypes.ResultBlock, error) {
+	block := s.vm.blockStore.LoadBlockByHash(hash)
+	if block == nil {
+		return &ctypes.ResultBlock{BlockID: types.BlockID{}, Block: nil}, nil
+	}
+	blockMeta := s.vm.blockStore.LoadBlockMeta(block.Height)
+	return &ctypes.ResultBlock{BlockID: blockMeta.BlockID, Block: block}, nil
+}
+
+func (s *LocalService) BlockResults(ctx context.Context, heightPtr *int64) (*ctypes.ResultBlockResults, error) {
+	height, err := getHeight(s.vm.blockStore, heightPtr)
+	if err != nil {
+		return nil, err
+	}
+
+	results, err := s.vm.stateStore.LoadABCIResponses(height)
+	if err != nil {
+		return nil, err
+	}
+
+	return &ctypes.ResultBlockResults{
+		Height:                height,
+		TxsResults:            results.DeliverTxs,
+		BeginBlockEvents:      results.BeginBlock.Events,
+		EndBlockEvents:        results.EndBlock.Events,
+		ValidatorUpdates:      results.EndBlock.ValidatorUpdates,
+		ConsensusParamUpdates: results.EndBlock.ConsensusParamUpdates,
 	}, nil
 }
