@@ -43,11 +43,20 @@ func (s *LocalService) ABCIInfo(context.Context) (*ctypes.ResultABCIInfo, error)
 	return &ctypes.ResultABCIInfo{Response: *resInfo}, nil
 }
 
-func (s *LocalService) ABCIQuery(ctx context.Context, path string, data bytes.HexBytes) (*ctypes.ResultABCIQuery, error) {
+func (s *LocalService) ABCIQuery(
+	ctx context.Context,
+	path string,
+	data bytes.HexBytes,
+) (*ctypes.ResultABCIQuery, error) {
 	return s.ABCIQueryWithOptions(ctx, path, data, client.DefaultABCIQueryOptions)
 }
 
-func (s *LocalService) ABCIQueryWithOptions(ctx context.Context, path string, data bytes.HexBytes, opts client.ABCIQueryOptions) (*ctypes.ResultABCIQuery, error) {
+func (s *LocalService) ABCIQueryWithOptions(
+	ctx context.Context,
+	path string,
+	data bytes.HexBytes,
+	opts client.ABCIQueryOptions,
+) (*ctypes.ResultABCIQuery, error) {
 	resQuery, err := s.vm.proxyApp.Query().QuerySync(abci.RequestQuery{
 		Path:   path,
 		Data:   data,
