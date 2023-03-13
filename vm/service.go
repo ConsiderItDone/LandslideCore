@@ -9,6 +9,7 @@ import (
 
 	abci "github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/libs/bytes"
+	tmbytes "github.com/tendermint/tendermint/libs/bytes"
 	mempl "github.com/tendermint/tendermint/mempool"
 	"github.com/tendermint/tendermint/proxy"
 	"github.com/tendermint/tendermint/rpc/core"
@@ -49,6 +50,8 @@ type (
 		Opts ABCIQueryOptions `json:"opts"`
 	}
 
+	StatusArgs struct{}
+
 	// Service is the API service for this VM
 	Service interface {
 		// Reading from abci app
@@ -64,6 +67,8 @@ type (
 		Block(_ *http.Request, args *BlockHeightArgs, reply *ctypes.ResultBlock) error
 		BlockByHash(_ *http.Request, args *BlockHashArgs, reply *ctypes.ResultBlock) error
 		BlockResults(_ *http.Request, args *BlockHeightArgs, reply *ctypes.ResultBlockResults) error
+
+		Status(_ *http.Request, args *StatusArgs, reply *ctypes.ResultStatus) error
 	}
 
 	LocalService struct {
@@ -262,5 +267,67 @@ func (s *LocalService) BlockResults(_ *http.Request, args *BlockHeightArgs, repl
 	reply.EndBlockEvents = results.EndBlock.Events
 	reply.ValidatorUpdates = results.EndBlock.ValidatorUpdates
 	reply.ConsensusParamUpdates = results.EndBlock.ConsensusParamUpdates
+	return nil
+}
+
+func (s *LocalService) Status(_ *http.Request, args *StatusArgs, reply *ctypes.ResultStatus) error {
+	var (
+		earliestBlockHeight   int64
+		earliestBlockHash     tmbytes.HexBytes
+		earliestAppHash       tmbytes.HexBytes
+		earliestBlockTimeNano int64
+	)
+
+	if earliestBlockMeta := s.vm.blockStore.LoadBaseMeta(); earliestBlockMeta != nil {
+		earliestBlockHeight = earliestBlockMeta.Header.Height
+		earliestAppHash = earliestBlockMeta.Header.AppHash
+		earliestBlockHash = earliestBlockMeta.BlockID.Hash
+		earliestBlockTimeNano = earliestBlockMeta.Header.Time.UnixNano()
+	}
+
+	var (
+		latestBlockHash     tmbytes.HexBytes
+		latestAppHash       tmbytes.HexBytes
+		latestBlockTimeNano int64
+
+		latestHeight = s.vm.blockStore.Height()
+	)
+
+	if latestHeight != 0 {
+		if latestBlockMeta := s.vm.blockStore.LoadBlockMeta(latestHeight); latestBlockMeta != nil {
+			latestBlockHash = latestBlockMeta.BlockID.Hash
+			latestAppHash = latestBlockMeta.Header.AppHash
+			latestBlockTimeNano = latestBlockMeta.Header.Time.UnixNano()
+		}
+	}
+
+	// Return the very last voting power, not the voting power of this validator
+	// during the last block.
+	var votingPower int64
+	// ToDo: implement me
+	// if val := validatorAtHeight(latestUncommittedHeight()); val != nil {
+	//	votingPower = val.VotingPower
+	// }
+
+	// ToDo: implement me
+	// reply.NodeInfo = env.P2PTransport.NodeInfo().(p2p.DefaultNodeInfo)
+	reply.SyncInfo = ctypes.SyncInfo{
+		LatestBlockHash:     latestBlockHash,
+		LatestAppHash:       latestAppHash,
+		LatestBlockHeight:   latestHeight,
+		LatestBlockTime:     time.Unix(0, latestBlockTimeNano),
+		EarliestBlockHash:   earliestBlockHash,
+		EarliestAppHash:     earliestAppHash,
+		EarliestBlockHeight: earliestBlockHeight,
+		EarliestBlockTime:   time.Unix(0, earliestBlockTimeNano),
+		// ToDo: implement me
+		// CatchingUp:          env.ConsensusReactor.WaitSync(),
+	}
+	reply.ValidatorInfo = ctypes.ValidatorInfo{
+		// ToDo: implement me
+		// Address:     env.PubKey.Address(),
+		// PubKey:      env.PubKey,
+		VotingPower: votingPower,
+	}
 	return nil
 }

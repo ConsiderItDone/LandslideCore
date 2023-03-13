@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/tendermint/tendermint/abci/example/counter"
 	"github.com/tendermint/tendermint/abci/types"
+	tmrand "github.com/tendermint/tendermint/libs/rand"
 	ctypes "github.com/tendermint/tendermint/rpc/core/types"
 
 	_ "embed"
@@ -56,66 +57,77 @@ func mustNewTestVm(t *testing.T) (*VM, Service) {
 	vm, _, _, err := newTestVM()
 	require.NoError(t, err)
 	require.NotNil(t, vm)
+
 	service := NewService(vm)
 	return vm, service
 }
 
-func TestBroadcastTxSync(t *testing.T) {
-	vm, service := mustNewTestVm(t)
-
-	testData := [][]byte{nil, {0x00}, {0x01}, {0x02}}
-	for i := range testData {
-		args := &BroadcastTxArgs{testData[i]}
-		t.Run(fmt.Sprintf("iteration %d", i), func(t *testing.T) {
-			replyTx := new(ctypes.ResultBroadcastTx)
-			replyInfo := new(ctypes.ResultABCIInfo)
-
-			if args.Tx != nil {
-				assert.NoError(t, service.BroadcastTxSync(nil, args, replyTx))
-				assert.NoError(t, service.ABCIInfo(nil, nil, replyInfo))
-				assert.Equal(t, types.CodeTypeOK, replyTx.Code)
-			}
-
-			blk, err := vm.BuildBlock(context.Background())
-			if args.Tx == nil {
-				assert.ErrorIs(t, err, errNoPendingTxs, "expecting error no txs")
-				assert.Nil(t, blk)
-
-				t.Log("Block: skipped")
-			} else {
-				assert.NoError(t, err)
-				assert.NotNil(t, blk)
-				assert.NoError(t, blk.Accept(context.Background()))
-				assert.NotNil(t, replyInfo)
-
-				tmBlk := blk.(*chain.BlockWrapper).Block.(*Block).tmBlock
-				t.Logf("Height: %d, Txs: %d", blk.Height(), len(tmBlk.Data.Txs))
-
-				height := int64(blk.Height())
-				replyBlock := new(ctypes.ResultBlock)
-				assert.NoError(t, service.Block(nil, &BlockHeightArgs{Height: &height}, replyBlock))
-			}
-		})
-	}
+// MakeTxKV returns a text transaction, allong with expected key, value pair
+func MakeTxKV() ([]byte, []byte, []byte) {
+	k := []byte(tmrand.Str(8))
+	v := []byte(tmrand.Str(8))
+	return k, v, append(k, append([]byte("="), v...)...)
 }
 
-func TestBroadcastTxAsync(t *testing.T) {
+func TestInitVm(t *testing.T) {
 	vm, service := mustNewTestVm(t)
-	height := vm.blockStore.Height()
-	testData := [][]byte{{0x00}, {0x01}, {0x02}}
-	for i := range testData {
-		args := &BroadcastTxArgs{testData[i]}
-		t.Run(fmt.Sprintf("iteration %d", i), func(t *testing.T) {
-			reply := new(ctypes.ResultBroadcastTx)
-			if args.Tx != nil {
-				err := service.BroadcastTxAsync(nil, args, reply)
-				assert.NoError(t, err)
-				assert.Equal(t, types.CodeTypeOK, reply.Code)
-				assert.Equal(t, args.Tx.Hash(), reply.Hash.Bytes())
-				assert.Equal(t, height, vm.blockStore.Height())
-			}
-		})
+
+	blk0, err := vm.BuildBlock(context.Background())
+	assert.ErrorIs(t, err, errNoPendingTxs, "expecting error no txs")
+	assert.Nil(t, blk0)
+
+	// submit first tx (0x00)
+	args := &BroadcastTxArgs{
+		Tx: []byte{0x00},
 	}
+	reply := &ctypes.ResultBroadcastTx{}
+	err = service.BroadcastTxSync(nil, args, reply)
+	assert.NoError(t, err)
+	assert.Equal(t, types.CodeTypeOK, reply.Code)
+
+	// build 1st block
+	blk1, err := vm.BuildBlock(context.Background())
+	assert.NoError(t, err)
+	assert.NotNil(t, blk1)
+
+	err = blk1.Accept(context.Background())
+	assert.NoError(t, err)
+
+	tmBlk1 := blk1.(*chain.BlockWrapper).Block.(*Block).tmBlock
+
+	t.Logf("Block: %d", blk1.Height())
+	t.Logf("TM Block Tx count: %d", len(tmBlk1.Data.Txs))
+
+	// submit second tx (0x01)
+	args = &BroadcastTxArgs{
+		Tx: []byte{0x01},
+	}
+	reply = &ctypes.ResultBroadcastTx{}
+	err = service.BroadcastTxSync(nil, args, reply)
+	assert.NoError(t, err)
+	assert.Equal(t, types.CodeTypeOK, reply.Code)
+
+	// submit 3rd tx (0x02)
+	args = &BroadcastTxArgs{
+		Tx: []byte{0x02},
+	}
+	reply = &ctypes.ResultBroadcastTx{}
+	err = service.BroadcastTxSync(nil, args, reply)
+	assert.NoError(t, err)
+	assert.Equal(t, types.CodeTypeOK, reply.Code)
+
+	// build second block with 2 TX together
+	blk2, err := vm.BuildBlock(context.Background())
+	assert.NoError(t, err)
+	assert.NotNil(t, blk2)
+
+	err = blk2.Accept(context.Background())
+	assert.NoError(t, err)
+
+	tmBlk2 := blk2.(*chain.BlockWrapper).Block.(*Block).tmBlock
+
+	t.Logf("Block: %d", blk2.Height())
+	t.Logf("TM Block Tx count: %d", len(tmBlk2.Data.Txs))
 }
 
 func TestABCIInfo(t *testing.T) {
@@ -126,4 +138,25 @@ func TestABCIInfo(t *testing.T) {
 	assert.Equal(t, int64(0), reply.Response.LastBlockHeight)
 	assert.Equal(t, []uint8([]byte(nil)), reply.Response.LastBlockAppHash)
 	t.Logf("%+v", reply)
+}
+
+func TestABCIQuery(t *testing.T) {
+	vm, service := mustNewTestVm(t)
+	k, v, tx := MakeTxKV()
+
+	replyBroadcast := new(ctypes.ResultBroadcastTxCommit)
+	require.NoError(t, service.BroadcastTxCommit(nil, &BroadcastTxArgs{tx}, replyBroadcast))
+
+	blk, err := vm.BuildBlock(context.Background())
+	require.NoError(t, err)
+	require.NotNil(t, blk)
+
+	err = blk.Accept(context.Background())
+	require.NoError(t, err)
+
+	res := new(ctypes.ResultABCIQuery)
+	err = service.ABCIQuery(nil, &ABCIQueryArgs{Path: "/key", Data: k}, res)
+	if assert.Nil(t, err) && assert.True(t, res.Response.IsOK()) {
+		assert.EqualValues(t, v, res.Response.Value)
+	}
 }
