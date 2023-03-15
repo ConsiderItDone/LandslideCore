@@ -10,7 +10,9 @@ import (
 	abci "github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/libs/bytes"
 	tmbytes "github.com/tendermint/tendermint/libs/bytes"
+	tmmath "github.com/tendermint/tendermint/libs/math"
 	mempl "github.com/tendermint/tendermint/mempool"
+	"github.com/tendermint/tendermint/p2p"
 	"github.com/tendermint/tendermint/proxy"
 	"github.com/tendermint/tendermint/rpc/core"
 	ctypes "github.com/tendermint/tendermint/rpc/core/types"
@@ -50,7 +52,59 @@ type (
 		Opts ABCIQueryOptions `json:"opts"`
 	}
 
+	CommitArgs struct {
+		Height *int64 `json:"height"`
+	}
+
+	ValidatorsArgs struct {
+		Height  *int64 `json:"height"`
+		Page    *int   `json:"page"`
+		PerPage *int   `json:"perPage"`
+	}
+
+	TxArgs struct {
+		Hash  []byte `json:"hash"`
+		Prove bool   `json:"prove"`
+	}
+
+	TxSearchArgs struct {
+		Query   string `json:"query"`
+		Prove   bool   `json:"prove"`
+		Page    *int   `json:"page"`
+		PerPage *int   `json:"perPage"`
+		OrderBy string `json:"orderBy"`
+	}
+
+	BlockSearchArgs struct {
+		Query   string `json:"query"`
+		Page    *int   `json:"page"`
+		PerPage *int   `json:"perPage"`
+		OrderBy string `json:"orderBy"`
+	}
+
 	StatusArgs struct{}
+
+	NetInfoArgs struct{}
+
+	DumpConsensusStateArgs struct{}
+
+	ConsensusStateArgs struct{}
+
+	ConsensusParamsArgs struct {
+		Height *int64 `json:"height"`
+	}
+
+	HealthArgs struct{}
+
+	UnconfirmedTxsArgs struct {
+		Limit *int `json:"limit"`
+	}
+
+	NumUnconfirmedTxsArgs struct{}
+
+	CheckTxArgs struct {
+		Tx []byte `json:"tx"`
+	}
 
 	// Service is the API service for this VM
 	Service interface {
@@ -67,8 +121,23 @@ type (
 		Block(_ *http.Request, args *BlockHeightArgs, reply *ctypes.ResultBlock) error
 		BlockByHash(_ *http.Request, args *BlockHashArgs, reply *ctypes.ResultBlock) error
 		BlockResults(_ *http.Request, args *BlockHeightArgs, reply *ctypes.ResultBlockResults) error
+		Commit(_ *http.Request, args *CommitArgs, reply *ctypes.ResultCommit) error
+		Validators(_ *http.Request, args *ValidatorsArgs, reply *ctypes.ResultValidators) error
+		Tx(_ *http.Request, args *TxArgs, reply *ctypes.ResultTx) error
+		TxSearch(_ *http.Request, args *TxSearchArgs, reply *ctypes.ResultTxSearch) error
+		BlockSearch(_ *http.Request, args *BlockSearchArgs, reply *ctypes.ResultBlockSearch) error
 
 		Status(_ *http.Request, args *StatusArgs, reply *ctypes.ResultStatus) error
+
+		NetInfo(_ *http.Request, args *NetInfoArgs, reply *ctypes.ResultNetInfo) error
+		DumpConsensusState(_ *http.Request, args *DumpConsensusStateArgs, reply *ctypes.ResultDumpConsensusState) error
+		ConsensusState(_ *http.Request, args *ConsensusStateArgs, reply *ctypes.ResultConsensusState) error
+		ConsensusParams(_ *http.Request, args *ConsensusParamsArgs, reply *ctypes.ResultConsensusParams) error
+		Health(_ *http.Request, args *HealthArgs, reply *ctypes.ResultHealth) error
+
+		UnconfirmedTxs(_ *http.Request, args *UnconfirmedTxsArgs, reply *ctypes.ResultUnconfirmedTxs) error
+		NumUnconfirmedTxs(_ *http.Request, args *NumUnconfirmedTxsArgs, reply *ctypes.ResultUnconfirmedTxs) error
+		CheckTx(_ *http.Request, args *CheckTxArgs, reply *ctypes.ResultCheckTx) error
 	}
 
 	LocalService struct {
@@ -270,6 +339,68 @@ func (s *LocalService) BlockResults(_ *http.Request, args *BlockHeightArgs, repl
 	return nil
 }
 
+func (s *LocalService) Commit(_ *http.Request, args *CommitArgs, reply *ctypes.ResultCommit) error {
+	height, err := getHeight(s.vm.blockStore, args.Height)
+	if err != nil {
+		return err
+	}
+
+	blockMeta := s.vm.blockStore.LoadBlockMeta(height)
+	if blockMeta == nil {
+		return nil
+	}
+
+	header := blockMeta.Header
+	commit := s.vm.blockStore.LoadBlockCommit(height)
+	res := ctypes.NewResultCommit(&header, commit, !(height == s.vm.blockStore.Height()))
+
+	reply.SignedHeader = res.SignedHeader
+	reply.CanonicalCommit = res.CanonicalCommit
+	return nil
+}
+
+func (s *LocalService) Validators(_ *http.Request, args *ValidatorsArgs, reply *ctypes.ResultValidators) error {
+	height, err := getHeight(s.vm.blockStore, args.Height)
+	if err != nil {
+		return err
+	}
+
+	validators, err := s.vm.stateStore.LoadValidators(height)
+	if err != nil {
+		return err
+	}
+
+	totalCount := len(validators.Validators)
+	perPage := validatePerPage(args.PerPage)
+	page, err := validatePage(args.Page, perPage, totalCount)
+	if err != nil {
+		return err
+	}
+
+	skipCount := validateSkipCount(page, perPage)
+
+	reply.BlockHeight = height
+	reply.Validators = validators.Validators[skipCount : skipCount+tmmath.MinInt(perPage, totalCount-skipCount)]
+	reply.Count = len(reply.Validators)
+	reply.Total = totalCount
+	return nil
+}
+
+// ToDo: need to add txIndexer
+func (s *LocalService) Tx(_ *http.Request, args *TxArgs, reply *ctypes.ResultTx) error {
+	panic("not implemented")
+}
+
+// ToDo: need to add txIndexer
+func (s *LocalService) TxSearch(_ *http.Request, args *TxSearchArgs, reply *ctypes.ResultTxSearch) error {
+	panic("not implemented")
+}
+
+// ToDo: need to add blockIndexer
+func (s *LocalService) BlockSearch(_ *http.Request, args *BlockSearchArgs, reply *ctypes.ResultBlockSearch) error {
+	panic("not implemented")
+}
+
 func (s *LocalService) Status(_ *http.Request, args *StatusArgs, reply *ctypes.ResultStatus) error {
 	var (
 		earliestBlockHeight   int64
@@ -301,16 +432,10 @@ func (s *LocalService) Status(_ *http.Request, args *StatusArgs, reply *ctypes.R
 		}
 	}
 
-	// Return the very last voting power, not the voting power of this validator
-	// during the last block.
-	var votingPower int64
-	// ToDo: implement me
-	// if val := validatorAtHeight(latestUncommittedHeight()); val != nil {
-	//	votingPower = val.VotingPower
-	// }
-
-	// ToDo: implement me
-	// reply.NodeInfo = env.P2PTransport.NodeInfo().(p2p.DefaultNodeInfo)
+	reply.NodeInfo = p2p.DefaultNodeInfo{
+		DefaultNodeID: p2p.ID(s.vm.ctx.NodeID.String()),
+		Network:       fmt.Sprintf("%d", s.vm.ctx.NetworkID),
+	}
 	reply.SyncInfo = ctypes.SyncInfo{
 		LatestBlockHash:     latestBlockHash,
 		LatestAppHash:       latestAppHash,
@@ -320,14 +445,60 @@ func (s *LocalService) Status(_ *http.Request, args *StatusArgs, reply *ctypes.R
 		EarliestAppHash:     earliestAppHash,
 		EarliestBlockHeight: earliestBlockHeight,
 		EarliestBlockTime:   time.Unix(0, earliestBlockTimeNano),
-		// ToDo: implement me
-		// CatchingUp:          env.ConsensusReactor.WaitSync(),
 	}
-	reply.ValidatorInfo = ctypes.ValidatorInfo{
-		// ToDo: implement me
-		// Address:     env.PubKey.Address(),
-		// PubKey:      env.PubKey,
-		VotingPower: votingPower,
+	return nil
+}
+
+// ToDo: do we need to implement this method?
+// ToDo: we don't have access to p2p info
+func (s *LocalService) NetInfo(_ *http.Request, args *NetInfoArgs, reply *ctypes.ResultNetInfo) error {
+	return nil
+}
+
+// ToDo: do we need to implement this method?
+// ToDo: we don't have access to p2p info
+func (s *LocalService) DumpConsensusState(_ *http.Request, args *DumpConsensusStateArgs, reply *ctypes.ResultDumpConsensusState) error {
+	return nil
+}
+
+// ToDo: do we need to implement this method?
+// ToDo: we don't have consensus
+func (s *LocalService) ConsensusState(_ *http.Request, args *ConsensusStateArgs, reply *ctypes.ResultConsensusState) error {
+	return nil
+}
+
+// ToDo: do we need to implement this method?
+// ToDo: we don't have consensus
+func (s *LocalService) ConsensusParams(_ *http.Request, args *ConsensusParamsArgs, reply *ctypes.ResultConsensusParams) error {
+	return nil
+}
+
+func (s *LocalService) Health(_ *http.Request, args *HealthArgs, reply *ctypes.ResultHealth) error {
+	*reply = ctypes.ResultHealth{}
+	return nil
+}
+
+func (s *LocalService) UnconfirmedTxs(_ *http.Request, args *UnconfirmedTxsArgs, reply *ctypes.ResultUnconfirmedTxs) error {
+	limit := validatePerPage(args.Limit)
+	txs := s.vm.mempool.ReapMaxTxs(limit)
+	reply.Count = len(txs)
+	reply.Total = s.vm.mempool.Size()
+	reply.Txs = txs
+	return nil
+}
+
+func (s *LocalService) NumUnconfirmedTxs(_ *http.Request, args *NumUnconfirmedTxsArgs, reply *ctypes.ResultUnconfirmedTxs) error {
+	reply.Count = s.vm.mempool.Size()
+	reply.Total = s.vm.mempool.Size()
+	reply.TotalBytes = s.vm.mempool.TxsBytes()
+	return nil
+}
+
+func (s *LocalService) CheckTx(_ *http.Request, args *CheckTxArgs, reply *ctypes.ResultCheckTx) error {
+	res, err := s.vm.proxyApp.Mempool().CheckTxSync(abci.RequestCheckTx{Tx: args.Tx})
+	if err != nil {
+		return err
 	}
+	reply.ResponseCheckTx = *res
 	return nil
 }
