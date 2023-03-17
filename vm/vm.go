@@ -2,9 +2,12 @@ package vm
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
+	tmjson "github.com/tendermint/tendermint/libs/json"
 	"net/http"
+	"net/rpc"
 	"time"
 
 	avalanchegoMetrics "github.com/ava-labs/avalanchego/api/metrics"
@@ -19,7 +22,6 @@ import (
 	"github.com/ava-labs/avalanchego/snow/engine/snowman/block"
 	"github.com/ava-labs/avalanchego/version"
 	"github.com/ava-labs/avalanchego/vms/components/chain"
-	"github.com/gorilla/rpc/v2"
 	"github.com/prometheus/client_golang/prometheus"
 	abciTypes "github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/config"
@@ -47,6 +49,10 @@ const (
 	decidedCacheSize    = 100
 	missingCacheSize    = 50
 	unverifiedCacheSize = 50
+
+	// genesisChunkSize is the maximum size, in bytes, of each
+	// chunk in the genesis structure for the chunked API
+	genesisChunkSize = 16 * 1024 * 1024 // 16
 )
 
 var (
@@ -95,6 +101,8 @@ type VM struct {
 	acceptedBlockDB database.Database
 
 	genesis *types.GenesisDoc
+	// cache of chunked genesis data.
+	genChunks []string
 
 	// Metrics
 	multiGatherer avalanchegoMetrics.MultiGatherer
@@ -128,6 +136,11 @@ func (vm *VM) Initialize(
 	vm.stateStore = sm.NewStore(vm.stateDB)
 
 	err := vm.initGenesis(genesisBytes)
+	if err != nil {
+		return err
+	}
+
+	err = vm.initGenesisChunks()
 	if err != nil {
 		return err
 	}
@@ -210,6 +223,31 @@ func (vm *VM) initGenesis(genesisData []byte) error {
 	}
 
 	vm.genesis = genesis
+	return nil
+}
+
+// InitGenesisChunks configures the environment and should be called on service
+// startup.
+func (vm *VM) initGenesisChunks() error {
+	if vm.genesis == nil {
+		return fmt.Errorf("empty genesis")
+	}
+
+	data, err := tmjson.Marshal(vm.genesis)
+	if err != nil {
+		return err
+	}
+
+	for i := 0; i < len(data); i += genesisChunkSize {
+		end := i + genesisChunkSize
+
+		if end > len(data) {
+			end = len(data)
+		}
+
+		vm.genChunks = append(vm.genChunks, base64.StdEncoding.EncodeToString(data[i:end]))
+	}
+
 	return nil
 }
 

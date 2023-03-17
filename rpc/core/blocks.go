@@ -20,7 +20,7 @@ func BlockchainInfo(ctx *rpctypes.Context, minHeight, maxHeight int64) (*ctypes.
 	// maximum 20 block metas
 	const limit int64 = 20
 	var err error
-	minHeight, maxHeight, err = filterMinMax(
+	minHeight, maxHeight, err = FilterMinMax(
 		env.BlockStore.Base(),
 		env.BlockStore.Height(),
 		minHeight,
@@ -45,7 +45,7 @@ func BlockchainInfo(ctx *rpctypes.Context, minHeight, maxHeight int64) (*ctypes.
 // error if either min or max are negative or min > max
 // if 0, use blockstore base for min, latest block height for max
 // enforce limit.
-func filterMinMax(base, height, min, max, limit int64) (int64, int64, error) {
+func FilterMinMax(base, height, min, max, limit int64) (int64, int64, error) {
 	// filter negatives
 	if min < 0 || max < 0 {
 		return min, max, fmt.Errorf("heights must be non-negative")
