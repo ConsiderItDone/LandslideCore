@@ -5,12 +5,14 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"sort"
 	"time"
 
 	abci "github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/libs/bytes"
 	tmbytes "github.com/tendermint/tendermint/libs/bytes"
 	tmmath "github.com/tendermint/tendermint/libs/math"
+	tmquery "github.com/tendermint/tendermint/libs/pubsub/query"
 	mempl "github.com/tendermint/tendermint/mempool"
 	"github.com/tendermint/tendermint/p2p"
 	"github.com/tendermint/tendermint/proxy"
@@ -386,19 +388,154 @@ func (s *LocalService) Validators(_ *http.Request, args *ValidatorsArgs, reply *
 	return nil
 }
 
-// ToDo: need to add txIndexer
 func (s *LocalService) Tx(_ *http.Request, args *TxArgs, reply *ctypes.ResultTx) error {
-	panic("not implemented")
+	r, err := s.vm.txIndexer.Get(args.Hash)
+	if err != nil {
+		return err
+	}
+
+	if r == nil {
+		return fmt.Errorf("tx (%X) not found", args.Hash)
+	}
+
+	height := r.Height
+	index := r.Index
+
+	var proof types.TxProof
+	if args.Prove {
+		block := s.vm.blockStore.LoadBlock(height)
+		proof = block.Data.Txs.Proof(int(index)) // XXX: overflow on 32-bit machines
+	}
+
+	reply.Hash = args.Hash
+	reply.Height = height
+	reply.Index = index
+	reply.TxResult = r.Result
+	reply.Tx = r.Tx
+	reply.Proof = proof
+	return nil
 }
 
-// ToDo: need to add txIndexer
-func (s *LocalService) TxSearch(_ *http.Request, args *TxSearchArgs, reply *ctypes.ResultTxSearch) error {
-	panic("not implemented")
+func (s *LocalService) TxSearch(req *http.Request, args *TxSearchArgs, reply *ctypes.ResultTxSearch) error {
+	q, err := tmquery.New(args.Query)
+	if err != nil {
+		return err
+	}
+
+	results, err := s.vm.txIndexer.Search(req.Context(), q)
+	if err != nil {
+		return err
+	}
+
+	// sort results (must be done before pagination)
+	switch args.OrderBy {
+	case "desc":
+		sort.Slice(results, func(i, j int) bool {
+			if results[i].Height == results[j].Height {
+				return results[i].Index > results[j].Index
+			}
+			return results[i].Height > results[j].Height
+		})
+	case "asc", "":
+		sort.Slice(results, func(i, j int) bool {
+			if results[i].Height == results[j].Height {
+				return results[i].Index < results[j].Index
+			}
+			return results[i].Height < results[j].Height
+		})
+	default:
+		return errors.New("expected order_by to be either `asc` or `desc` or empty")
+	}
+
+	// paginate results
+	totalCount := len(results)
+	perPage := validatePerPage(args.PerPage)
+
+	page, err := validatePage(args.Page, perPage, totalCount)
+	if err != nil {
+		return err
+	}
+
+	skipCount := validateSkipCount(page, perPage)
+	pageSize := tmmath.MinInt(perPage, totalCount-skipCount)
+
+	apiResults := make([]*ctypes.ResultTx, 0, pageSize)
+	for i := skipCount; i < skipCount+pageSize; i++ {
+		r := results[i]
+
+		var proof types.TxProof
+		if args.Prove {
+			block := s.vm.blockStore.LoadBlock(r.Height)
+			proof = block.Data.Txs.Proof(int(r.Index)) // XXX: overflow on 32-bit machines
+		}
+
+		apiResults = append(apiResults, &ctypes.ResultTx{
+			Hash:     types.Tx(r.Tx).Hash(),
+			Height:   r.Height,
+			Index:    r.Index,
+			TxResult: r.Result,
+			Tx:       r.Tx,
+			Proof:    proof,
+		})
+	}
+
+	reply.Txs = apiResults
+	reply.TotalCount = totalCount
+	return nil
 }
 
-// ToDo: need to add blockIndexer
-func (s *LocalService) BlockSearch(_ *http.Request, args *BlockSearchArgs, reply *ctypes.ResultBlockSearch) error {
-	panic("not implemented")
+func (s *LocalService) BlockSearch(req *http.Request, args *BlockSearchArgs, reply *ctypes.ResultBlockSearch) error {
+	q, err := tmquery.New(args.Query)
+	if err != nil {
+		return err
+	}
+
+	results, err := s.vm.blockIndexer.Search(req.Context(), q)
+	if err != nil {
+		return err
+	}
+
+	// sort results (must be done before pagination)
+	switch args.OrderBy {
+	case "desc", "":
+		sort.Slice(results, func(i, j int) bool { return results[i] > results[j] })
+
+	case "asc":
+		sort.Slice(results, func(i, j int) bool { return results[i] < results[j] })
+
+	default:
+		return errors.New("expected order_by to be either `asc` or `desc` or empty")
+	}
+
+	// paginate results
+	totalCount := len(results)
+	perPage := validatePerPage(args.PerPage)
+
+	page, err := validatePage(args.Page, perPage, totalCount)
+	if err != nil {
+		return err
+	}
+
+	skipCount := validateSkipCount(page, perPage)
+	pageSize := tmmath.MinInt(perPage, totalCount-skipCount)
+
+	apiResults := make([]*ctypes.ResultBlock, 0, pageSize)
+	for i := skipCount; i < skipCount+pageSize; i++ {
+		block := s.vm.blockStore.LoadBlock(results[i])
+		if block != nil {
+			blockMeta := s.vm.blockStore.LoadBlockMeta(block.Height)
+			if blockMeta != nil {
+				apiResults = append(apiResults, &ctypes.ResultBlock{
+					Block:   block,
+					BlockID: blockMeta.BlockID,
+				})
+			}
+		}
+	}
+
+	reply.Blocks = apiResults
+	reply.TotalCount = totalCount
+	return nil
 }
 
 func (s *LocalService) Status(_ *http.Request, args *StatusArgs, reply *ctypes.ResultStatus) error {
