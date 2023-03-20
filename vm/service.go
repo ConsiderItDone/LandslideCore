@@ -9,7 +9,6 @@ import (
 	"time"
 
 	abci "github.com/tendermint/tendermint/abci/types"
-	"github.com/tendermint/tendermint/libs/bytes"
 	tmbytes "github.com/tendermint/tendermint/libs/bytes"
 	tmmath "github.com/tendermint/tendermint/libs/math"
 	tmquery "github.com/tendermint/tendermint/libs/pubsub/query"
@@ -39,8 +38,8 @@ type (
 	}
 
 	ABCIQueryArgs struct {
-		Path string         `json:"path"`
-		Data bytes.HexBytes `json:"data"`
+		Path string           `json:"path"`
+		Data tmbytes.HexBytes `json:"data"`
 	}
 
 	ABCIQueryOptions struct {
@@ -50,7 +49,7 @@ type (
 
 	ABCIQueryWithOptionsArgs struct {
 		Path string           `json:"path"`
-		Data bytes.HexBytes   `json:"data"`
+		Data tmbytes.HexBytes `json:"data"`
 		Opts ABCIQueryOptions `json:"opts"`
 	}
 
