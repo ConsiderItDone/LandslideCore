@@ -32,6 +32,10 @@ import (
 	rpccore "github.com/tendermint/tendermint/rpc/core"
 	rpcserver "github.com/tendermint/tendermint/rpc/jsonrpc/server"
 	sm "github.com/tendermint/tendermint/state"
+	"github.com/tendermint/tendermint/state/indexer"
+	blockidxkv "github.com/tendermint/tendermint/state/indexer/block/kv"
+	"github.com/tendermint/tendermint/state/txindex"
+	txidxkv "github.com/tendermint/tendermint/state/txindex/kv"
 	"github.com/tendermint/tendermint/store"
 	"github.com/tendermint/tendermint/types"
 	dbm "github.com/tendermint/tm-db"
@@ -52,9 +56,11 @@ const (
 var (
 	chainStateMetricsPrefix = "chain_state"
 
-	lastAcceptedKey    = []byte("last_accepted_key")
-	blockStoreDBPrefix = []byte("blockstore")
-	stateDBPrefix      = []byte("state")
+	lastAcceptedKey      = []byte("last_accepted_key")
+	blockStoreDBPrefix   = []byte("blockstore")
+	stateDBPrefix        = []byte("state")
+	txIndexerDBPrefix    = []byte("tx_index")
+	blockIndexerDBPrefix = []byte("block_events")
 )
 
 var (
@@ -98,6 +104,12 @@ type VM struct {
 
 	// Metrics
 	multiGatherer avalanchegoMetrics.MultiGatherer
+
+	txIndexer      txindex.TxIndexer
+	txIndexerDB    dbm.DB
+	blockIndexer   indexer.BlockIndexer
+	blockIndexerDB dbm.DB
+	indexerService *txindex.IndexerService
 }
 
 func NewVM(app abciTypes.Application) *VM {
@@ -161,10 +173,21 @@ func (vm *VM) Initialize(
 	}
 	vm.eventBus = eventBus
 
-	err = vm.doHandshake(vm.genesis, vm.tmLogger.With("module", "consensus"))
-	if err != nil {
+	vm.txIndexerDB = Database{prefixdb.NewNested(txIndexerDBPrefix, baseDB)}
+	vm.txIndexer = txidxkv.NewTxIndex(vm.txIndexerDB)
+	vm.blockIndexerDB = Database{prefixdb.NewNested(blockIndexerDBPrefix, baseDB)}
+	vm.blockIndexer = blockidxkv.New(vm.blockIndexerDB)
+	vm.indexerService = txindex.NewIndexerService(vm.txIndexer, vm.blockIndexer, eventBus)
+	vm.indexerService.SetLogger(vm.tmLogger.With("module", "txindex"))
+
+	if err := vm.indexerService.Start(); err != nil {
 		return err
 	}
+
+	if err := vm.doHandshake(vm.genesis, vm.tmLogger.With("module", "consensus")); err != nil {
+		return err
+	}
+
 	state, err = vm.stateStore.Load()
 	if err != nil {
 		return fmt.Errorf("failed to load tmState: %w ", err)
