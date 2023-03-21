@@ -3,6 +3,7 @@ package vm
 import (
 	"fmt"
 
+	tmmath "github.com/tendermint/tendermint/libs/math"
 	"github.com/tendermint/tendermint/rpc/client"
 	coretypes "github.com/tendermint/tendermint/rpc/core/types"
 	"github.com/tendermint/tendermint/store"
@@ -75,6 +76,39 @@ func validateSkipCount(page, perPage int) int {
 		return 0
 	}
 	return skipCount
+}
+
+// filterMinMax returns error if either min or max are negative or min > max
+// if 0, use blockstore base for min, latest block height for max
+// enforce limit.
+func filterMinMax(base, height, min, max, limit int64) (int64, int64, error) {
+	// filter negatives
+	if min < 0 || max < 0 {
+		return min, max, fmt.Errorf("heights must be non-negative")
+	}
+
+	// adjust for default values
+	if min == 0 {
+		min = 1
+	}
+	if max == 0 {
+		max = height
+	}
+
+	// limit max to the height
+	max = tmmath.MinInt64(height, max)
+
+	// limit min to the base
+	min = tmmath.MaxInt64(base, min)
+
+	// limit min to within `limit` of max
+	// so the total number of blocks returned will be `limit`
+	min = tmmath.MaxInt64(min, max-limit+1)
+
+	if min > max {
+		return min, max, fmt.Errorf("min height %d can't be greater than max height %d", min, max)
+	}
+	return min, max, nil
 }
 
 func WaitForHeight(c Service, h int64, waiter client.Waiter) error {

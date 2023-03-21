@@ -21,20 +21,17 @@ import (
 )
 
 type (
-	// BroadcastTxArgs is the arguments to functions BroadcastTxCommit, BroadcastTxAsync, BroadcastTxSync
-	BroadcastTxArgs struct {
-		Tx types.Tx `json:"tx"`
+	LocalService struct {
+		vm *VM
 	}
 
-	BlockHeightArgs struct {
-		Height *int64 `json:"height"`
-	}
-
-	BlockHashArgs struct {
-		Hash []byte `json:"hash"`
-	}
-
-	ABCIInfoArgs struct {
+	Service interface {
+		ABCIService
+		HistoryService
+		NetworkService
+		SignService
+		StatusService
+		MempoolService
 	}
 
 	ABCIQueryArgs struct {
@@ -51,6 +48,30 @@ type (
 		Path string           `json:"path"`
 		Data tmbytes.HexBytes `json:"data"`
 		Opts ABCIQueryOptions `json:"opts"`
+	}
+
+	BroadcastTxArgs struct {
+		Tx types.Tx `json:"tx"`
+	}
+
+	ABCIService interface {
+		// Reading from abci app
+		ABCIInfo(_ *http.Request, _ *struct{}, reply *ctypes.ResultABCIInfo) error
+		ABCIQuery(_ *http.Request, args *ABCIQueryArgs, reply *ctypes.ResultABCIQuery) error
+		ABCIQueryWithOptions(_ *http.Request, args *ABCIQueryWithOptionsArgs, reply *ctypes.ResultABCIQuery) error
+
+		// Writing to abci app
+		BroadcastTxCommit(_ *http.Request, args *BroadcastTxArgs, reply *ctypes.ResultBroadcastTxCommit) error
+		BroadcastTxAsync(_ *http.Request, args *BroadcastTxArgs, reply *ctypes.ResultBroadcastTx) error
+		BroadcastTxSync(_ *http.Request, args *BroadcastTxArgs, reply *ctypes.ResultBroadcastTx) error
+	}
+
+	BlockHeightArgs struct {
+		Height *int64 `json:"height"`
+	}
+
+	BlockHashArgs struct {
+		Hash []byte `json:"hash"`
 	}
 
 	CommitArgs struct {
@@ -83,42 +104,7 @@ type (
 		OrderBy string `json:"orderBy"`
 	}
 
-	StatusArgs struct{}
-
-	NetInfoArgs struct{}
-
-	DumpConsensusStateArgs struct{}
-
-	ConsensusStateArgs struct{}
-
-	ConsensusParamsArgs struct {
-		Height *int64 `json:"height"`
-	}
-
-	HealthArgs struct{}
-
-	UnconfirmedTxsArgs struct {
-		Limit *int `json:"limit"`
-	}
-
-	NumUnconfirmedTxsArgs struct{}
-
-	CheckTxArgs struct {
-		Tx []byte `json:"tx"`
-	}
-
-	// Service is the API service for this VM
-	Service interface {
-		// Reading from abci app
-		ABCIInfo(_ *http.Request, args *ABCIInfoArgs, reply *ctypes.ResultABCIInfo) error
-		ABCIQuery(_ *http.Request, args *ABCIQueryArgs, reply *ctypes.ResultABCIQuery) error
-		ABCIQueryWithOptions(_ *http.Request, args *ABCIQueryWithOptionsArgs, reply *ctypes.ResultABCIQuery) error
-
-		// Writing to abci app
-		BroadcastTxCommit(_ *http.Request, args *BroadcastTxArgs, reply *ctypes.ResultBroadcastTxCommit) error
-		BroadcastTxAsync(_ *http.Request, args *BroadcastTxArgs, reply *ctypes.ResultBroadcastTx) error
-		BroadcastTxSync(_ *http.Request, args *BroadcastTxArgs, reply *ctypes.ResultBroadcastTx) error
-
+	SignService interface {
 		Block(_ *http.Request, args *BlockHeightArgs, reply *ctypes.ResultBlock) error
 		BlockByHash(_ *http.Request, args *BlockHashArgs, reply *ctypes.ResultBlock) error
 		BlockResults(_ *http.Request, args *BlockHeightArgs, reply *ctypes.ResultBlockResults) error
@@ -127,22 +113,51 @@ type (
 		Tx(_ *http.Request, args *TxArgs, reply *ctypes.ResultTx) error
 		TxSearch(_ *http.Request, args *TxSearchArgs, reply *ctypes.ResultTxSearch) error
 		BlockSearch(_ *http.Request, args *BlockSearchArgs, reply *ctypes.ResultBlockSearch) error
-
-		Status(_ *http.Request, args *StatusArgs, reply *ctypes.ResultStatus) error
-
-		NetInfo(_ *http.Request, args *NetInfoArgs, reply *ctypes.ResultNetInfo) error
-		DumpConsensusState(_ *http.Request, args *DumpConsensusStateArgs, reply *ctypes.ResultDumpConsensusState) error
-		ConsensusState(_ *http.Request, args *ConsensusStateArgs, reply *ctypes.ResultConsensusState) error
-		ConsensusParams(_ *http.Request, args *ConsensusParamsArgs, reply *ctypes.ResultConsensusParams) error
-		Health(_ *http.Request, args *HealthArgs, reply *ctypes.ResultHealth) error
-
-		UnconfirmedTxs(_ *http.Request, args *UnconfirmedTxsArgs, reply *ctypes.ResultUnconfirmedTxs) error
-		NumUnconfirmedTxs(_ *http.Request, args *NumUnconfirmedTxsArgs, reply *ctypes.ResultUnconfirmedTxs) error
-		CheckTx(_ *http.Request, args *CheckTxArgs, reply *ctypes.ResultCheckTx) error
 	}
 
-	LocalService struct {
-		vm *VM
+	BlockchainInfoArgs struct {
+		MinHeight int64 `json:"minHeight"`
+		MaxHeight int64 `json:"maxHeight"`
+	}
+
+	GenesisChunkedArgs struct {
+		Chunk uint `json:"chunk"`
+	}
+
+	HistoryService interface {
+		BlockchainInfo(_ *http.Request, args *BlockchainInfoArgs, reply *ctypes.ResultBlockchainInfo) error
+		Genesis(_ *http.Request, _ *struct{}, reply *ctypes.ResultGenesis) error
+		GenesisChunked(_ *http.Request, args *GenesisChunkedArgs, reply *ctypes.ResultGenesisChunk) error
+	}
+
+	StatusService interface {
+		Status(_ *http.Request, _ *struct{}, reply *ctypes.ResultStatus) error
+	}
+
+	ConsensusParamsArgs struct {
+		Height *int64 `json:"height"`
+	}
+
+	NetworkService interface {
+		NetInfo(_ *http.Request, _ *struct{}, reply *ctypes.ResultNetInfo) error
+		DumpConsensusState(_ *http.Request, _ *struct{}, reply *ctypes.ResultDumpConsensusState) error
+		ConsensusState(_ *http.Request, _ *struct{}, reply *ctypes.ResultConsensusState) error
+		ConsensusParams(_ *http.Request, args *ConsensusParamsArgs, reply *ctypes.ResultConsensusParams) error
+		Health(_ *http.Request, _ *struct{}, reply *ctypes.ResultHealth) error
+	}
+
+	UnconfirmedTxsArgs struct {
+		Limit *int `json:"limit"`
+	}
+
+	CheckTxArgs struct {
+		Tx []byte `json:"tx"`
+	}
+
+	MempoolService interface {
+		UnconfirmedTxs(_ *http.Request, args *UnconfirmedTxsArgs, reply *ctypes.ResultUnconfirmedTxs) error
+		NumUnconfirmedTxs(_ *http.Request, _ *struct{}, reply *ctypes.ResultUnconfirmedTxs) error
+		CheckTx(_ *http.Request, args *CheckTxArgs, reply *ctypes.ResultCheckTx) error
 	}
 )
 
@@ -154,7 +169,7 @@ func NewService(vm *VM) Service {
 	return &LocalService{vm}
 }
 
-func (s *LocalService) ABCIInfo(_ *http.Request, args *ABCIInfoArgs, reply *ctypes.ResultABCIInfo) error {
+func (s *LocalService) ABCIInfo(_ *http.Request, _ *struct{}, reply *ctypes.ResultABCIInfo) error {
 	resInfo, err := s.vm.proxyApp.Query().InfoSync(proxy.RequestInfo)
 	if err != nil {
 		return err
@@ -537,7 +552,67 @@ func (s *LocalService) BlockSearch(req *http.Request, args *BlockSearchArgs, rep
 	return nil
 }
 
-func (s *LocalService) Status(_ *http.Request, args *StatusArgs, reply *ctypes.ResultStatus) error {
+func (s *LocalService) BlockchainInfo(
+	_ *http.Request,
+	args *BlockchainInfoArgs,
+	reply *ctypes.ResultBlockchainInfo,
+) error {
+	// maximum 20 block metas
+	const limit int64 = 20
+	var err error
+	args.MinHeight, args.MaxHeight, err = filterMinMax(
+		s.vm.blockStore.Base(),
+		s.vm.blockStore.Height(),
+		args.MinHeight,
+		args.MaxHeight,
+		limit)
+	if err != nil {
+		return err
+	}
+	s.vm.tmLogger.Debug("BlockchainInfoHandler", "maxHeight", args.MaxHeight, "minHeight", args.MinHeight)
+
+	var blockMetas []*types.BlockMeta
+	for height := args.MaxHeight; height >= args.MinHeight; height-- {
+		blockMeta := s.vm.blockStore.LoadBlockMeta(height)
+		blockMetas = append(blockMetas, blockMeta)
+	}
+
+	reply.LastHeight = s.vm.blockStore.Height()
+	reply.BlockMetas = blockMetas
+	return nil
+}
+
+func (s *LocalService) Genesis(_ *http.Request, _ *struct{}, reply *ctypes.ResultGenesis) error {
+	if len(s.vm.genChunks) > 1 {
+		return errors.New("genesis response is large, please use the genesis_chunked API instead")
+	}
+
+	reply.Genesis = s.vm.genesis
+	return nil
+}
+
+func (s *LocalService) GenesisChunked(_ *http.Request, args *GenesisChunkedArgs, reply *ctypes.ResultGenesisChunk) error {
+	if s.vm.genChunks == nil {
+		return fmt.Errorf("service configuration error, genesis chunks are not initialized")
+	}
+
+	if len(s.vm.genChunks) == 0 {
+		return fmt.Errorf("service configuration error, there are no chunks")
+	}
+
+	id := int(args.Chunk)
+
+	if id > len(s.vm.genChunks)-1 {
+		return fmt.Errorf("there are %d chunks, %d is invalid", len(s.vm.genChunks)-1, id)
+	}
+
+	reply.TotalChunks = len(s.vm.genChunks)
+	reply.ChunkNumber = id
+	reply.Data = s.vm.genChunks[id]
+	return nil
+}
+
+func (s *LocalService) Status(_ *http.Request, _ *struct{}, reply *ctypes.ResultStatus) error {
 	var (
 		earliestBlockHeight   int64
 		earliestBlockHash     tmbytes.HexBytes
@@ -587,19 +662,19 @@ func (s *LocalService) Status(_ *http.Request, args *StatusArgs, reply *ctypes.R
 
 // ToDo: do we need to implement this method?
 // ToDo: we don't have access to p2p info
-func (s *LocalService) NetInfo(_ *http.Request, args *NetInfoArgs, reply *ctypes.ResultNetInfo) error {
+func (s *LocalService) NetInfo(_ *http.Request, _ *struct{}, reply *ctypes.ResultNetInfo) error {
 	return nil
 }
 
 // ToDo: do we need to implement this method?
 // ToDo: we don't have access to p2p info
-func (s *LocalService) DumpConsensusState(_ *http.Request, args *DumpConsensusStateArgs, reply *ctypes.ResultDumpConsensusState) error {
+func (s *LocalService) DumpConsensusState(_ *http.Request, _ *struct{}, reply *ctypes.ResultDumpConsensusState) error {
 	return nil
 }
 
 // ToDo: do we need to implement this method?
 // ToDo: we don't have consensus
-func (s *LocalService) ConsensusState(_ *http.Request, args *ConsensusStateArgs, reply *ctypes.ResultConsensusState) error {
+func (s *LocalService) ConsensusState(_ *http.Request, _ *struct{}, reply *ctypes.ResultConsensusState) error {
 	return nil
 }
 
@@ -609,7 +684,7 @@ func (s *LocalService) ConsensusParams(_ *http.Request, args *ConsensusParamsArg
 	return nil
 }
 
-func (s *LocalService) Health(_ *http.Request, args *HealthArgs, reply *ctypes.ResultHealth) error {
+func (s *LocalService) Health(_ *http.Request, _ *struct{}, reply *ctypes.ResultHealth) error {
 	*reply = ctypes.ResultHealth{}
 	return nil
 }
@@ -623,7 +698,7 @@ func (s *LocalService) UnconfirmedTxs(_ *http.Request, args *UnconfirmedTxsArgs,
 	return nil
 }
 
-func (s *LocalService) NumUnconfirmedTxs(_ *http.Request, args *NumUnconfirmedTxsArgs, reply *ctypes.ResultUnconfirmedTxs) error {
+func (s *LocalService) NumUnconfirmedTxs(_ *http.Request, _ *struct{}, reply *ctypes.ResultUnconfirmedTxs) error {
 	reply.Count = s.vm.mempool.Size()
 	reply.Total = s.vm.mempool.Size()
 	reply.TotalBytes = s.vm.mempool.TxsBytes()

@@ -2,6 +2,7 @@ package vm
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"net/http"
@@ -24,6 +25,7 @@ import (
 	abciTypes "github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/config"
 	cs "github.com/tendermint/tendermint/consensus"
+	tmjson "github.com/tendermint/tendermint/libs/json"
 	"github.com/tendermint/tendermint/libs/log"
 	mempl "github.com/tendermint/tendermint/mempool"
 	"github.com/tendermint/tendermint/node"
@@ -51,6 +53,10 @@ const (
 	decidedCacheSize    = 100
 	missingCacheSize    = 50
 	unverifiedCacheSize = 50
+
+	// genesisChunkSize is the maximum size, in bytes, of each
+	// chunk in the genesis structure for the chunked API
+	genesisChunkSize = 16 * 1024 * 1024 // 16
 )
 
 var (
@@ -101,6 +107,8 @@ type VM struct {
 	acceptedBlockDB database.Database
 
 	genesis *types.GenesisDoc
+	// cache of chunked genesis data.
+	genChunks []string
 
 	// Metrics
 	multiGatherer avalanchegoMetrics.MultiGatherer
@@ -139,8 +147,11 @@ func (vm *VM) Initialize(
 	vm.stateDB = Database{prefixdb.NewNested(stateDBPrefix, baseDB)}
 	vm.stateStore = sm.NewStore(vm.stateDB)
 
-	err := vm.initGenesis(genesisBytes)
-	if err != nil {
+	if err := vm.initGenesis(genesisBytes); err != nil {
+		return err
+	}
+
+	if err := vm.initGenesisChunks(); err != nil {
 		return err
 	}
 
@@ -233,6 +244,31 @@ func (vm *VM) initGenesis(genesisData []byte) error {
 	}
 
 	vm.genesis = genesis
+	return nil
+}
+
+// InitGenesisChunks configures the environment
+// and should be called on service startup.
+func (vm *VM) initGenesisChunks() error {
+	if vm.genesis == nil {
+		return fmt.Errorf("empty genesis")
+	}
+
+	data, err := tmjson.Marshal(vm.genesis)
+	if err != nil {
+		return err
+	}
+
+	for i := 0; i < len(data); i += genesisChunkSize {
+		end := i + genesisChunkSize
+
+		if end > len(data) {
+			end = len(data)
+		}
+
+		vm.genChunks = append(vm.genChunks, base64.StdEncoding.EncodeToString(data[i:end]))
+	}
+
 	return nil
 }
 
@@ -425,6 +461,10 @@ func (vm *VM) CreateHandlers(ctx context.Context) (map[string]*common.HTTPHandle
 			Handler:     mux,
 		},
 	}, nil
+}
+
+func (vm *VM) ProxyApp() proxy.AppConns {
+	return vm.proxyApp
 }
 
 func (vm *VM) ParseBlock(ctx context.Context, blockBytes []byte) (snowman.Block, error) {
