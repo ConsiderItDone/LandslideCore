@@ -660,27 +660,24 @@ func (s *LocalService) Status(_ *http.Request, _ *struct{}, reply *ctypes.Result
 	return nil
 }
 
-// ToDo: do we need to implement this method?
-// ToDo: we don't have access to p2p info
+// ToDo: no peers, because it's vm
 func (s *LocalService) NetInfo(_ *http.Request, _ *struct{}, reply *ctypes.ResultNetInfo) error {
 	return nil
 }
 
-// ToDo: do we need to implement this method?
-// ToDo: we don't have access to p2p info
+// ToDo: we doesn't have consensusState
 func (s *LocalService) DumpConsensusState(_ *http.Request, _ *struct{}, reply *ctypes.ResultDumpConsensusState) error {
 	return nil
 }
 
-// ToDo: do we need to implement this method?
-// ToDo: we don't have consensus
+// ToDo: we doesn't have consensusState
 func (s *LocalService) ConsensusState(_ *http.Request, _ *struct{}, reply *ctypes.ResultConsensusState) error {
 	return nil
 }
 
-// ToDo: do we need to implement this method?
-// ToDo: we don't have consensus
 func (s *LocalService) ConsensusParams(_ *http.Request, args *ConsensusParamsArgs, reply *ctypes.ResultConsensusParams) error {
+	reply.BlockHeight = s.vm.blockStore.Height()
+	reply.ConsensusParams = *s.vm.genesis.ConsensusParams
 	return nil
 }
 
