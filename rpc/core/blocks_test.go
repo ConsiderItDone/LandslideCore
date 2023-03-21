@@ -59,7 +59,7 @@ func TestBlockchainInfo(t *testing.T) {
 
 	for i, c := range cases {
 		caseString := fmt.Sprintf("test %d failed", i)
-		min, max, err := FilterMinMax(c.base, c.height, c.min, c.max, c.limit)
+		min, max, err := filterMinMax(c.base, c.height, c.min, c.max, c.limit)
 		if c.wantErr {
 			require.Error(t, err, caseString)
 		} else {

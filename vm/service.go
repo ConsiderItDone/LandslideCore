@@ -21,25 +21,6 @@ import (
 )
 
 type (
-	ABCIInfoArgs struct {
-	}
-
-	ABCIQueryArgs struct {
-		Path string           `json:"path"`
-		Data tmbytes.HexBytes `json:"data"`
-	}
-
-	ABCIQueryOptions struct {
-		Height int64 `json:"height"`
-		Prove  bool  `json:"prove"`
-	}
-
-	ABCIQueryWithOptionsArgs struct {
-		Path string           `json:"path"`
-		Data tmbytes.HexBytes `json:"data"`
-		Opts ABCIQueryOptions `json:"opts"`
-	}
-
 	// BroadcastTxArgs is the arguments to functions BroadcastTxCommit, BroadcastTxAsync, BroadcastTxSync
 	BroadcastTxArgs struct {
 		Tx types.Tx `json:"tx"`
@@ -70,15 +51,6 @@ type (
 		Path string           `json:"path"`
 		Data tmbytes.HexBytes `json:"data"`
 		Opts ABCIQueryOptions `json:"opts"`
-  }
-
-	BlockchainInfoArgs struct {
-		MinHeight int64 `json:"minHeight"`
-		MaxHeight int64 `json:"maxHeight"`
-	}
-
-	GenesisChunkedArgs struct {
-		Chunk uint `json:"chunk"`
 	}
 
 	CommitArgs struct {
@@ -155,11 +127,6 @@ type (
 		Tx(_ *http.Request, args *TxArgs, reply *ctypes.ResultTx) error
 		TxSearch(_ *http.Request, args *TxSearchArgs, reply *ctypes.ResultTxSearch) error
 		BlockSearch(_ *http.Request, args *BlockSearchArgs, reply *ctypes.ResultBlockSearch) error
-
-		BlockchainInfo(_ *http.Request, args *BlockchainInfoArgs, reply *ctypes.ResultBlockchainInfo) error
-
-		Genesis(_ *http.Request, _ *struct{}, reply *ctypes.ResultGenesis) error
-		GenesisChunked(_ *http.Request, args *GenesisChunkedArgs, reply *ctypes.ResultGenesisChunk) error
 
 		Status(_ *http.Request, args *StatusArgs, reply *ctypes.ResultStatus) error
 
@@ -255,9 +222,11 @@ func (s *LocalService) BroadcastTxCommit(
 	checkTxResMsg := <-checkTxResCh
 	checkTxRes := checkTxResMsg.GetCheckTx()
 	if checkTxRes.Code != abci.CodeTypeOK {
-		reply.CheckTx = *checkTxRes
-		reply.DeliverTx = abci.ResponseDeliverTx{}
-		reply.Hash = args.Tx.Hash()
+		*reply = ctypes.ResultBroadcastTxCommit{
+			CheckTx:   *checkTxRes,
+			DeliverTx: abci.ResponseDeliverTx{},
+			Hash:      args.Tx.Hash(),
+		}
 		return nil
 	}
 
@@ -265,10 +234,12 @@ func (s *LocalService) BroadcastTxCommit(
 	select {
 	case msg := <-deliverTxSub.Out(): // The tx was included in a block.
 		deliverTxRes := msg.Data().(types.EventDataTx)
-		reply.CheckTx = *checkTxRes
-		reply.DeliverTx = deliverTxRes.Result
-		reply.Hash = args.Tx.Hash()
-		reply.Height = deliverTxRes.Height
+		*reply = ctypes.ResultBroadcastTxCommit{
+			CheckTx:   *checkTxRes,
+			DeliverTx: deliverTxRes.Result,
+			Hash:      args.Tx.Hash(),
+			Height:    deliverTxRes.Height,
+		}
 		return nil
 	case <-deliverTxSub.Cancelled():
 		var reason string
@@ -563,66 +534,6 @@ func (s *LocalService) BlockSearch(req *http.Request, args *BlockSearchArgs, rep
 
 	reply.Blocks = apiResults
 	reply.TotalCount = totalCount
-
-func (s *LocalService) BlockchainInfo(
-	_ *http.Request,
-	args *BlockchainInfoArgs,
-	reply *ctypes.ResultBlockchainInfo,
-) error {
-	// maximum 20 block metas
-	const limit int64 = 20
-	var err error
-	args.MinHeight, args.MaxHeight, err = core.FilterMinMax(
-		s.vm.blockStore.Base(),
-		s.vm.blockStore.Height(),
-		args.MinHeight,
-		args.MaxHeight,
-		limit)
-	if err != nil {
-		return err
-	}
-	s.vm.tmLogger.Debug("BlockchainInfoHandler", "maxHeight", args.MaxHeight, "minHeight", args.MinHeight)
-
-	var blockMetas []*types.BlockMeta
-	for height := args.MaxHeight; height >= args.MinHeight; height-- {
-		blockMeta := s.vm.blockStore.LoadBlockMeta(height)
-		blockMetas = append(blockMetas, blockMeta)
-	}
-
-	reply.LastHeight = s.vm.blockStore.Height()
-	reply.BlockMetas = blockMetas
-
-	return nil
-}
-
-func (s *LocalService) Genesis(_ *http.Request, _ *struct{}, reply *ctypes.ResultGenesis) error {
-	if len(s.vm.genChunks) > 1 {
-		return errors.New("genesis response is large, please use the genesis_chunked API instead")
-	}
-
-	reply.Genesis = s.vm.genesis
-
-	return nil
-}
-
-func (s *LocalService) GenesisChunked(_ *http.Request, args *GenesisChunkedArgs, reply *ctypes.ResultGenesisChunk) error {
-	if s.vm.genChunks == nil {
-		return fmt.Errorf("service configuration error, genesis chunks are not initialized")
-	}
-
-	if len(s.vm.genChunks) == 0 {
-		return fmt.Errorf("service configuration error, there are no chunks")
-	}
-
-	id := int(args.Chunk)
-
-	if id > len(s.vm.genChunks)-1 {
-		return fmt.Errorf("there are %d chunks, %d is invalid", len(s.vm.genChunks)-1, id)
-	}
-
-	reply.TotalChunks = len(s.vm.genChunks)
-	reply.ChunkNumber = id
-	reply.Data = s.vm.genChunks[id]
 	return nil
 }
 
