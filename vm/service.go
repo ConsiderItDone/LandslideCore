@@ -436,7 +436,14 @@ func (s *LocalService) TxSearch(req *http.Request, args *TxSearchArgs, reply *ct
 		return err
 	}
 
-	results, err := s.vm.txIndexer.Search(req.Context(), q)
+	var ctx context.Context
+	if req != nil {
+		ctx = req.Context()
+	} else {
+		ctx = context.Background()
+	}
+
+	results, err := s.vm.txIndexer.Search(ctx, q)
 	if err != nil {
 		return err
 	}
@@ -504,7 +511,14 @@ func (s *LocalService) BlockSearch(req *http.Request, args *BlockSearchArgs, rep
 		return err
 	}
 
-	results, err := s.vm.blockIndexer.Search(req.Context(), q)
+	var ctx context.Context
+	if req != nil {
+		ctx = req.Context()
+	} else {
+		ctx = context.Background()
+	}
+
+	results, err := s.vm.blockIndexer.Search(ctx, q)
 	if err != nil {
 		return err
 	}
