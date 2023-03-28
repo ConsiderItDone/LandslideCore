@@ -227,7 +227,7 @@ func TestSignService(t *testing.T) {
 	t.Run("Tx", func(t *testing.T) {
 		reply := new(ctypes.ResultTx)
 		assert.NoError(t, service.Tx(nil, &TxArgs{Hash: txReply.Hash}, reply))
-		assert.Equal(t, txReply.Hash, reply.Hash)
+		assert.EqualValues(t, txReply.Hash, reply.Hash)
 	})
 
 	t.Run("TxSearch", func(t *testing.T) {
