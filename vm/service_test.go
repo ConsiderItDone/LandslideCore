@@ -3,42 +3,102 @@ package vm
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tendermint/tendermint/abci/types"
+	abci "github.com/tendermint/tendermint/abci/types"
 	ctypes "github.com/tendermint/tendermint/rpc/core/types"
 )
 
-func TestABCIInfo(t *testing.T) {
-	_, service := mustNewTestVm(t)
-	reply := new(ctypes.ResultABCIInfo)
-	assert.NoError(t, service.ABCIInfo(nil, nil, reply))
-	assert.Equal(t, uint64(0), reply.Response.AppVersion)
-	assert.Equal(t, int64(0), reply.Response.LastBlockHeight)
-	assert.Equal(t, []uint8([]byte(nil)), reply.Response.LastBlockAppHash)
-	t.Logf("%+v", reply)
-}
-
-func TestABCIQuery(t *testing.T) {
+func TestABCIService(t *testing.T) {
 	vm, service := mustNewTestVm(t)
-	k, v, tx := MakeTxKV()
 
-	replyBroadcast := new(ctypes.ResultBroadcastTxCommit)
-	require.NoError(t, service.BroadcastTxCommit(nil, &BroadcastTxArgs{tx}, replyBroadcast))
+	t.Run("ABCIInfo", func(t *testing.T) {
+		reply := new(ctypes.ResultABCIInfo)
+		assert.NoError(t, service.ABCIInfo(nil, nil, reply))
+		assert.Equal(t, uint64(0), reply.Response.AppVersion)
+		assert.Equal(t, int64(0), reply.Response.LastBlockHeight)
+		assert.Equal(t, []uint8([]byte(nil)), reply.Response.LastBlockAppHash)
+		t.Logf("%+v", reply)
+	})
 
-	blk, err := vm.BuildBlock(context.Background())
-	require.NoError(t, err)
-	require.NotNil(t, blk)
+	t.Run("ABCIQuery", func(t *testing.T) {
+		k, v, tx := MakeTxKV()
 
-	err = blk.Accept(context.Background())
-	require.NoError(t, err)
+		replyBroadcast := new(ctypes.ResultBroadcastTx)
+		require.NoError(t, service.BroadcastTxSync(nil, &BroadcastTxArgs{tx}, replyBroadcast))
 
-	res := new(ctypes.ResultABCIQuery)
-	err = service.ABCIQuery(nil, &ABCIQueryArgs{Path: "/key", Data: k}, res)
-	if assert.Nil(t, err) && assert.True(t, res.Response.IsOK()) {
-		assert.EqualValues(t, v, res.Response.Value)
-	}
+		blk, err := vm.BuildBlock(context.Background())
+		require.NoError(t, err)
+		require.NotNil(t, blk)
+
+		err = blk.Accept(context.Background())
+		require.NoError(t, err)
+
+		res := new(ctypes.ResultABCIQuery)
+		err = service.ABCIQuery(nil, &ABCIQueryArgs{Path: "/key", Data: k}, res)
+		if assert.Nil(t, err) && assert.True(t, res.Response.IsOK()) {
+			assert.EqualValues(t, v, res.Response.Value)
+		}
+	})
+
+	t.Run("BroadcastTxCommit", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		go func(ctx context.Context) {
+			end := false
+			for !end {
+				select {
+				case <-ctx.Done():
+					end = true
+				default:
+					if vm.mempool.Size() > 0 {
+						block, err := vm.BuildBlock(ctx)
+						t.Logf("new block: %#v", block)
+						require.NoError(t, err)
+						require.NoError(t, block.Accept(ctx))
+					} else {
+						time.Sleep(500 * time.Millisecond)
+					}
+				}
+			}
+		}(ctx)
+
+		_, _, tx := MakeTxKV()
+		reply := new(ctypes.ResultBroadcastTxCommit)
+		assert.NoError(t, service.BroadcastTxCommit(nil, &BroadcastTxArgs{tx}, reply))
+		assert.True(t, reply.CheckTx.IsOK())
+		assert.True(t, reply.DeliverTx.IsOK())
+		assert.Equal(t, 0, vm.mempool.Size())
+	})
+
+	t.Run("BroadcastTxAsync", func(t *testing.T) {
+		defer vm.mempool.Flush()
+
+		initMempoolSize := vm.mempool.Size()
+		_, _, tx := MakeTxKV()
+
+		reply := new(ctypes.ResultBroadcastTx)
+		assert.NoError(t, service.BroadcastTxAsync(nil, &BroadcastTxArgs{tx}, reply))
+		assert.NotNil(t, reply.Hash)
+		assert.Equal(t, initMempoolSize+1, vm.mempool.Size())
+		assert.EqualValues(t, tx, vm.mempool.ReapMaxTxs(-1)[0])
+	})
+
+	t.Run("BroadcastTxSync", func(t *testing.T) {
+		defer vm.mempool.Flush()
+
+		initMempoolSize := vm.mempool.Size()
+		_, _, tx := MakeTxKV()
+
+		reply := new(ctypes.ResultBroadcastTx)
+		assert.NoError(t, service.BroadcastTxSync(nil, &BroadcastTxArgs{Tx: tx}, reply))
+		assert.Equal(t, reply.Code, abci.CodeTypeOK)
+		assert.Equal(t, initMempoolSize+1, vm.mempool.Size())
+		assert.EqualValues(t, tx, vm.mempool.ReapMaxTxs(-1)[0])
+	})
 }
 
 func TestHistoryService(t *testing.T) {

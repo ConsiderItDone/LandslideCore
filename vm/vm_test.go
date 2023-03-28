@@ -64,8 +64,8 @@ func mustNewTestVm(t *testing.T) (*VM, Service) {
 
 // MakeTxKV returns a text transaction, allong with expected key, value pair
 func MakeTxKV() ([]byte, []byte, []byte) {
-	k := []byte(tmrand.Str(8))
-	v := []byte(tmrand.Str(8))
+	k := []byte(tmrand.Str(2))
+	v := []byte(tmrand.Str(2))
 	return k, v, append(k, append([]byte("="), v...)...)
 }
 
