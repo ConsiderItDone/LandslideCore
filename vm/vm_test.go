@@ -3,6 +3,9 @@ package vm
 import (
 	"context"
 	"fmt"
+	"os"
+	"testing"
+
 	"github.com/ava-labs/avalanchego/database/manager"
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/snow"
@@ -11,30 +14,67 @@ import (
 	"github.com/ava-labs/avalanchego/version"
 	"github.com/ava-labs/avalanchego/vms/components/chain"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/tendermint/tendermint/abci/example/counter"
 	"github.com/tendermint/tendermint/abci/types"
+	tmrand "github.com/tendermint/tendermint/libs/rand"
 	ctypes "github.com/tendermint/tendermint/rpc/core/types"
-	"os"
-	"testing"
+
+	_ "embed"
 )
 
 var (
 	blockchainID = ids.ID{1, 2, 3}
-	genesis      = "{\"genesis_time\":\"2023-03-04T03:46:06.533236098Z\",\"chain_id\":\"test-chain-U8te75\",\"initial_height\":\"0\",\"consensus_params\":{\"block\":{\"max_bytes\":\"22020096\",\"max_gas\":\"-1\",\"time_iota_ms\":\"1000\"},\"evidence\":{\"max_age_num_blocks\":\"100000\",\"max_age_duration\":\"172800000000000\",\"max_bytes\":\"1048576\"},\"validator\":{\"pub_key_types\":[\"ed25519\"]},\"version\":{}},\"app_hash\":\"\"}"
+
+	//go:embed data/vm_test_genesis.json
+	genesis string
 )
 
-func TestInitVm(t *testing.T) {
-	//ctx := context.TODO()
-	// Initialize the vm
+func newTestVM() (*VM, *snow.Context, chan common.Message, error) {
+	dbManager := manager.NewMemDB(&version.Semantic{
+		Major: 1,
+		Minor: 0,
+		Patch: 0,
+	})
+	msgChan := make(chan common.Message, 1)
+	vm := NewVM(counter.NewApplication(true))
+	snowCtx := snow.DefaultContextTest()
+	snowCtx.Log = logging.NewLogger(
+		fmt.Sprintf("<%s Chain>", blockchainID),
+		logging.NewWrappedCore(
+			logging.Info,
+			os.Stderr,
+			logging.Colors.ConsoleEncoder(),
+		),
+	)
+	snowCtx.ChainID = blockchainID
+	err := vm.Initialize(context.TODO(), snowCtx, dbManager, []byte(genesis), nil, nil, msgChan, nil, nil)
+
+	return vm, snowCtx, msgChan, err
+}
+
+func mustNewTestVm(t *testing.T) (*VM, Service) {
 	vm, _, _, err := newTestVM()
-	assert.NoError(t, err)
-	assert.NotNil(t, vm)
+	require.NoError(t, err)
+	require.NotNil(t, vm)
+
+	service := NewService(vm)
+	return vm, service
+}
+
+// MakeTxKV returns a text transaction, allong with expected key, value pair
+func MakeTxKV() ([]byte, []byte, []byte) {
+	k := []byte(tmrand.Str(2))
+	v := []byte(tmrand.Str(2))
+	return k, v, append(k, append([]byte("="), v...)...)
+}
+
+func TestInitVm(t *testing.T) {
+	vm, service := mustNewTestVm(t)
 
 	blk0, err := vm.BuildBlock(context.Background())
 	assert.ErrorIs(t, err, errNoPendingTxs, "expecting error no txs")
 	assert.Nil(t, blk0)
-
-	service := Service{vm}
 
 	// submit first tx (0x00)
 	args := &BroadcastTxArgs{
@@ -88,27 +128,4 @@ func TestInitVm(t *testing.T) {
 
 	t.Logf("Block: %d", blk2.Height())
 	t.Logf("TM Block Tx count: %d", len(tmBlk2.Data.Txs))
-}
-
-func newTestVM() (*VM, *snow.Context, chan common.Message, error) {
-	dbManager := manager.NewMemDB(&version.Semantic{
-		Major: 1,
-		Minor: 0,
-		Patch: 0,
-	})
-	msgChan := make(chan common.Message, 1)
-	vm := NewVM(counter.NewApplication(true))
-	snowCtx := snow.DefaultContextTest()
-	snowCtx.Log = logging.NewLogger(
-		fmt.Sprintf("<%s Chain>", blockchainID),
-		logging.NewWrappedCore(
-			logging.Info,
-			os.Stderr,
-			logging.Colors.ConsoleEncoder(),
-		),
-	)
-	snowCtx.ChainID = blockchainID
-	err := vm.Initialize(context.TODO(), snowCtx, dbManager, []byte(genesis), nil, nil, msgChan, nil, nil)
-
-	return vm, snowCtx, msgChan, err
 }

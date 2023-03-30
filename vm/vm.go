@@ -2,8 +2,12 @@ package vm
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
+	"net/http"
+	"time"
+
 	avalanchegoMetrics "github.com/ava-labs/avalanchego/api/metrics"
 	"github.com/ava-labs/avalanchego/database"
 	"github.com/ava-labs/avalanchego/database/manager"
@@ -21,6 +25,7 @@ import (
 	abciTypes "github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/config"
 	cs "github.com/tendermint/tendermint/consensus"
+	tmjson "github.com/tendermint/tendermint/libs/json"
 	"github.com/tendermint/tendermint/libs/log"
 	mempl "github.com/tendermint/tendermint/mempool"
 	"github.com/tendermint/tendermint/node"
@@ -29,11 +34,13 @@ import (
 	rpccore "github.com/tendermint/tendermint/rpc/core"
 	rpcserver "github.com/tendermint/tendermint/rpc/jsonrpc/server"
 	sm "github.com/tendermint/tendermint/state"
+	"github.com/tendermint/tendermint/state/indexer"
+	blockidxkv "github.com/tendermint/tendermint/state/indexer/block/kv"
+	"github.com/tendermint/tendermint/state/txindex"
+	txidxkv "github.com/tendermint/tendermint/state/txindex/kv"
 	"github.com/tendermint/tendermint/store"
 	"github.com/tendermint/tendermint/types"
 	dbm "github.com/tendermint/tm-db"
-	"net/http"
-	"time"
 )
 
 var (
@@ -46,14 +53,20 @@ const (
 	decidedCacheSize    = 100
 	missingCacheSize    = 50
 	unverifiedCacheSize = 50
+
+	// genesisChunkSize is the maximum size, in bytes, of each
+	// chunk in the genesis structure for the chunked API
+	genesisChunkSize = 16 * 1024 * 1024 // 16
 )
 
 var (
 	chainStateMetricsPrefix = "chain_state"
 
-	lastAcceptedKey    = []byte("last_accepted_key")
-	blockStoreDBPrefix = []byte("blockstore")
-	stateDBPrefix      = []byte("state")
+	lastAcceptedKey      = []byte("last_accepted_key")
+	blockStoreDBPrefix   = []byte("blockstore")
+	stateDBPrefix        = []byte("state")
+	txIndexerDBPrefix    = []byte("tx_index")
+	blockIndexerDBPrefix = []byte("block_events")
 )
 
 var (
@@ -94,9 +107,17 @@ type VM struct {
 	acceptedBlockDB database.Database
 
 	genesis *types.GenesisDoc
+	// cache of chunked genesis data.
+	genChunks []string
 
 	// Metrics
 	multiGatherer avalanchegoMetrics.MultiGatherer
+
+	txIndexer      txindex.TxIndexer
+	txIndexerDB    dbm.DB
+	blockIndexer   indexer.BlockIndexer
+	blockIndexerDB dbm.DB
+	indexerService *txindex.IndexerService
 }
 
 func NewVM(app abciTypes.Application) *VM {
@@ -126,8 +147,11 @@ func (vm *VM) Initialize(
 	vm.stateDB = Database{prefixdb.NewNested(stateDBPrefix, baseDB)}
 	vm.stateStore = sm.NewStore(vm.stateDB)
 
-	err := vm.initGenesis(genesisBytes)
-	if err != nil {
+	if err := vm.initGenesis(genesisBytes); err != nil {
+		return err
+	}
+
+	if err := vm.initGenesisChunks(); err != nil {
 		return err
 	}
 
@@ -160,10 +184,21 @@ func (vm *VM) Initialize(
 	}
 	vm.eventBus = eventBus
 
-	err = vm.doHandshake(vm.genesis, vm.tmLogger.With("module", "consensus"))
-	if err != nil {
+	vm.txIndexerDB = Database{prefixdb.NewNested(txIndexerDBPrefix, baseDB)}
+	vm.txIndexer = txidxkv.NewTxIndex(vm.txIndexerDB)
+	vm.blockIndexerDB = Database{prefixdb.NewNested(blockIndexerDBPrefix, baseDB)}
+	vm.blockIndexer = blockidxkv.New(vm.blockIndexerDB)
+	vm.indexerService = txindex.NewIndexerService(vm.txIndexer, vm.blockIndexer, eventBus)
+	vm.indexerService.SetLogger(vm.tmLogger.With("module", "txindex"))
+
+	if err := vm.indexerService.Start(); err != nil {
 		return err
 	}
+
+	if err := vm.doHandshake(vm.genesis, vm.tmLogger.With("module", "consensus")); err != nil {
+		return err
+	}
+
 	state, err = vm.stateStore.Load()
 	if err != nil {
 		return fmt.Errorf("failed to load tmState: %w ", err)
@@ -209,6 +244,31 @@ func (vm *VM) initGenesis(genesisData []byte) error {
 	}
 
 	vm.genesis = genesis
+	return nil
+}
+
+// InitGenesisChunks configures the environment
+// and should be called on service startup.
+func (vm *VM) initGenesisChunks() error {
+	if vm.genesis == nil {
+		return fmt.Errorf("empty genesis")
+	}
+
+	data, err := tmjson.Marshal(vm.genesis)
+	if err != nil {
+		return err
+	}
+
+	for i := 0; i < len(data); i += genesisChunkSize {
+		end := i + genesisChunkSize
+
+		if end > len(data) {
+			end = len(data)
+		}
+
+		vm.genChunks = append(vm.genChunks, base64.StdEncoding.EncodeToString(data[i:end]))
+	}
+
 	return nil
 }
 
@@ -391,7 +451,7 @@ func (vm *VM) CreateHandlers(ctx context.Context) (map[string]*common.HTTPHandle
 	server := rpc.NewServer()
 	//server.RegisterCodec(json.NewCodec(), "application/json")
 	//server.RegisterCodec(json.NewCodec(), "application/json;charset=UTF-8")
-	if err := server.RegisterService(&Service{vm: vm}, Name); err != nil {
+	if err := server.RegisterService(NewService(vm), Name); err != nil {
 		return nil, err
 	}
 
@@ -401,6 +461,10 @@ func (vm *VM) CreateHandlers(ctx context.Context) (map[string]*common.HTTPHandle
 			Handler:     mux,
 		},
 	}, nil
+}
+
+func (vm *VM) ProxyApp() proxy.AppConns {
+	return vm.proxyApp
 }
 
 func (vm *VM) ParseBlock(ctx context.Context, blockBytes []byte) (snowman.Block, error) {
