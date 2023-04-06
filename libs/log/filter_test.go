@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/tendermint/tendermint/libs/log"
+	"github.com/consideritdone/landslidecore/libs/log"
 )
 
 func TestVariousLevels(t *testing.T) {

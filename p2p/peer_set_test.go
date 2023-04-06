@@ -7,8 +7,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/tendermint/tendermint/crypto/ed25519"
-	"github.com/tendermint/tendermint/libs/service"
+	"github.com/consideritdone/landslidecore/crypto/ed25519"
+	"github.com/consideritdone/landslidecore/libs/service"
 )
 
 // mockPeer for testing the PeerSet

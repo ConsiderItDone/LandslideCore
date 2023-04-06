@@ -1,12 +1,12 @@
 package consensus
 
 import (
-	abci "github.com/tendermint/tendermint/abci/types"
-	"github.com/tendermint/tendermint/libs/clist"
-	mempl "github.com/tendermint/tendermint/mempool"
-	tmstate "github.com/tendermint/tendermint/proto/tendermint/state"
-	"github.com/tendermint/tendermint/proxy"
-	"github.com/tendermint/tendermint/types"
+	abci "github.com/consideritdone/landslidecore/abci/types"
+	"github.com/consideritdone/landslidecore/libs/clist"
+	mempl "github.com/consideritdone/landslidecore/mempool"
+	tmstate "github.com/consideritdone/landslidecore/proto/tendermint/state"
+	"github.com/consideritdone/landslidecore/proxy"
+	"github.com/consideritdone/landslidecore/types"
 )
 
 //-----------------------------------------------------------------------------

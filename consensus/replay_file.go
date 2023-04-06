@@ -12,13 +12,13 @@ import (
 
 	dbm "github.com/tendermint/tm-db"
 
-	cfg "github.com/tendermint/tendermint/config"
-	"github.com/tendermint/tendermint/libs/log"
-	tmos "github.com/tendermint/tendermint/libs/os"
-	"github.com/tendermint/tendermint/proxy"
-	sm "github.com/tendermint/tendermint/state"
-	"github.com/tendermint/tendermint/store"
-	"github.com/tendermint/tendermint/types"
+	cfg "github.com/consideritdone/landslidecore/config"
+	"github.com/consideritdone/landslidecore/libs/log"
+	tmos "github.com/consideritdone/landslidecore/libs/os"
+	"github.com/consideritdone/landslidecore/proxy"
+	sm "github.com/consideritdone/landslidecore/state"
+	"github.com/consideritdone/landslidecore/store"
+	"github.com/consideritdone/landslidecore/types"
 )
 
 const (

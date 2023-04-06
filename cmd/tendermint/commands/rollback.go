@@ -7,9 +7,9 @@ import (
 
 	dbm "github.com/tendermint/tm-db"
 
-	cfg "github.com/tendermint/tendermint/config"
-	"github.com/tendermint/tendermint/state"
-	"github.com/tendermint/tendermint/store"
+	cfg "github.com/consideritdone/landslidecore/config"
+	"github.com/consideritdone/landslidecore/state"
+	"github.com/consideritdone/landslidecore/store"
 )
 
 var RollbackStateCmd = &cobra.Command{

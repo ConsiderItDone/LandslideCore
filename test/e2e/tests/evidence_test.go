@@ -6,8 +6,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	e2e "github.com/tendermint/tendermint/test/e2e/pkg"
-	"github.com/tendermint/tendermint/types"
+	e2e "github.com/consideritdone/landslidecore/test/e2e/pkg"
+	"github.com/consideritdone/landslidecore/types"
 )
 
 // assert that all nodes that have blocks at the height of a misbehavior has evidence

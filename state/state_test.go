@@ -13,15 +13,15 @@ import (
 
 	dbm "github.com/tendermint/tm-db"
 
-	abci "github.com/tendermint/tendermint/abci/types"
-	cfg "github.com/tendermint/tendermint/config"
-	"github.com/tendermint/tendermint/crypto/ed25519"
-	cryptoenc "github.com/tendermint/tendermint/crypto/encoding"
-	tmrand "github.com/tendermint/tendermint/libs/rand"
-	tmstate "github.com/tendermint/tendermint/proto/tendermint/state"
-	tmproto "github.com/tendermint/tendermint/proto/tendermint/types"
-	sm "github.com/tendermint/tendermint/state"
-	"github.com/tendermint/tendermint/types"
+	abci "github.com/consideritdone/landslidecore/abci/types"
+	cfg "github.com/consideritdone/landslidecore/config"
+	"github.com/consideritdone/landslidecore/crypto/ed25519"
+	cryptoenc "github.com/consideritdone/landslidecore/crypto/encoding"
+	tmrand "github.com/consideritdone/landslidecore/libs/rand"
+	tmstate "github.com/consideritdone/landslidecore/proto/tendermint/state"
+	tmproto "github.com/consideritdone/landslidecore/proto/tendermint/types"
+	sm "github.com/consideritdone/landslidecore/state"
+	"github.com/consideritdone/landslidecore/types"
 )
 
 // setupTestCase does setup common to all test cases.
@@ -429,7 +429,7 @@ func testProposerFreq(t *testing.T, caseNum int, valSet *types.ValidatorSet) {
 }
 
 // TestProposerPriorityDoesNotGetResetToZero assert that we preserve accum when calling updateState
-// see https://github.com/tendermint/tendermint/issues/2718
+// see https://github.com/consideritdone/landslidecore/issues/2718
 func TestProposerPriorityDoesNotGetResetToZero(t *testing.T) {
 	tearDown, _, state := setupTestCase(t)
 	defer tearDown(t)
@@ -761,7 +761,7 @@ func TestLargeGenesisValidator(t *testing.T) {
 	// add more validators with same voting power as the 2nd
 	// let the genesis validator "unbond",
 	// see how long it takes until the effect wears off and both begin to alternate
-	// see: https://github.com/tendermint/tendermint/issues/2960
+	// see: https://github.com/consideritdone/landslidecore/issues/2960
 	firstAddedValPubKey := ed25519.GenPrivKey().PubKey()
 	firstAddedValVotingPower := int64(10)
 	fvp, err := cryptoenc.PubKeyToProto(firstAddedValPubKey)

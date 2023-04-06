@@ -6,8 +6,8 @@ import (
 	"math"
 	"time"
 
-	e2e "github.com/tendermint/tendermint/test/e2e/pkg"
-	"github.com/tendermint/tendermint/types"
+	e2e "github.com/consideritdone/landslidecore/test/e2e/pkg"
+	"github.com/consideritdone/landslidecore/types"
 )
 
 // Benchmark is a simple function for fetching, calculating and printing

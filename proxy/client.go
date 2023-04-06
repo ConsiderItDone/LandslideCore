@@ -3,12 +3,12 @@ package proxy
 import (
 	"fmt"
 
-	abcicli "github.com/tendermint/tendermint/abci/client"
-	"github.com/tendermint/tendermint/abci/example/counter"
-	"github.com/tendermint/tendermint/abci/example/kvstore"
-	"github.com/tendermint/tendermint/abci/types"
-	tmsync "github.com/tendermint/tendermint/libs/sync"
-	e2e "github.com/tendermint/tendermint/test/e2e/app"
+	abcicli "github.com/consideritdone/landslidecore/abci/client"
+	"github.com/consideritdone/landslidecore/abci/example/counter"
+	"github.com/consideritdone/landslidecore/abci/example/kvstore"
+	"github.com/consideritdone/landslidecore/abci/types"
+	tmsync "github.com/consideritdone/landslidecore/libs/sync"
+	e2e "github.com/consideritdone/landslidecore/test/e2e/app"
 )
 
 // ClientCreator creates new ABCI clients.

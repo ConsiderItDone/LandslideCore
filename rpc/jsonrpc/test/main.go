@@ -5,10 +5,10 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/tendermint/tendermint/libs/log"
-	tmos "github.com/tendermint/tendermint/libs/os"
-	rpcserver "github.com/tendermint/tendermint/rpc/jsonrpc/server"
-	rpctypes "github.com/tendermint/tendermint/rpc/jsonrpc/types"
+	"github.com/consideritdone/landslidecore/libs/log"
+	tmos "github.com/consideritdone/landslidecore/libs/os"
+	rpcserver "github.com/consideritdone/landslidecore/rpc/jsonrpc/server"
+	rpctypes "github.com/consideritdone/landslidecore/rpc/jsonrpc/types"
 )
 
 var routes = map[string]*rpcserver.RPCFunc{

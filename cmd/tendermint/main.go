@@ -4,11 +4,11 @@ import (
 	"os"
 	"path/filepath"
 
-	cmd "github.com/tendermint/tendermint/cmd/tendermint/commands"
-	"github.com/tendermint/tendermint/cmd/tendermint/commands/debug"
-	cfg "github.com/tendermint/tendermint/config"
-	"github.com/tendermint/tendermint/libs/cli"
-	nm "github.com/tendermint/tendermint/node"
+	cmd "github.com/consideritdone/landslidecore/cmd/tendermint/commands"
+	"github.com/consideritdone/landslidecore/cmd/tendermint/commands/debug"
+	cfg "github.com/consideritdone/landslidecore/config"
+	"github.com/consideritdone/landslidecore/libs/cli"
+	nm "github.com/consideritdone/landslidecore/node"
 )
 
 func main() {

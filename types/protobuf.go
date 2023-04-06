@@ -1,12 +1,12 @@
 package types
 
 import (
-	abci "github.com/tendermint/tendermint/abci/types"
-	"github.com/tendermint/tendermint/crypto"
-	"github.com/tendermint/tendermint/crypto/ed25519"
-	cryptoenc "github.com/tendermint/tendermint/crypto/encoding"
-	"github.com/tendermint/tendermint/crypto/secp256k1"
-	tmproto "github.com/tendermint/tendermint/proto/tendermint/types"
+	abci "github.com/consideritdone/landslidecore/abci/types"
+	"github.com/consideritdone/landslidecore/crypto"
+	"github.com/consideritdone/landslidecore/crypto/ed25519"
+	cryptoenc "github.com/consideritdone/landslidecore/crypto/encoding"
+	"github.com/consideritdone/landslidecore/crypto/secp256k1"
+	tmproto "github.com/consideritdone/landslidecore/proto/tendermint/types"
 )
 
 //-------------------------------------------------------

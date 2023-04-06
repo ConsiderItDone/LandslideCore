@@ -8,18 +8,18 @@ import (
 
 	dbm "github.com/tendermint/tm-db"
 
-	"github.com/tendermint/tendermint/libs/log"
-	tmsync "github.com/tendermint/tendermint/libs/sync"
-	"github.com/tendermint/tendermint/light"
-	lightprovider "github.com/tendermint/tendermint/light/provider"
-	lighthttp "github.com/tendermint/tendermint/light/provider/http"
-	lightrpc "github.com/tendermint/tendermint/light/rpc"
-	lightdb "github.com/tendermint/tendermint/light/store/db"
-	tmstate "github.com/tendermint/tendermint/proto/tendermint/state"
-	rpchttp "github.com/tendermint/tendermint/rpc/client/http"
-	sm "github.com/tendermint/tendermint/state"
-	"github.com/tendermint/tendermint/types"
-	"github.com/tendermint/tendermint/version"
+	"github.com/consideritdone/landslidecore/libs/log"
+	tmsync "github.com/consideritdone/landslidecore/libs/sync"
+	"github.com/consideritdone/landslidecore/light"
+	lightprovider "github.com/consideritdone/landslidecore/light/provider"
+	lighthttp "github.com/consideritdone/landslidecore/light/provider/http"
+	lightrpc "github.com/consideritdone/landslidecore/light/rpc"
+	lightdb "github.com/consideritdone/landslidecore/light/store/db"
+	tmstate "github.com/consideritdone/landslidecore/proto/tendermint/state"
+	rpchttp "github.com/consideritdone/landslidecore/rpc/client/http"
+	sm "github.com/consideritdone/landslidecore/state"
+	"github.com/consideritdone/landslidecore/types"
+	"github.com/consideritdone/landslidecore/version"
 )
 
 //go:generate mockery --case underscore --name StateProvider

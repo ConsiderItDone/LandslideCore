@@ -8,16 +8,16 @@ import (
 	"sort"
 	"time"
 
-	abci "github.com/tendermint/tendermint/abci/types"
-	tmbytes "github.com/tendermint/tendermint/libs/bytes"
-	tmmath "github.com/tendermint/tendermint/libs/math"
-	tmquery "github.com/tendermint/tendermint/libs/pubsub/query"
-	mempl "github.com/tendermint/tendermint/mempool"
-	"github.com/tendermint/tendermint/p2p"
-	"github.com/tendermint/tendermint/proxy"
-	"github.com/tendermint/tendermint/rpc/core"
-	ctypes "github.com/tendermint/tendermint/rpc/core/types"
-	"github.com/tendermint/tendermint/types"
+	abci "github.com/consideritdone/landslidecore/abci/types"
+	tmbytes "github.com/consideritdone/landslidecore/libs/bytes"
+	tmmath "github.com/consideritdone/landslidecore/libs/math"
+	tmquery "github.com/consideritdone/landslidecore/libs/pubsub/query"
+	mempl "github.com/consideritdone/landslidecore/mempool"
+	"github.com/consideritdone/landslidecore/p2p"
+	"github.com/consideritdone/landslidecore/proxy"
+	"github.com/consideritdone/landslidecore/rpc/core"
+	ctypes "github.com/consideritdone/landslidecore/rpc/core/types"
+	"github.com/consideritdone/landslidecore/types"
 )
 
 type (

@@ -5,16 +5,16 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/tendermint/tendermint/libs/bytes"
-	"github.com/tendermint/tendermint/libs/log"
-	tmpubsub "github.com/tendermint/tendermint/libs/pubsub"
-	tmquery "github.com/tendermint/tendermint/libs/pubsub/query"
-	nm "github.com/tendermint/tendermint/node"
-	rpcclient "github.com/tendermint/tendermint/rpc/client"
-	"github.com/tendermint/tendermint/rpc/core"
-	ctypes "github.com/tendermint/tendermint/rpc/core/types"
-	rpctypes "github.com/tendermint/tendermint/rpc/jsonrpc/types"
-	"github.com/tendermint/tendermint/types"
+	"github.com/consideritdone/landslidecore/libs/bytes"
+	"github.com/consideritdone/landslidecore/libs/log"
+	tmpubsub "github.com/consideritdone/landslidecore/libs/pubsub"
+	tmquery "github.com/consideritdone/landslidecore/libs/pubsub/query"
+	nm "github.com/consideritdone/landslidecore/node"
+	rpcclient "github.com/consideritdone/landslidecore/rpc/client"
+	"github.com/consideritdone/landslidecore/rpc/core"
+	ctypes "github.com/consideritdone/landslidecore/rpc/core/types"
+	rpctypes "github.com/consideritdone/landslidecore/rpc/jsonrpc/types"
+	"github.com/consideritdone/landslidecore/types"
 )
 
 /*

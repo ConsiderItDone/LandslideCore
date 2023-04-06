@@ -4,13 +4,13 @@ import (
 	"errors"
 	"fmt"
 
-	tmcon "github.com/tendermint/tendermint/consensus"
-	cstypes "github.com/tendermint/tendermint/consensus/types"
-	tmmath "github.com/tendermint/tendermint/libs/math"
-	"github.com/tendermint/tendermint/p2p"
-	tmcons "github.com/tendermint/tendermint/proto/tendermint/consensus"
-	tmproto "github.com/tendermint/tendermint/proto/tendermint/types"
-	"github.com/tendermint/tendermint/types"
+	tmcon "github.com/consideritdone/landslidecore/consensus"
+	cstypes "github.com/consideritdone/landslidecore/consensus/types"
+	tmmath "github.com/consideritdone/landslidecore/libs/math"
+	"github.com/consideritdone/landslidecore/p2p"
+	tmcons "github.com/consideritdone/landslidecore/proto/tendermint/consensus"
+	tmproto "github.com/consideritdone/landslidecore/proto/tendermint/types"
+	"github.com/consideritdone/landslidecore/types"
 )
 
 func WALToProto(msg tmcon.WALMessage) (*tmcons.WALMessage, error) {

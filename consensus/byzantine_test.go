@@ -14,18 +14,18 @@ import (
 
 	dbm "github.com/tendermint/tm-db"
 
-	abcicli "github.com/tendermint/tendermint/abci/client"
-	abci "github.com/tendermint/tendermint/abci/types"
-	"github.com/tendermint/tendermint/evidence"
-	"github.com/tendermint/tendermint/libs/log"
-	"github.com/tendermint/tendermint/libs/service"
-	tmsync "github.com/tendermint/tendermint/libs/sync"
-	mempl "github.com/tendermint/tendermint/mempool"
-	"github.com/tendermint/tendermint/p2p"
-	tmproto "github.com/tendermint/tendermint/proto/tendermint/types"
-	sm "github.com/tendermint/tendermint/state"
-	"github.com/tendermint/tendermint/store"
-	"github.com/tendermint/tendermint/types"
+	abcicli "github.com/consideritdone/landslidecore/abci/client"
+	abci "github.com/consideritdone/landslidecore/abci/types"
+	"github.com/consideritdone/landslidecore/evidence"
+	"github.com/consideritdone/landslidecore/libs/log"
+	"github.com/consideritdone/landslidecore/libs/service"
+	tmsync "github.com/consideritdone/landslidecore/libs/sync"
+	mempl "github.com/consideritdone/landslidecore/mempool"
+	"github.com/consideritdone/landslidecore/p2p"
+	tmproto "github.com/consideritdone/landslidecore/proto/tendermint/types"
+	sm "github.com/consideritdone/landslidecore/state"
+	"github.com/consideritdone/landslidecore/store"
+	"github.com/consideritdone/landslidecore/types"
 )
 
 //----------------------------------------------

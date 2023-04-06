@@ -11,18 +11,18 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/tendermint/tendermint/libs/log"
-	tmos "github.com/tendermint/tendermint/libs/os"
+	"github.com/consideritdone/landslidecore/libs/log"
+	tmos "github.com/consideritdone/landslidecore/libs/os"
 
-	abcicli "github.com/tendermint/tendermint/abci/client"
-	"github.com/tendermint/tendermint/abci/example/code"
-	"github.com/tendermint/tendermint/abci/example/counter"
-	"github.com/tendermint/tendermint/abci/example/kvstore"
-	"github.com/tendermint/tendermint/abci/server"
-	servertest "github.com/tendermint/tendermint/abci/tests/server"
-	"github.com/tendermint/tendermint/abci/types"
-	"github.com/tendermint/tendermint/abci/version"
-	"github.com/tendermint/tendermint/proto/tendermint/crypto"
+	abcicli "github.com/consideritdone/landslidecore/abci/client"
+	"github.com/consideritdone/landslidecore/abci/example/code"
+	"github.com/consideritdone/landslidecore/abci/example/counter"
+	"github.com/consideritdone/landslidecore/abci/example/kvstore"
+	"github.com/consideritdone/landslidecore/abci/server"
+	servertest "github.com/consideritdone/landslidecore/abci/tests/server"
+	"github.com/consideritdone/landslidecore/abci/types"
+	"github.com/consideritdone/landslidecore/abci/version"
+	"github.com/consideritdone/landslidecore/proto/tendermint/crypto"
 )
 
 // client is a global variable so it can be reused by the console

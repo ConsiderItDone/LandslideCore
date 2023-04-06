@@ -14,14 +14,14 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 
-	flow "github.com/tendermint/tendermint/libs/flowrate"
-	"github.com/tendermint/tendermint/libs/log"
-	tmmath "github.com/tendermint/tendermint/libs/math"
-	"github.com/tendermint/tendermint/libs/protoio"
-	"github.com/tendermint/tendermint/libs/service"
-	tmsync "github.com/tendermint/tendermint/libs/sync"
-	"github.com/tendermint/tendermint/libs/timer"
-	tmp2p "github.com/tendermint/tendermint/proto/tendermint/p2p"
+	flow "github.com/consideritdone/landslidecore/libs/flowrate"
+	"github.com/consideritdone/landslidecore/libs/log"
+	tmmath "github.com/consideritdone/landslidecore/libs/math"
+	"github.com/consideritdone/landslidecore/libs/protoio"
+	"github.com/consideritdone/landslidecore/libs/service"
+	tmsync "github.com/consideritdone/landslidecore/libs/sync"
+	"github.com/consideritdone/landslidecore/libs/timer"
+	tmp2p "github.com/consideritdone/landslidecore/proto/tendermint/p2p"
 )
 
 const (
@@ -62,6 +62,7 @@ The byte id and the relative priorities of each `Channel` are configured upon
 initialization of the connection.
 
 There are two methods for sending messages:
+
 	func (m MConnection) Send(chID byte, msgBytes []byte) bool {}
 	func (m MConnection) TrySend(chID byte, msgBytes []byte}) bool {}
 
@@ -609,7 +610,7 @@ FOR_LOOP:
 		switch pkt := packet.Sum.(type) {
 		case *tmp2p.Packet_PacketPing:
 			// TODO: prevent abuse, as they cause flush()'s.
-			// https://github.com/tendermint/tendermint/issues/1190
+			// https://github.com/consideritdone/landslidecore/issues/1190
 			c.Logger.Debug("Receive Ping")
 			select {
 			case c.pong <- struct{}{}:

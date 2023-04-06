@@ -19,12 +19,12 @@ import (
 
 	"github.com/BurntSushi/toml"
 
-	"github.com/tendermint/tendermint/config"
-	"github.com/tendermint/tendermint/crypto/ed25519"
-	"github.com/tendermint/tendermint/p2p"
-	"github.com/tendermint/tendermint/privval"
-	e2e "github.com/tendermint/tendermint/test/e2e/pkg"
-	"github.com/tendermint/tendermint/types"
+	"github.com/consideritdone/landslidecore/config"
+	"github.com/consideritdone/landslidecore/crypto/ed25519"
+	"github.com/consideritdone/landslidecore/p2p"
+	"github.com/consideritdone/landslidecore/privval"
+	e2e "github.com/consideritdone/landslidecore/test/e2e/pkg"
+	"github.com/consideritdone/landslidecore/types"
 )
 
 const (

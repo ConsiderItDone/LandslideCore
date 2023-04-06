@@ -13,11 +13,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/tendermint/tendermint/config"
-	"github.com/tendermint/tendermint/libs/log"
-	"github.com/tendermint/tendermint/p2p"
-	"github.com/tendermint/tendermint/p2p/mock"
-	tmp2p "github.com/tendermint/tendermint/proto/tendermint/p2p"
+	"github.com/consideritdone/landslidecore/config"
+	"github.com/consideritdone/landslidecore/libs/log"
+	"github.com/consideritdone/landslidecore/p2p"
+	"github.com/consideritdone/landslidecore/p2p/mock"
+	tmp2p "github.com/consideritdone/landslidecore/proto/tendermint/p2p"
 )
 
 var (
@@ -59,15 +59,15 @@ func TestPEXReactorAddRemovePeer(t *testing.T) {
 }
 
 // --- FAIL: TestPEXReactorRunning (11.10s)
-// 				pex_reactor_test.go:411: expected all switches to be connected to at
-// 				least one peer (switches: 0 => {outbound: 1, inbound: 0}, 1 =>
-// 				{outbound: 0, inbound: 1}, 2 => {outbound: 0, inbound: 0}, )
+//
+//	pex_reactor_test.go:411: expected all switches to be connected to at
+//	least one peer (switches: 0 => {outbound: 1, inbound: 0}, 1 =>
+//	{outbound: 0, inbound: 1}, 2 => {outbound: 0, inbound: 0}, )
 //
 // EXPLANATION: peers are getting rejected because in switch#addPeer we check
 // if any peer (who we already connected to) has the same IP. Even though local
 // peers have different IP addresses, they all have the same underlying remote
 // IP: 127.0.0.1.
-//
 func TestPEXReactorRunning(t *testing.T) {
 	N := 3
 	switches := make([]*p2p.Switch, N)
@@ -403,7 +403,7 @@ func TestPEXReactorDialsPeerUpToMaxAttemptsInSeedMode(t *testing.T) {
 // this should give it time to request addrs and for the seed
 // to call FlushStop, and allows us to test calling Stop concurrently
 // with FlushStop. Before a fix, this non-deterministically reproduced
-// https://github.com/tendermint/tendermint/issues/3231.
+// https://github.com/consideritdone/landslidecore/issues/3231.
 func TestPEXReactorSeedModeFlushStop(t *testing.T) {
 	N := 2
 	switches := make([]*p2p.Switch, N)

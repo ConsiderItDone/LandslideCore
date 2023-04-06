@@ -5,15 +5,15 @@ import (
 	"fmt"
 	"time"
 
-	abci "github.com/tendermint/tendermint/abci/types"
-	cryptoenc "github.com/tendermint/tendermint/crypto/encoding"
-	"github.com/tendermint/tendermint/libs/fail"
-	"github.com/tendermint/tendermint/libs/log"
-	mempl "github.com/tendermint/tendermint/mempool"
-	tmstate "github.com/tendermint/tendermint/proto/tendermint/state"
-	tmproto "github.com/tendermint/tendermint/proto/tendermint/types"
-	"github.com/tendermint/tendermint/proxy"
-	"github.com/tendermint/tendermint/types"
+	abci "github.com/consideritdone/landslidecore/abci/types"
+	cryptoenc "github.com/consideritdone/landslidecore/crypto/encoding"
+	"github.com/consideritdone/landslidecore/libs/fail"
+	"github.com/consideritdone/landslidecore/libs/log"
+	mempl "github.com/consideritdone/landslidecore/mempool"
+	tmstate "github.com/consideritdone/landslidecore/proto/tendermint/state"
+	tmproto "github.com/consideritdone/landslidecore/proto/tendermint/types"
+	"github.com/consideritdone/landslidecore/proxy"
+	"github.com/consideritdone/landslidecore/types"
 )
 
 //-----------------------------------------------------------------------------

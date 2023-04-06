@@ -11,7 +11,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	tmrand "github.com/tendermint/tendermint/libs/rand"
+	tmrand "github.com/consideritdone/landslidecore/libs/rand"
 )
 
 func TestWriteFileAtomic(t *testing.T) {

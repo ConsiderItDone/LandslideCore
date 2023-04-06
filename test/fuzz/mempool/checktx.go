@@ -1,10 +1,10 @@
 package checktx
 
 import (
-	"github.com/tendermint/tendermint/abci/example/kvstore"
-	"github.com/tendermint/tendermint/config"
-	mempl "github.com/tendermint/tendermint/mempool"
-	"github.com/tendermint/tendermint/proxy"
+	"github.com/consideritdone/landslidecore/abci/example/kvstore"
+	"github.com/consideritdone/landslidecore/config"
+	mempl "github.com/consideritdone/landslidecore/mempool"
+	"github.com/consideritdone/landslidecore/proxy"
 )
 
 var mempool mempl.Mempool

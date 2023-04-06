@@ -18,13 +18,13 @@ import (
 	"context"
 	"reflect"
 
-	"github.com/tendermint/tendermint/libs/bytes"
-	"github.com/tendermint/tendermint/libs/service"
-	"github.com/tendermint/tendermint/rpc/client"
-	"github.com/tendermint/tendermint/rpc/core"
-	ctypes "github.com/tendermint/tendermint/rpc/core/types"
-	rpctypes "github.com/tendermint/tendermint/rpc/jsonrpc/types"
-	"github.com/tendermint/tendermint/types"
+	"github.com/consideritdone/landslidecore/libs/bytes"
+	"github.com/consideritdone/landslidecore/libs/service"
+	"github.com/consideritdone/landslidecore/rpc/client"
+	"github.com/consideritdone/landslidecore/rpc/core"
+	ctypes "github.com/consideritdone/landslidecore/rpc/core/types"
+	rpctypes "github.com/consideritdone/landslidecore/rpc/jsonrpc/types"
+	"github.com/consideritdone/landslidecore/types"
 )
 
 // Client wraps arbitrary implementations of the various interfaces.
@@ -47,7 +47,6 @@ var _ client.Client = Client{}
 
 // Call is used by recorders to save a call and response.
 // It can also be used to configure mock responses.
-//
 type Call struct {
 	Name     string
 	Args     interface{}

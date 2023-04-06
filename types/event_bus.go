@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/tendermint/tendermint/abci/types"
-	"github.com/tendermint/tendermint/libs/log"
-	tmpubsub "github.com/tendermint/tendermint/libs/pubsub"
-	"github.com/tendermint/tendermint/libs/service"
+	"github.com/consideritdone/landslidecore/abci/types"
+	"github.com/consideritdone/landslidecore/libs/log"
+	tmpubsub "github.com/consideritdone/landslidecore/libs/pubsub"
+	"github.com/consideritdone/landslidecore/libs/service"
 )
 
 const defaultCapacity = 0
@@ -227,7 +227,7 @@ func (b *EventBus) PublishEventValidatorSetUpdates(data EventDataValidatorSetUpd
 	return b.Publish(EventValidatorSetUpdates, data)
 }
 
-//-----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
 type NopEventBus struct{}
 
 func (NopEventBus) Subscribe(

@@ -5,13 +5,13 @@ import (
 
 	"github.com/spf13/cobra"
 
-	cfg "github.com/tendermint/tendermint/config"
-	tmos "github.com/tendermint/tendermint/libs/os"
-	tmrand "github.com/tendermint/tendermint/libs/rand"
-	"github.com/tendermint/tendermint/p2p"
-	"github.com/tendermint/tendermint/privval"
-	"github.com/tendermint/tendermint/types"
-	tmtime "github.com/tendermint/tendermint/types/time"
+	cfg "github.com/consideritdone/landslidecore/config"
+	tmos "github.com/consideritdone/landslidecore/libs/os"
+	tmrand "github.com/consideritdone/landslidecore/libs/rand"
+	"github.com/consideritdone/landslidecore/p2p"
+	"github.com/consideritdone/landslidecore/privval"
+	"github.com/consideritdone/landslidecore/types"
+	tmtime "github.com/consideritdone/landslidecore/types/time"
 )
 
 // InitFilesCmd initialises a fresh Tendermint Core instance.

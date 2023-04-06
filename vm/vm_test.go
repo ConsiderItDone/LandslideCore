@@ -13,12 +13,12 @@ import (
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/avalanchego/version"
 	"github.com/ava-labs/avalanchego/vms/components/chain"
+	"github.com/consideritdone/landslidecore/abci/example/counter"
+	"github.com/consideritdone/landslidecore/abci/types"
+	tmrand "github.com/consideritdone/landslidecore/libs/rand"
+	ctypes "github.com/consideritdone/landslidecore/rpc/core/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/tendermint/tendermint/abci/example/counter"
-	"github.com/tendermint/tendermint/abci/types"
-	tmrand "github.com/tendermint/tendermint/libs/rand"
-	ctypes "github.com/tendermint/tendermint/rpc/core/types"
 
 	_ "embed"
 )

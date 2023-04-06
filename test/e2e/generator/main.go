@@ -1,4 +1,4 @@
-//nolint: gosec
+// nolint: gosec
 package main
 
 import (
@@ -10,7 +10,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/tendermint/tendermint/libs/log"
+	"github.com/consideritdone/landslidecore/libs/log"
 )
 
 const (

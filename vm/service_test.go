@@ -5,11 +5,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/consideritdone/landslidecore/abci/types"
+	abci "github.com/consideritdone/landslidecore/abci/types"
+	ctypes "github.com/consideritdone/landslidecore/rpc/core/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/tendermint/tendermint/abci/types"
-	abci "github.com/tendermint/tendermint/abci/types"
-	ctypes "github.com/tendermint/tendermint/rpc/core/types"
 )
 
 func TestABCIService(t *testing.T) {

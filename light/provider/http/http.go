@@ -8,14 +8,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/tendermint/tendermint/light/provider"
-	rpcclient "github.com/tendermint/tendermint/rpc/client"
-	rpchttp "github.com/tendermint/tendermint/rpc/client/http"
-	"github.com/tendermint/tendermint/types"
+	"github.com/consideritdone/landslidecore/light/provider"
+	rpcclient "github.com/consideritdone/landslidecore/rpc/client"
+	rpchttp "github.com/consideritdone/landslidecore/rpc/client/http"
+	"github.com/consideritdone/landslidecore/types"
 )
 
 var (
-	// This is very brittle, see: https://github.com/tendermint/tendermint/issues/4740
+	// This is very brittle, see: https://github.com/consideritdone/landslidecore/issues/4740
 	regexpMissingHeight = regexp.MustCompile(`height \d+ is not available`)
 	regexpTooHigh       = regexp.MustCompile(`height \d+ must be less than or equal to`)
 	regexpTimedOut      = regexp.MustCompile(`Timeout exceeded`)

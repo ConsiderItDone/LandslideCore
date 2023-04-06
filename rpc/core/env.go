@@ -5,18 +5,18 @@ import (
 	"fmt"
 	"time"
 
-	cfg "github.com/tendermint/tendermint/config"
-	"github.com/tendermint/tendermint/consensus"
-	"github.com/tendermint/tendermint/crypto"
-	tmjson "github.com/tendermint/tendermint/libs/json"
-	"github.com/tendermint/tendermint/libs/log"
-	mempl "github.com/tendermint/tendermint/mempool"
-	"github.com/tendermint/tendermint/p2p"
-	"github.com/tendermint/tendermint/proxy"
-	sm "github.com/tendermint/tendermint/state"
-	"github.com/tendermint/tendermint/state/indexer"
-	"github.com/tendermint/tendermint/state/txindex"
-	"github.com/tendermint/tendermint/types"
+	cfg "github.com/consideritdone/landslidecore/config"
+	"github.com/consideritdone/landslidecore/consensus"
+	"github.com/consideritdone/landslidecore/crypto"
+	tmjson "github.com/consideritdone/landslidecore/libs/json"
+	"github.com/consideritdone/landslidecore/libs/log"
+	mempl "github.com/consideritdone/landslidecore/mempool"
+	"github.com/consideritdone/landslidecore/p2p"
+	"github.com/consideritdone/landslidecore/proxy"
+	sm "github.com/consideritdone/landslidecore/state"
+	"github.com/consideritdone/landslidecore/state/indexer"
+	"github.com/consideritdone/landslidecore/state/txindex"
+	"github.com/consideritdone/landslidecore/types"
 )
 
 const (
@@ -69,7 +69,7 @@ type peers interface {
 	Peers() p2p.IPeerSet
 }
 
-//----------------------------------------------
+// ----------------------------------------------
 // Environment contains objects and interfaces used by the RPC. It is expected
 // to be setup once during startup.
 type Environment struct {

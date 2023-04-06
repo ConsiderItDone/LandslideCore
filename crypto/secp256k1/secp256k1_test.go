@@ -9,10 +9,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/tendermint/tendermint/crypto"
-	"github.com/tendermint/tendermint/crypto/secp256k1"
+	"github.com/consideritdone/landslidecore/crypto"
+	"github.com/consideritdone/landslidecore/crypto/secp256k1"
 
-	underlyingSecp256k1 "github.com/tendermint/tendermint/crypto/secp256k1/btcec"
+	underlyingSecp256k1 "github.com/consideritdone/landslidecore/crypto/secp256k1/btcec"
 )
 
 type keyData struct {

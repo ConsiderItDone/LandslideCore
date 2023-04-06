@@ -6,13 +6,13 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 
-	cstypes "github.com/tendermint/tendermint/consensus/types"
-	"github.com/tendermint/tendermint/libs/bits"
-	tmmath "github.com/tendermint/tendermint/libs/math"
-	"github.com/tendermint/tendermint/p2p"
-	tmcons "github.com/tendermint/tendermint/proto/tendermint/consensus"
-	tmproto "github.com/tendermint/tendermint/proto/tendermint/types"
-	"github.com/tendermint/tendermint/types"
+	cstypes "github.com/consideritdone/landslidecore/consensus/types"
+	"github.com/consideritdone/landslidecore/libs/bits"
+	tmmath "github.com/consideritdone/landslidecore/libs/math"
+	"github.com/consideritdone/landslidecore/p2p"
+	tmcons "github.com/consideritdone/landslidecore/proto/tendermint/consensus"
+	tmproto "github.com/consideritdone/landslidecore/proto/tendermint/types"
+	"github.com/consideritdone/landslidecore/types"
 )
 
 // MsgToProto takes a consensus message type and returns the proto defined consensus message
