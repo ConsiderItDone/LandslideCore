@@ -15,10 +15,10 @@ require (
 	github.com/facebookgo/subset v0.0.0-20150612182917-8dac2c3c4870 // indirect
 	github.com/fortytw2/leaktest v1.3.0
 	github.com/go-kit/kit v0.12.0
-	github.com/go-kit/log v0.2.0
+	github.com/go-kit/log v0.2.1
 	github.com/go-logfmt/logfmt v0.5.1
 	github.com/gogo/protobuf v1.3.2
-	github.com/golang/protobuf v1.5.2
+	github.com/golang/protobuf v1.5.3
 	github.com/google/orderedcode v0.0.1
 	github.com/gorilla/rpc v1.2.0
 	github.com/gorilla/websocket v1.5.0
@@ -28,7 +28,7 @@ require (
 	github.com/minio/highwayhash v1.0.2
 	github.com/ory/dockertest v3.3.5+incompatible
 	github.com/pkg/errors v0.9.1
-	github.com/prometheus/client_golang v1.13.0
+	github.com/prometheus/client_golang v1.15.0
 	github.com/rcrowley/go-metrics v0.0.0-20200313005456-10cdbea86bc0
 	github.com/rs/cors v1.8.2
 	github.com/sasha-s/go-deadlock v0.2.1-0.20190427202633-1595213edefa
