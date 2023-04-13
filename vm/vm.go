@@ -419,6 +419,78 @@ func (vm *VM) getBlock(_ context.Context, id ids.ID) (snowman.Block, error) {
 	return vm.newBlock(tmBlock)
 }
 
+func (vm *VM) applyBlock(block *Block) error {
+	vm.mempool.Lock()
+	defer vm.mempool.Unlock()
+
+	partSet := block.tmBlock.MakePartSet(types.BlockPartSizeBytes)
+	blockID := types.BlockID{
+		Hash:          block.tmBlock.Hash(),
+		PartSetHeader: partSet.Header(),
+	}
+	commit := types.NewCommit(int64(block.Height()), 0, types.BlockID{Hash: []byte(""), PartSetHeader: types.PartSetHeader{Hash: []byte(""), Total: 1}}, nil)
+	//commit := types.NewCommit(int64(block.Height()), 0, blockID, []types.CommitSig{{Timestamp: time.Now()}})
+	block.tmBlock.LastCommit = vm.blockStore.LoadBlockCommit(vm.blockStore.Height())
+	vm.blockStore.SaveBlock(block.tmBlock, partSet, commit)
+
+	state, err := vm.stateStore.Load()
+	if err != nil {
+		return err
+	}
+
+	if err := validateBlock(state, block.tmBlock); err != nil {
+		return nil
+	}
+
+	abciResponses, err := execBlockOnProxyApp(vm.tmLogger, vm.ProxyApp().Consensus(), block.tmBlock, vm.stateStore, state.InitialHeight)
+	if err != nil {
+		return err
+	}
+	if err := vm.stateStore.SaveABCIResponses(block.tmBlock.Height, abciResponses); err != nil {
+		return err
+	}
+	state = sm.State{
+		Version:         state.Version,
+		ChainID:         state.ChainID,
+		InitialHeight:   state.InitialHeight,
+		LastBlockHeight: block.tmBlock.Height,
+		LastBlockID:     blockID,
+		LastBlockTime:   block.tmBlock.Time,
+		LastResultsHash: sm.ABCIResponsesResultsHash(abciResponses),
+		AppHash:         nil,
+	}
+
+	// while mempool is Locked, flush to ensure all async requests have completed
+	// in the ABCI app before Commit.
+	if err := vm.mempool.FlushAppConn(); err != nil {
+		vm.tmLogger.Error("client error during mempool.FlushAppConn", "err", err)
+		return err
+	}
+
+	// Commit block, get hash back
+	if _, err := vm.proxyApp.Consensus().CommitSync(); err != nil {
+		vm.tmLogger.Error("client error during proxyAppConn.CommitSync", "err", err)
+		return err
+	}
+
+	if err := vm.mempool.Update(
+		block.tmBlock.Height,
+		block.tmBlock.Txs,
+		abciResponses.DeliverTxs,
+		sm.TxPreCheck(state),
+		sm.TxPostCheck(state),
+	); err != nil {
+		return err
+	}
+
+	if err := vm.stateStore.Save(state); err != nil {
+		return err
+	}
+
+	fireEvents(vm.tmLogger, vm.eventBus, block.tmBlock, abciResponses)
+	return nil
+}
+
 // buildBlock builds a block to be wrapped by ChainState
 func (vm *VM) buildBlock(_ context.Context) (snowman.Block, error) {
 	txs := vm.mempool.ReapMaxBytesMaxGas(-1, -1)
