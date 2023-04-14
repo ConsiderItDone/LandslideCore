@@ -9,6 +9,7 @@ import (
 
 	"github.com/consideritdone/landslidecore/crypto/tmhash"
 	tmrand "github.com/consideritdone/landslidecore/libs/rand"
+	ctest "github.com/consideritdone/landslidecore/libs/test"
 )
 
 type testItem []byte
@@ -90,11 +91,11 @@ func TestProof(t *testing.T) {
 		proof.Aunts = origAunts
 
 		// Mutating the itemHash should make it fail.
-		err = proof.Verify(rootHash, MutateByteSlice(item))
+		err = proof.Verify(rootHash, ctest.MutateByteSlice(item))
 		require.Error(t, err, "Expected verification to fail for mutated leaf hash")
 
 		// Mutating the rootHash should make it fail.
-		err = proof.Verify(MutateByteSlice(rootHash), item)
+		err = proof.Verify(ctest.MutateByteSlice(rootHash), item)
 		require.Error(t, err, "Expected verification to fail for mutated root hash")
 	}
 }
