@@ -7,8 +7,8 @@ import (
 
 	"context"
 
-	tmjson "github.com/tendermint/tendermint/libs/json"
-	coregrpc "github.com/tendermint/tendermint/rpc/grpc"
+	tmjson "github.com/consideritdone/landslidecore/libs/json"
+	coregrpc "github.com/consideritdone/landslidecore/rpc/grpc"
 )
 
 var grpcAddr = "tcp://localhost:36656"

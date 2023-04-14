@@ -3,10 +3,10 @@ package vm
 import (
 	"fmt"
 
-	tmmath "github.com/tendermint/tendermint/libs/math"
-	"github.com/tendermint/tendermint/rpc/client"
-	coretypes "github.com/tendermint/tendermint/rpc/core/types"
-	"github.com/tendermint/tendermint/store"
+	tmmath "github.com/consideritdone/landslidecore/libs/math"
+	"github.com/consideritdone/landslidecore/rpc/client"
+	coretypes "github.com/consideritdone/landslidecore/rpc/core/types"
+	"github.com/consideritdone/landslidecore/store"
 )
 
 var (

@@ -8,12 +8,12 @@ import (
 	"io/ioutil"
 	"time"
 
-	"github.com/tendermint/tendermint/crypto"
-	tmbytes "github.com/tendermint/tendermint/libs/bytes"
-	tmjson "github.com/tendermint/tendermint/libs/json"
-	tmos "github.com/tendermint/tendermint/libs/os"
-	tmproto "github.com/tendermint/tendermint/proto/tendermint/types"
-	tmtime "github.com/tendermint/tendermint/types/time"
+	"github.com/consideritdone/landslidecore/crypto"
+	tmbytes "github.com/consideritdone/landslidecore/libs/bytes"
+	tmjson "github.com/consideritdone/landslidecore/libs/json"
+	tmos "github.com/consideritdone/landslidecore/libs/os"
+	tmproto "github.com/consideritdone/landslidecore/proto/tendermint/types"
+	tmtime "github.com/consideritdone/landslidecore/types/time"
 )
 
 const (

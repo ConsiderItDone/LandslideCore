@@ -9,7 +9,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	tmrand "github.com/tendermint/tendermint/libs/rand"
+	tmrand "github.com/consideritdone/landslidecore/libs/rand"
 )
 
 func TestPanicOnMaxLength(t *testing.T) {
@@ -68,6 +68,7 @@ func TestSmall(t *testing.T) {
 
 // This test is quite hacky because it relies on SetFinalizer
 // which isn't guaranteed to run at all.
+//
 //nolint:unused,deadcode
 func _TestGCFifo(t *testing.T) {
 	if runtime.GOARCH != "amd64" {
@@ -117,6 +118,7 @@ func _TestGCFifo(t *testing.T) {
 
 // This test is quite hacky because it relies on SetFinalizer
 // which isn't guaranteed to run at all.
+//
 //nolint:unused,deadcode
 func _TestGCRandom(t *testing.T) {
 	if runtime.GOARCH != "amd64" {

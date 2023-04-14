@@ -3,9 +3,9 @@ package types
 import (
 	fmt "fmt"
 
-	"github.com/tendermint/tendermint/crypto/ed25519"
-	cryptoenc "github.com/tendermint/tendermint/crypto/encoding"
-	"github.com/tendermint/tendermint/crypto/secp256k1"
+	"github.com/consideritdone/landslidecore/crypto/ed25519"
+	cryptoenc "github.com/consideritdone/landslidecore/crypto/encoding"
+	"github.com/consideritdone/landslidecore/crypto/secp256k1"
 )
 
 func Ed25519ValidatorUpdate(pk []byte, power int64) ValidatorUpdate {

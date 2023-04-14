@@ -7,7 +7,7 @@ import (
 
 	"github.com/Workiva/go-datastructures/queue"
 
-	"github.com/tendermint/tendermint/libs/log"
+	"github.com/consideritdone/landslidecore/libs/log"
 )
 
 type handleFunc = func(event Event) (Event, error)

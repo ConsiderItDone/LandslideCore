@@ -5,8 +5,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	tmjson "github.com/tendermint/tendermint/libs/json"
-	"github.com/tendermint/tendermint/p2p/upnp"
+	tmjson "github.com/consideritdone/landslidecore/libs/json"
+	"github.com/consideritdone/landslidecore/p2p/upnp"
 )
 
 // ProbeUpnpCmd adds capabilities to test the UPnP functionality.

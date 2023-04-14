@@ -5,7 +5,7 @@ import (
 	"net/url"
 	"reflect"
 
-	tmjson "github.com/tendermint/tendermint/libs/json"
+	tmjson "github.com/consideritdone/landslidecore/libs/json"
 )
 
 func argsToURLValues(args map[string]interface{}) (url.Values, error) {

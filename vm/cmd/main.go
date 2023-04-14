@@ -3,8 +3,8 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/tendermint/tendermint/abci/example/counter"
-	landslideCoreVM "github.com/tendermint/tendermint/vm"
+	"github.com/consideritdone/landslidecore/abci/example/counter"
+	landslideCoreVM "github.com/consideritdone/landslidecore/vm"
 	"os"
 
 	"github.com/ava-labs/avalanchego/utils/logging"

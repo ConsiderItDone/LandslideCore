@@ -11,16 +11,16 @@ import (
 
 	dbm "github.com/tendermint/tm-db"
 
-	"github.com/tendermint/tendermint/evidence"
-	"github.com/tendermint/tendermint/evidence/mocks"
-	"github.com/tendermint/tendermint/libs/log"
-	tmproto "github.com/tendermint/tendermint/proto/tendermint/types"
-	tmversion "github.com/tendermint/tendermint/proto/tendermint/version"
-	sm "github.com/tendermint/tendermint/state"
-	smmocks "github.com/tendermint/tendermint/state/mocks"
-	"github.com/tendermint/tendermint/store"
-	"github.com/tendermint/tendermint/types"
-	"github.com/tendermint/tendermint/version"
+	"github.com/consideritdone/landslidecore/evidence"
+	"github.com/consideritdone/landslidecore/evidence/mocks"
+	"github.com/consideritdone/landslidecore/libs/log"
+	tmproto "github.com/consideritdone/landslidecore/proto/tendermint/types"
+	tmversion "github.com/consideritdone/landslidecore/proto/tendermint/version"
+	sm "github.com/consideritdone/landslidecore/state"
+	smmocks "github.com/consideritdone/landslidecore/state/mocks"
+	"github.com/consideritdone/landslidecore/store"
+	"github.com/consideritdone/landslidecore/types"
+	"github.com/consideritdone/landslidecore/version"
 )
 
 func TestMain(m *testing.M) {

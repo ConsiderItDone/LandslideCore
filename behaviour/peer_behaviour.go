@@ -1,7 +1,7 @@
 package behaviour
 
 import (
-	"github.com/tendermint/tendermint/p2p"
+	"github.com/consideritdone/landslidecore/p2p"
 )
 
 // PeerBehaviour is a struct describing a behaviour a peer performed.

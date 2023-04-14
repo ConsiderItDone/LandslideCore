@@ -1,4 +1,4 @@
-//nolint: gosec
+// nolint: gosec
 package e2e
 
 import (
@@ -12,11 +12,11 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/tendermint/tendermint/crypto"
-	"github.com/tendermint/tendermint/crypto/ed25519"
-	"github.com/tendermint/tendermint/crypto/secp256k1"
-	rpchttp "github.com/tendermint/tendermint/rpc/client/http"
-	mcs "github.com/tendermint/tendermint/test/maverick/consensus"
+	"github.com/consideritdone/landslidecore/crypto"
+	"github.com/consideritdone/landslidecore/crypto/ed25519"
+	"github.com/consideritdone/landslidecore/crypto/secp256k1"
+	rpchttp "github.com/consideritdone/landslidecore/rpc/client/http"
+	mcs "github.com/consideritdone/landslidecore/test/maverick/consensus"
 )
 
 const (

@@ -1,8 +1,8 @@
 package psql
 
 import (
-	"github.com/tendermint/tendermint/state/indexer"
-	"github.com/tendermint/tendermint/state/txindex"
+	"github.com/consideritdone/landslidecore/state/indexer"
+	"github.com/consideritdone/landslidecore/state/txindex"
 )
 
 var (
