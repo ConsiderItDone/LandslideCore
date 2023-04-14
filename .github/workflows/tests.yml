@@ -30,4 +30,4 @@ jobs:
       - uses: actions/checkout@v2
 
       - name: test VM
-        run: go test -v ./vm/..
+        run: go test -v ./vm/...
