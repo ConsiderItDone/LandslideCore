@@ -2,7 +2,9 @@ package vm
 
 import (
 	"context"
+	_ "embed"
 	"fmt"
+	"github.com/consideritdone/landslidecore/abci/example/kvstore"
 	"os"
 	"testing"
 
@@ -13,14 +15,14 @@ import (
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/avalanchego/version"
 	"github.com/ava-labs/avalanchego/vms/components/chain"
-	"github.com/consideritdone/landslidecore/abci/example/counter"
-	"github.com/consideritdone/landslidecore/abci/types"
-	tmrand "github.com/consideritdone/landslidecore/libs/rand"
-	ctypes "github.com/consideritdone/landslidecore/rpc/core/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	_ "embed"
+	"github.com/consideritdone/landslidecore/abci/example/counter"
+	"github.com/consideritdone/landslidecore/abci/types"
+	abciTypes "github.com/consideritdone/landslidecore/abci/types"
+	tmrand "github.com/consideritdone/landslidecore/libs/rand"
+	ctypes "github.com/consideritdone/landslidecore/rpc/core/types"
 )
 
 var (
@@ -30,14 +32,26 @@ var (
 	genesis string
 )
 
-func newTestVM() (*VM, *snow.Context, chan common.Message, error) {
+func newCounterTestVM() (*VM, *snow.Context, chan common.Message, error) {
+	app := counter.NewApplication(true)
+
+	return newTestVM(app)
+}
+
+func newKVTestVM() (*VM, *snow.Context, chan common.Message, error) {
+	app := kvstore.NewApplication()
+
+	return newTestVM(app)
+}
+
+func newTestVM(app abciTypes.Application) (*VM, *snow.Context, chan common.Message, error) {
 	dbManager := manager.NewMemDB(&version.Semantic{
 		Major: 1,
 		Minor: 0,
 		Patch: 0,
 	})
 	msgChan := make(chan common.Message, 1)
-	vm := NewVM(counter.NewApplication(true))
+	vm := NewVM(app)
 	snowCtx := snow.DefaultContextTest()
 	snowCtx.Log = logging.NewLogger(
 		fmt.Sprintf("<%s Chain>", blockchainID),
@@ -53,13 +67,22 @@ func newTestVM() (*VM, *snow.Context, chan common.Message, error) {
 	return vm, snowCtx, msgChan, err
 }
 
-func mustNewTestVm(t *testing.T) (*VM, Service) {
-	vm, _, _, err := newTestVM()
+func mustNewCounterTestVm(t *testing.T) (*VM, Service, chan common.Message) {
+	vm, _, msgChan, err := newCounterTestVM()
 	require.NoError(t, err)
 	require.NotNil(t, vm)
 
 	service := NewService(vm)
-	return vm, service
+	return vm, service, msgChan
+}
+
+func mustNewKVTestVm(t *testing.T) (*VM, Service, chan common.Message) {
+	vm, _, msgChan, err := newKVTestVM()
+	require.NoError(t, err)
+	require.NotNil(t, vm)
+
+	service := NewService(vm)
+	return vm, service, msgChan
 }
 
 // MakeTxKV returns a text transaction, allong with expected key, value pair
@@ -70,7 +93,7 @@ func MakeTxKV() ([]byte, []byte, []byte) {
 }
 
 func TestInitVm(t *testing.T) {
-	vm, service := mustNewTestVm(t)
+	vm, service, msgChan := mustNewCounterTestVm(t)
 
 	blk0, err := vm.BuildBlock(context.Background())
 	assert.ErrorIs(t, err, errNoPendingTxs, "expecting error no txs")
@@ -84,6 +107,13 @@ func TestInitVm(t *testing.T) {
 	err = service.BroadcastTxSync(nil, args, reply)
 	assert.NoError(t, err)
 	assert.Equal(t, types.CodeTypeOK, reply.Code)
+
+	select { // require there is a pending tx message to the engine
+	case msg := <-msgChan:
+		require.Equal(t, common.PendingTxs, msg)
+	default:
+		require.FailNow(t, "should have been pendingTxs message on channel")
+	}
 
 	// build 1st block
 	blk1, err := vm.BuildBlock(context.Background())
@@ -115,6 +145,13 @@ func TestInitVm(t *testing.T) {
 	err = service.BroadcastTxSync(nil, args, reply)
 	assert.NoError(t, err)
 	assert.Equal(t, types.CodeTypeOK, reply.Code)
+
+	select { // require there is a pending tx message to the engine
+	case msg := <-msgChan:
+		require.Equal(t, common.PendingTxs, msg)
+	default:
+		require.FailNow(t, "should have been pendingTxs message on channel")
+	}
 
 	// build second block with 2 TX together
 	blk2, err := vm.BuildBlock(context.Background())

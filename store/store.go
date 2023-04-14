@@ -394,6 +394,37 @@ func (bs *BlockStore) SaveBlock(block *types.Block, blockParts *types.PartSet, s
 	bs.saveState()
 }
 
+func (bs *BlockStore) SaveBlockWOParts(block *types.Block) {
+	if block == nil {
+		panic("BlockStore can only save a non-nil block")
+	}
+
+	height := block.Height
+	hash := block.Hash()
+
+	if g, w := height, bs.Height()+1; bs.Base() > 0 && g != w {
+		panic(fmt.Sprintf("BlockStore can only save contiguous blocks. Wanted %v, got %v", w, g))
+	}
+
+	// Save block meta
+	if err := bs.db.Set(calcBlockHashKey(hash), []byte(fmt.Sprintf("%d", height))); err != nil {
+		panic(err)
+	}
+
+	// Save block commit (duplicate and separate from the Block)
+
+	// Done!
+	bs.mtx.Lock()
+	bs.height = height
+	if bs.base == 0 {
+		bs.base = height
+	}
+	bs.mtx.Unlock()
+
+	// Save new BlockStoreState descriptor. This also flushes the database.
+	bs.saveState()
+}
+
 func (bs *BlockStore) saveBlockPart(height int64, index int, part *types.Part) {
 	pbp, err := part.ToProto()
 	if err != nil {

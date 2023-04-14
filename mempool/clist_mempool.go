@@ -71,6 +71,8 @@ type CListMempool struct {
 	logger log.Logger
 
 	metrics *Metrics
+
+	blockReadyNotifier BlockReadyNotifier
 }
 
 var _ Mempool = &CListMempool{}
@@ -83,17 +85,19 @@ func NewCListMempool(
 	config *cfg.MempoolConfig,
 	proxyAppConn proxy.AppConnMempool,
 	height int64,
+	blockReadyNotifier BlockReadyNotifier,
 	options ...CListMempoolOption,
 ) *CListMempool {
 	mempool := &CListMempool{
-		config:        config,
-		proxyAppConn:  proxyAppConn,
-		txs:           clist.New(),
-		height:        height,
-		recheckCursor: nil,
-		recheckEnd:    nil,
-		logger:        log.NewNopLogger(),
-		metrics:       NopMetrics(),
+		config:             config,
+		proxyAppConn:       proxyAppConn,
+		txs:                clist.New(),
+		height:             height,
+		recheckCursor:      nil,
+		recheckEnd:         nil,
+		logger:             log.NewNopLogger(),
+		metrics:            NopMetrics(),
+		blockReadyNotifier: blockReadyNotifier,
 	}
 	if config.CacheSize > 0 {
 		mempool.cache = newMapTxCache(config.CacheSize)
@@ -342,6 +346,7 @@ func (mem *CListMempool) reqResCb(
 
 		// passed in by the caller of CheckTx, eg. the RPC
 		if externalCb != nil {
+			mem.logger.Debug("calling external callback from mempool checkTx")
 			externalCb(res)
 		}
 	}
@@ -435,6 +440,9 @@ func (mem *CListMempool) resCbFirstTime(
 				"height", memTx.height,
 				"total", mem.Size(),
 			)
+			if mem.blockReadyNotifier != nil {
+				mem.blockReadyNotifier.NotifyBlockReady()
+			}
 			mem.notifyTxsAvailable()
 		} else {
 			// ignore bad transaction
@@ -511,6 +519,7 @@ func (mem *CListMempool) notifyTxsAvailable() {
 		mem.notifiedTxsAvailable = true
 		select {
 		case mem.txsAvailable <- struct{}{}:
+			mem.logger.Debug("Notified about new Tx available")
 		default:
 		}
 	}

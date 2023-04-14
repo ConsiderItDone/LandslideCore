@@ -86,6 +86,11 @@ func (b *Block) Accept(ctx context.Context) error {
 		nil,
 	)
 
+	vm.tmState.LastBlockHeight = b.tmBlock.Height
+	vm.stateStore.Save(*vm.tmState)
+
+	vm.blockStore.SaveBlockWOParts(b.tmBlock)
+
 	return nil
 }
 

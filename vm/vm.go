@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"github.com/ava-labs/avalanchego/utils/timer/mockable"
 	"net/http"
 	"time"
 
@@ -78,6 +79,8 @@ type VM struct {
 	ctx       *snow.Context
 	dbManager manager.Manager
 
+	toEngine chan<- common.Message
+
 	// *chain.State helps to implement the VM interface by wrapping blocks
 	// with an efficient caching layer.
 	*chain.State
@@ -118,6 +121,8 @@ type VM struct {
 	blockIndexer   indexer.BlockIndexer
 	blockIndexerDB dbm.DB
 	indexerService *txindex.IndexerService
+
+	clock mockable.Clock
 }
 
 func NewVM(app abciTypes.Application) *VM {
@@ -138,6 +143,8 @@ func (vm *VM) Initialize(
 	vm.ctx = chainCtx
 	vm.tmLogger = log.NewTMLogger(vm.ctx.Log)
 	vm.dbManager = dbManager
+
+	vm.toEngine = toEngine
 
 	baseDB := dbManager.Current().Database
 
@@ -278,6 +285,7 @@ func (vm *VM) createMempool() *mempl.CListMempool {
 		cfg,
 		vm.proxyApp.Mempool(),
 		vm.tmState.LastBlockHeight,
+		vm,
 		mempl.WithMetrics(mempl.NopMetrics()), // TODO: use prometheus metrics based on config
 		mempl.WithPreCheck(sm.TxPreCheck(*vm.tmState)),
 		mempl.WithPostCheck(sm.TxPostCheck(*vm.tmState)),
@@ -286,6 +294,17 @@ func (vm *VM) createMempool() *mempl.CListMempool {
 	mempool.SetLogger(mempoolLogger)
 
 	return mempool
+}
+
+// NotifyBlockReady tells the consensus engine that a new block
+// is ready to be created
+func (vm *VM) NotifyBlockReady() {
+	select {
+	case vm.toEngine <- common.PendingTxs:
+		vm.tmLogger.Debug("Notify consensys engine")
+	default:
+		vm.tmLogger.Error("Failed to push PendingTxs notification to the consensus engine.")
+	}
 }
 
 func (vm *VM) doHandshake(genesis *types.GenesisDoc, consensusLogger log.Logger) error {
