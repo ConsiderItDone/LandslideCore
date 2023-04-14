@@ -248,7 +248,7 @@ func (state State) MakeBlock(
 	if height == state.InitialHeight {
 		timestamp = state.LastBlockTime // genesis time
 	} else {
-		timestamp = MedianTime(commit, state.LastValidators)
+		timestamp = time.Now()
 	}
 
 	// Fill rest of header with state data.

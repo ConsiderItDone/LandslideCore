@@ -78,6 +78,10 @@ type Mempool interface {
 	CloseWAL()
 }
 
+type BlockReadyNotifier interface {
+	NotifyBlockReady()
+}
+
 //--------------------------------------------------------------------------------
 
 // PreCheckFunc is an optional filter executed before CheckTx and rejects

@@ -290,6 +290,7 @@ func (s *LocalService) BroadcastTxAsync(
 func (s *LocalService) BroadcastTxSync(_ *http.Request, args *BroadcastTxArgs, reply *ctypes.ResultBroadcastTx) error {
 	resCh := make(chan *abci.Response, 1)
 	err := s.vm.mempool.CheckTx(args.Tx, func(res *abci.Response) {
+		s.vm.tmLogger.With("module", "service").Debug("handled response from checkTx")
 		resCh <- res
 	}, mempl.TxInfo{})
 	if err != nil {
