@@ -24,12 +24,10 @@ jobs:
   test_vm:
     runs-on: ubuntu-latest
     needs: build
-    timeout-minutes: 1
     steps:
-      - uses: actions/setup-go@v2
+      - uses: actions/setup-go@v3
         with:
-          go-version: "^1.15.4"
+          go-version: "1.19"
       - uses: actions/checkout@v2
-
       - name: test VM
         run: go test -v ./vm/...
