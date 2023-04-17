@@ -19,6 +19,9 @@ type (
 		start []byte
 		end   []byte
 	}
+	Batch struct {
+		database.Batch
+	}
 )
 
 func (db Database) Get(key []byte) ([]byte, error) {
@@ -53,8 +56,7 @@ func (db Database) ReverseIterator(start, end []byte) (dbm.Iterator, error) {
 }
 
 func (db Database) NewBatch() dbm.Batch {
-	//TODO implement me
-	panic("implement me")
+	return Batch{db.Database.NewBatch()}
 }
 
 func (db Database) Print() error {
@@ -94,4 +96,24 @@ func (iter Iterator) Error() error {
 func (iter Iterator) Close() error {
 	iter.Iterator.Release()
 	return iter.Error()
+}
+
+func (b Batch) Set(key, value []byte) error {
+	return b.Batch.Put(key, value)
+}
+
+func (b Batch) Delete(key []byte) error {
+	return b.Batch.Delete(key)
+}
+
+func (b Batch) Write() error {
+	return b.Batch.Write()
+}
+
+func (b Batch) WriteSync() error {
+	return b.Batch.Write()
+}
+
+func (b Batch) Close() error {
+	return nil
 }

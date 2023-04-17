@@ -1,23 +1,41 @@
 package vm
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
+	"time"
 
-	abci "github.com/tendermint/tendermint/abci/types"
-	"github.com/tendermint/tendermint/crypto"
-	"github.com/tendermint/tendermint/libs/log"
-	tmstate "github.com/tendermint/tendermint/proto/tendermint/state"
-	"github.com/tendermint/tendermint/proxy"
-	sm "github.com/tendermint/tendermint/state"
-	"github.com/tendermint/tendermint/types"
+	"github.com/consideritdone/landslidecore/crypto"
+	"github.com/consideritdone/landslidecore/state"
+	"github.com/consideritdone/landslidecore/types"
+
+	abci "github.com/consideritdone/landslidecore/abci/types"
+	"github.com/consideritdone/landslidecore/libs/log"
+	mempl "github.com/consideritdone/landslidecore/mempool"
+	tmstate "github.com/consideritdone/landslidecore/proto/tendermint/state"
+	"github.com/consideritdone/landslidecore/proxy"
 )
 
-//-----------------------------------------------------
-// Validate block
+func makeCommitMock(height int64, timestamp time.Time) *types.Commit {
+	var commitSig []types.CommitSig = nil
+	if height != 1 {
+		commitSig = []types.CommitSig{{Timestamp: time.Now()}}
+	}
+	return types.NewCommit(
+		height,
+		0,
+		types.BlockID{
+			Hash: []byte(""),
+			PartSetHeader: types.PartSetHeader{
+				Hash:  []byte(""),
+				Total: 1,
+			},
+		},
+		commitSig,
+	)
+}
 
-func validateBlock(state sm.State, block *types.Block) error {
+func validateBlock(state state.State, block *types.Block) error {
 	// Validate internal consistency.
 	if err := block.ValidateBasic(); err != nil {
 		return err
@@ -37,67 +55,11 @@ func validateBlock(state sm.State, block *types.Block) error {
 			block.ChainID,
 		)
 	}
-	if state.LastBlockHeight == 0 && block.Height != state.InitialHeight {
-		return fmt.Errorf("wrong Block.Header.Height. Expected %v for initial block, got %v",
-			block.Height, state.InitialHeight)
-	}
-	if state.LastBlockHeight > 0 && block.Height != state.LastBlockHeight+1 {
-		return fmt.Errorf("wrong Block.Header.Height. Expected %v, got %v",
-			state.LastBlockHeight+1,
-			block.Height,
-		)
-	}
-	// Validate prev block info.
-	if !block.LastBlockID.Equals(state.LastBlockID) {
-		return fmt.Errorf("wrong Block.Header.LastBlockID.  Expected %v, got %v",
-			state.LastBlockID,
-			block.LastBlockID,
-		)
-	}
-
-	// Validate app info
-	if !bytes.Equal(block.AppHash, state.AppHash) {
-		return fmt.Errorf("wrong Block.Header.AppHash.  Expected %X, got %v",
-			state.AppHash,
-			block.AppHash,
-		)
-	}
-	hashCP := types.HashConsensusParams(state.ConsensusParams)
-	if !bytes.Equal(block.ConsensusHash, hashCP) {
-		return fmt.Errorf("wrong Block.Header.ConsensusHash.  Expected %X, got %v",
-			hashCP,
-			block.ConsensusHash,
-		)
-	}
-	if !bytes.Equal(block.LastResultsHash, state.LastResultsHash) {
-		return fmt.Errorf("wrong Block.Header.LastResultsHash.  Expected %X, got %v",
-			state.LastResultsHash,
-			block.LastResultsHash,
-		)
-	}
-	if !bytes.Equal(block.ValidatorsHash, state.Validators.Hash()) {
-		return fmt.Errorf("wrong Block.Header.ValidatorsHash.  Expected %X, got %v",
-			state.Validators.Hash(),
-			block.ValidatorsHash,
-		)
-	}
-	if !bytes.Equal(block.NextValidatorsHash, state.NextValidators.Hash()) {
-		return fmt.Errorf("wrong Block.Header.NextValidatorsHash.  Expected %X, got %v",
-			state.NextValidators.Hash(),
-			block.NextValidatorsHash,
-		)
-	}
 
 	// Validate block LastCommit.
 	if block.Height == state.InitialHeight {
 		if len(block.LastCommit.Signatures) != 0 {
 			return errors.New("initial block can't have LastCommit signatures")
-		}
-	} else {
-		// LastCommit.Signatures length is checked in VerifyCommit.
-		if err := state.LastValidators.VerifyCommit(
-			state.ChainID, state.LastBlockID, block.Height-1, block.LastCommit); err != nil {
-			return err
 		}
 	}
 
@@ -110,26 +72,14 @@ func validateBlock(state sm.State, block *types.Block) error {
 			len(block.ProposerAddress),
 		)
 	}
-	if !state.Validators.HasAddress(block.ProposerAddress) {
-		return fmt.Errorf("block.Header.ProposerAddress %X is not a validator",
-			block.ProposerAddress,
-		)
-	}
 
 	// Validate block Time
 	switch {
 	case block.Height > state.InitialHeight:
-		if !block.Time.After(state.LastBlockTime) {
-			return fmt.Errorf("block time %v not greater than last block time %v",
+		if !(block.Time.After(state.LastBlockTime) || block.Time.Equal(state.LastBlockTime)) {
+			return fmt.Errorf("block time %v not greater than or equal to last block time %v",
 				block.Time,
 				state.LastBlockTime,
-			)
-		}
-		medianTime := sm.MedianTime(block.LastCommit, state.LastValidators)
-		if !block.Time.Equal(medianTime) {
-			return fmt.Errorf("invalid block time. Expected %v, got %v",
-				medianTime,
-				block.Time,
 			)
 		}
 
@@ -147,24 +97,14 @@ func validateBlock(state sm.State, block *types.Block) error {
 			block.Height, state.InitialHeight)
 	}
 
-	// Check evidence doesn't exceed the limit amount of bytes.
-	if max, got := state.ConsensusParams.Evidence.MaxBytes, block.Evidence.ByteSize(); got > max {
-		return types.NewErrEvidenceOverflow(max, got)
-	}
-
 	return nil
 }
 
-//---------------------------------------------------------
-// Helper functions for executing blocks and updating state
-
-// Executes block's transactions on proxyAppConn.
-// Returns a list of transaction results and updates to the validator set
 func execBlockOnProxyApp(
 	logger log.Logger,
 	proxyAppConn proxy.AppConnConsensus,
 	block *types.Block,
-	store sm.Store,
+	store state.Store,
 	initialHeight int64,
 ) (*tmstate.ABCIResponses, error) {
 	var validTxs, invalidTxs = 0, 0
@@ -238,8 +178,7 @@ func execBlockOnProxyApp(
 	return abciResponses, nil
 }
 
-func getBeginBlockValidatorInfo(block *types.Block, store sm.Store,
-	initialHeight int64) abci.LastCommitInfo {
+func getBeginBlockValidatorInfo(block *types.Block, store state.Store, initialHeight int64) abci.LastCommitInfo {
 	voteInfos := make([]abci.VoteInfo, block.LastCommit.Size())
 	return abci.LastCommitInfo{
 		Round: block.LastCommit.Round,
@@ -247,9 +186,44 @@ func getBeginBlockValidatorInfo(block *types.Block, store sm.Store,
 	}
 }
 
-// Fire NewBlock, NewBlockHeader.
-// Fire TxEvent for every tx.
-// NOTE: if Tendermint crashes before commit, some or all of these events may be published again.
+func ABCIResponsesResultsHash(ar *tmstate.ABCIResponses) []byte {
+	return types.NewResults(ar.DeliverTxs).Hash()
+}
+
+func updateState(
+	st state.State,
+	blockID types.BlockID,
+	header *types.Header,
+	abciResponses *tmstate.ABCIResponses,
+) (state.State, error) {
+	return state.State{
+		Version:         st.Version,
+		ChainID:         st.ChainID,
+		InitialHeight:   st.InitialHeight,
+		LastBlockHeight: header.Height,
+		LastBlockID:     blockID,
+		LastBlockTime:   header.Time,
+		LastResultsHash: ABCIResponsesResultsHash(abciResponses),
+		AppHash:         nil,
+	}, nil
+}
+
+// TxPreCheck returns a function to filter transactions before processing.
+// The function limits the size of a transaction to the block's maximum data size.
+func TxPreCheck(state state.State) mempl.PreCheckFunc {
+	maxDataBytes := types.MaxDataBytesNoEvidence(
+		22020096,
+		1,
+	)
+	return mempl.PreCheckMaxBytes(maxDataBytes)
+}
+
+// TxPostCheck returns a function to filter transactions after processing.
+// The function limits the gas wanted by a transaction to the block's maximum total gas.
+func TxPostCheck(state state.State) mempl.PostCheckFunc {
+	return mempl.PostCheckMaxGas(-1)
+}
+
 func fireEvents(
 	logger log.Logger,
 	eventBus types.BlockEventPublisher,

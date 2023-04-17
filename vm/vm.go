@@ -5,9 +5,10 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"github.com/ava-labs/avalanchego/utils/timer/mockable"
 	"net/http"
 	"time"
+
+	"github.com/ava-labs/avalanchego/utils/timer/mockable"
 
 	avalanchegoMetrics "github.com/ava-labs/avalanchego/api/metrics"
 	"github.com/ava-labs/avalanchego/database"
@@ -68,6 +69,8 @@ var (
 	stateDBPrefix        = []byte("state")
 	txIndexerDBPrefix    = []byte("tx_index")
 	blockIndexerDBPrefix = []byte("block_events")
+
+	proposerAddress = []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 )
 
 var (
@@ -423,41 +426,39 @@ func (vm *VM) applyBlock(block *Block) error {
 	vm.mempool.Lock()
 	defer vm.mempool.Unlock()
 
-	partSet := block.tmBlock.MakePartSet(types.BlockPartSizeBytes)
-	blockID := types.BlockID{
-		Hash:          block.tmBlock.Hash(),
-		PartSetHeader: partSet.Header(),
-	}
-	commit := types.NewCommit(int64(block.Height()), 0, types.BlockID{Hash: []byte(""), PartSetHeader: types.PartSetHeader{Hash: []byte(""), Total: 1}}, nil)
-	//commit := types.NewCommit(int64(block.Height()), 0, blockID, []types.CommitSig{{Timestamp: time.Now()}})
-	block.tmBlock.LastCommit = vm.blockStore.LoadBlockCommit(vm.blockStore.Height())
-	vm.blockStore.SaveBlock(block.tmBlock, partSet, commit)
-
 	state, err := vm.stateStore.Load()
 	if err != nil {
 		return err
 	}
 
 	if err := validateBlock(state, block.tmBlock); err != nil {
-		return nil
+		return err
 	}
 
-	abciResponses, err := execBlockOnProxyApp(vm.tmLogger, vm.ProxyApp().Consensus(), block.tmBlock, vm.stateStore, state.InitialHeight)
+	abciResponses, err := execBlockOnProxyApp(
+		vm.tmLogger,
+		vm.proxyApp.Consensus(),
+		block.tmBlock, vm.stateStore,
+		state.InitialHeight,
+	)
 	if err != nil {
 		return err
 	}
+
+	// Save the results before we commit.
 	if err := vm.stateStore.SaveABCIResponses(block.tmBlock.Height, abciResponses); err != nil {
 		return err
 	}
-	state = sm.State{
-		Version:         state.Version,
-		ChainID:         state.ChainID,
-		InitialHeight:   state.InitialHeight,
-		LastBlockHeight: block.tmBlock.Height,
-		LastBlockID:     blockID,
-		LastBlockTime:   block.tmBlock.Time,
-		LastResultsHash: sm.ABCIResponsesResultsHash(abciResponses),
-		AppHash:         nil,
+
+	blockID := types.BlockID{
+		Hash:          block.tmBlock.Hash(),
+		PartSetHeader: block.tmBlock.MakePartSet(types.BlockPartSizeBytes).Header(),
+	}
+
+	// Update the state with the block and responses.
+	state, err = updateState(state, blockID, &block.tmBlock.Header, abciResponses)
+	if err != nil {
+		return err
 	}
 
 	// while mempool is Locked, flush to ensure all async requests have completed
@@ -468,24 +469,41 @@ func (vm *VM) applyBlock(block *Block) error {
 	}
 
 	// Commit block, get hash back
-	if _, err := vm.proxyApp.Consensus().CommitSync(); err != nil {
+	res, err := vm.proxyApp.Consensus().CommitSync()
+	if err != nil {
 		vm.tmLogger.Error("client error during proxyAppConn.CommitSync", "err", err)
 		return err
 	}
 
+	// ResponseCommit has no error code - just data
+	vm.tmLogger.Info(
+		"committed state",
+		"height", block.Height,
+		"num_txs", len(block.tmBlock.Txs),
+		"app_hash", fmt.Sprintf("%X", res.Data),
+	)
+
+	deliverTxResponses := make([]*abciTypes.ResponseDeliverTx, len(block.tmBlock.Txs))
+	for i := range block.tmBlock.Txs {
+		deliverTxResponses[i] = &abciTypes.ResponseDeliverTx{Code: abciTypes.CodeTypeOK}
+	}
+
+	// Update mempool.
 	if err := vm.mempool.Update(
 		block.tmBlock.Height,
 		block.tmBlock.Txs,
-		abciResponses.DeliverTxs,
-		sm.TxPreCheck(state),
-		sm.TxPostCheck(state),
+		deliverTxResponses,
+		TxPreCheck(state),
+		TxPostCheck(state),
 	); err != nil {
 		return err
 	}
 
+	vm.tmState.LastBlockHeight = block.tmBlock.Height
 	if err := vm.stateStore.Save(state); err != nil {
 		return err
 	}
+	vm.blockStore.SaveBlockWOParts(block.tmBlock)
 
 	fireEvents(vm.tmLogger, vm.eventBus, block.tmBlock, abciResponses)
 	return nil
@@ -498,7 +516,9 @@ func (vm *VM) buildBlock(_ context.Context) (snowman.Block, error) {
 		return nil, errNoPendingTxs
 	}
 	height := vm.tmState.LastBlockHeight + 1
-	block, _ := vm.tmState.MakeBlock(height, txs, nil, nil, nil)
+
+	commit := makeCommitMock(height, time.Now())
+	block, _ := vm.tmState.MakeBlock(height, txs, commit, nil, proposerAddress)
 
 	// Note: the status of block is set by ChainState
 	blk, err := vm.newBlock(block)
