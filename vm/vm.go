@@ -503,7 +503,7 @@ func (vm *VM) applyBlock(block *Block) error {
 	if err := vm.stateStore.Save(state); err != nil {
 		return err
 	}
-	vm.blockStore.SaveBlockWOParts(block.tmBlock)
+	vm.blockStore.SaveBlock(block.tmBlock, block.tmBlock.MakePartSet(types.BlockPartSizeBytes), block.tmBlock.LastCommit)
 
 	fireEvents(vm.tmLogger, vm.eventBus, block.tmBlock, abciResponses)
 	return nil

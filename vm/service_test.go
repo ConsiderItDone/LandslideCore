@@ -170,16 +170,15 @@ func TestNetworkService(t *testing.T) {
 }
 
 func TestSignService(t *testing.T) {
-	vm, service, _ := mustNewCounterTestVm(t)
+	_, _, tx := MakeTxKV()
+	vm, service, _ := mustNewKVTestVm(t)
 
 	blk0, err := vm.BuildBlock(context.Background())
 	assert.ErrorIs(t, err, errNoPendingTxs, "expecting error no txs")
 	assert.Nil(t, blk0)
 
-	txArg := &BroadcastTxArgs{
-		Tx: []byte{0x00},
-	}
-	txReply := &ctypes.ResultBroadcastTx{}
+	txArg := &BroadcastTxArgs{tx}
+	txReply := new(ctypes.ResultBroadcastTx)
 	err = service.BroadcastTxSync(nil, txArg, txReply)
 	assert.NoError(t, err)
 	assert.Equal(t, atypes.CodeTypeOK, txReply.Code)
@@ -188,49 +187,57 @@ func TestSignService(t *testing.T) {
 	blk1, err := vm.BuildBlock(context.Background())
 	assert.NoError(t, err)
 	assert.NotNil(t, blk1)
+	assert.NoError(t, blk1.Accept(context.Background()))
+	height1 := int64(blk1.Height())
 
-	err = blk1.Accept(context.Background())
-	assert.NoError(t, err)
+	t.Run("Block", func(t *testing.T) {
+		replyWithoutHeight := new(ctypes.ResultBlock)
+		assert.NoError(t, service.Block(nil, &BlockHeightArgs{&height1}, replyWithoutHeight))
+		if assert.NotNil(t, replyWithoutHeight.Block) {
+			assert.EqualValues(t, height1, replyWithoutHeight.Block.Height)
+		}
 
-	//t.Run("Block", func(t *testing.T) {
-	//	replyWithoutHeight := new(ctypes.ResultBlock)
-	//	assert.NoError(t, service.Block(nil, &BlockHeightArgs{}, replyWithoutHeight))
-	//	assert.Nil(t, replyWithoutHeight.Block)
-	//
-	//	height := int64(blk1.Height())
-	//	reply := new(ctypes.ResultBlock)
-	//	assert.NoError(t, service.Block(nil, &BlockHeightArgs{Height: &height}, reply))
-	//	assert.Equal(t, height, reply.Block.Height)
-	//})
+		reply := new(ctypes.ResultBlock)
+		assert.NoError(t, service.Block(nil, &BlockHeightArgs{Height: &height1}, reply))
+		if assert.NotNil(t, reply.Block) {
+			assert.EqualValues(t, height1, reply.Block.Height)
+		}
+	})
 
-	//t.Run("BlockByHash", func(t *testing.T) {
-	//	replyWithoutHash := new(ctypes.ResultBlock)
-	//	assert.NoError(t, service.BlockByHash(nil, &BlockHashArgs{}, replyWithoutHash))
-	//	assert.Nil(t, replyWithoutHash.Block)
-	//
-	//	reply := new(ctypes.ResultBlock)
-	//	hash := blk1.ID()
-	//
-	//	assert.NoError(t, service.BlockByHash(nil, &BlockHashArgs{Hash: hash[:]}, reply))
-	//	assert.Equal(t, hash, reply.Block.Hash().Bytes())
-	//})
+	t.Run("BlockByHash", func(t *testing.T) {
+		replyWithoutHash := new(ctypes.ResultBlock)
+		assert.NoError(t, service.BlockByHash(nil, &BlockHashArgs{}, replyWithoutHash))
+		assert.Nil(t, replyWithoutHash.Block)
 
-	//t.Run("BlockResults", func(t *testing.T) {
-	//	replyWithoutHeight := new(ctypes.ResultBlockResults)
-	//	assert.NoError(t, service.BlockResults(nil, &BlockHeightArgs{}, replyWithoutHeight))
-	//	assert.Equal(t, replyWithoutHeight.Height, 0)
-	//
-	//	height := int64(blk1.Height())
-	//	reply := new(ctypes.ResultBlockResults)
-	//	assert.NoError(t, service.BlockResults(nil, &BlockHeightArgs{Height: &height}, reply))
-	//	assert.Equal(t, height, replyWithoutHeight.Height)
-	//})
+		reply := new(ctypes.ResultBlock)
+		hash := blk1.ID()
 
-	//t.Run("Tx", func(t *testing.T) {
-	//	reply := new(ctypes.ResultTx)
-	//	assert.NoError(t, service.Tx(nil, &TxArgs{Hash: txReply.Hash}, reply))
-	//	assert.EqualValues(t, txReply.Hash, reply.Hash)
-	//})
+		assert.NoError(t, service.BlockByHash(nil, &BlockHashArgs{Hash: hash[:]}, reply))
+		if assert.NotNil(t, reply.Block) {
+			assert.EqualValues(t, hash[:], reply.Block.Hash().Bytes())
+		}
+	})
+
+	t.Run("BlockResults", func(t *testing.T) {
+		replyWithoutHeight := new(ctypes.ResultBlockResults)
+		assert.NoError(t, service.BlockResults(nil, &BlockHeightArgs{}, replyWithoutHeight))
+		assert.Equal(t, height1, replyWithoutHeight.Height)
+
+		reply := new(ctypes.ResultBlockResults)
+		assert.NoError(t, service.BlockResults(nil, &BlockHeightArgs{Height: &height1}, reply))
+		if assert.NotNil(t, reply.TxsResults) {
+			assert.Equal(t, height1, reply.Height)
+		}
+	})
+
+	t.Run("Tx", func(t *testing.T) {
+		time.Sleep(2 * time.Second)
+
+		reply := new(ctypes.ResultTx)
+		assert.NoError(t, service.Tx(nil, &TxArgs{Hash: txReply.Hash.Bytes()}, reply))
+		assert.EqualValues(t, txReply.Hash, reply.Hash)
+		assert.EqualValues(t, tx, reply.Tx)
+	})
 
 	//t.Run("TxSearch", func(t *testing.T) {
 	//	reply := new(ctypes.ResultTxSearch)
