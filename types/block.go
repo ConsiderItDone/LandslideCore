@@ -877,15 +877,15 @@ func (commit *Commit) ValidateBasic() error {
 		if commit.BlockID.IsZero() {
 			return errors.New("commit cannot be for nil block")
 		}
-
-		if len(commit.Signatures) == 0 {
-			return errors.New("no signatures in commit")
-		}
-		for i, commitSig := range commit.Signatures {
-			if err := commitSig.ValidateBasic(); err != nil {
-				return fmt.Errorf("wrong CommitSig #%d: %v", i, err)
-			}
-		}
+		// ToDo: how to check in avalanche vm?
+		//if len(commit.Signatures) == 0 {
+		//	return errors.New("no signatures in commit")
+		//}
+		//for i, commitSig := range commit.Signatures {
+		//	if err := commitSig.ValidateBasic(); err != nil {
+		//		return fmt.Errorf("wrong CommitSig #%d: %v", i, err)
+		//	}
+		//}
 	}
 	return nil
 }

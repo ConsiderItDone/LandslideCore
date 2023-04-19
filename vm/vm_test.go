@@ -4,9 +4,10 @@ import (
 	"context"
 	_ "embed"
 	"fmt"
-	"github.com/consideritdone/landslidecore/abci/example/kvstore"
 	"os"
 	"testing"
+
+	"github.com/consideritdone/landslidecore/abci/example/kvstore"
 
 	"github.com/ava-labs/avalanchego/database/manager"
 	"github.com/ava-labs/avalanchego/ids"
@@ -19,8 +20,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/consideritdone/landslidecore/abci/example/counter"
-	"github.com/consideritdone/landslidecore/abci/types"
-	abciTypes "github.com/consideritdone/landslidecore/abci/types"
+	atypes "github.com/consideritdone/landslidecore/abci/types"
 	tmrand "github.com/consideritdone/landslidecore/libs/rand"
 	ctypes "github.com/consideritdone/landslidecore/rpc/core/types"
 )
@@ -44,7 +44,7 @@ func newKVTestVM() (*VM, *snow.Context, chan common.Message, error) {
 	return newTestVM(app)
 }
 
-func newTestVM(app abciTypes.Application) (*VM, *snow.Context, chan common.Message, error) {
+func newTestVM(app atypes.Application) (*VM, *snow.Context, chan common.Message, error) {
 	dbManager := manager.NewMemDB(&version.Semantic{
 		Major: 1,
 		Minor: 0,
@@ -106,7 +106,7 @@ func TestInitVm(t *testing.T) {
 	reply := &ctypes.ResultBroadcastTx{}
 	err = service.BroadcastTxSync(nil, args, reply)
 	assert.NoError(t, err)
-	assert.Equal(t, types.CodeTypeOK, reply.Code)
+	assert.Equal(t, atypes.CodeTypeOK, reply.Code)
 
 	select { // require there is a pending tx message to the engine
 	case msg := <-msgChan:
@@ -135,7 +135,7 @@ func TestInitVm(t *testing.T) {
 	reply = &ctypes.ResultBroadcastTx{}
 	err = service.BroadcastTxSync(nil, args, reply)
 	assert.NoError(t, err)
-	assert.Equal(t, types.CodeTypeOK, reply.Code)
+	assert.Equal(t, atypes.CodeTypeOK, reply.Code)
 
 	// submit 3rd tx (0x02)
 	args = &BroadcastTxArgs{
@@ -144,7 +144,7 @@ func TestInitVm(t *testing.T) {
 	reply = &ctypes.ResultBroadcastTx{}
 	err = service.BroadcastTxSync(nil, args, reply)
 	assert.NoError(t, err)
-	assert.Equal(t, types.CodeTypeOK, reply.Code)
+	assert.Equal(t, atypes.CodeTypeOK, reply.Code)
 
 	select { // require there is a pending tx message to the engine
 	case msg := <-msgChan:
