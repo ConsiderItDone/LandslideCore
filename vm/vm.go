@@ -597,8 +597,7 @@ func (vm *VM) Version(ctx context.Context) (string, error) {
 }
 
 func (vm *VM) CreateStaticHandlers(ctx context.Context) (map[string]*common.HTTPHandler, error) {
-	//TODO implement me
-	panic("implement me")
+	return nil, nil
 }
 
 func (vm *VM) CreateHandlers(ctx context.Context) (map[string]*common.HTTPHandler, error) {
@@ -626,8 +625,7 @@ func (vm *VM) ProxyApp() proxy.AppConns {
 }
 
 func (vm *VM) ParseBlock(ctx context.Context, blockBytes []byte) (snowman.Block, error) {
-	//TODO implement me
-	panic("implement me")
+	return nil, nil
 }
 
 func (vm *VM) SetPreference(ctx context.Context, blkID ids.ID) error {
