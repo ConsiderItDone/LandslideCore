@@ -221,17 +221,38 @@ func (vm *VM) Initialize(
 	}
 	vm.tmState = &state
 
+	genesisBlock, err := vm.buildGenesisBlock(genesisBytes)
+	if err != nil {
+		return fmt.Errorf("failed to build genesis block: %w ", err)
+	}
+
 	vm.mempool = vm.createMempool()
 
 	if err := vm.initializeMetrics(); err != nil {
 		return err
 	}
 
-	if err := vm.initChainState(nil); err != nil {
+	if err := vm.initChainState(genesisBlock); err != nil {
 		return err
 	}
 
 	return nil
+}
+
+// builds genesis block if required
+func (vm *VM) buildGenesisBlock(genesisData []byte) (*types.Block, error) {
+	if vm.tmState.LastBlockHeight != 0 {
+		return nil, nil
+	}
+	txs := types.Txs{types.Tx(genesisData)}
+	if len(txs) == 0 {
+		return nil, errNoPendingTxs
+	}
+	height := vm.tmState.LastBlockHeight + 1
+
+	commit := makeCommitMock(height, time.Now())
+	genesisBlock, _ := vm.tmState.MakeBlock(height, txs, commit, nil, proposerAddress)
+	return genesisBlock, nil
 }
 
 // Initializes Genesis if required
@@ -251,9 +272,6 @@ func (vm *VM) initGenesis(genesisData []byte) error {
 			if err != nil {
 				return fmt.Errorf("failed to save genesis data: %w ", err)
 			}
-
-			// store genesis as first block
-
 		} else {
 			return err
 		}
@@ -631,6 +649,7 @@ func (vm *VM) ParseBlock(ctx context.Context, blockBytes []byte) (snowman.Block,
 }
 
 func (vm *VM) SetPreference(ctx context.Context, blkID ids.ID) error {
+	//TODO implement me
 	return nil
 }
 
