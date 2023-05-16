@@ -643,20 +643,10 @@ func (vm *VM) ProxyApp() proxy.AppConns {
 	return vm.proxyApp
 }
 
-func (vm *VM) ParseBlock(ctx context.Context, blockBytes []byte) (snowman.Block, error) {
-	//TODO implement me
-	return nil, nil
-}
-
 func (vm *VM) SetPreference(ctx context.Context, blkID ids.ID) error {
 	//TODO implement me
 	return nil
 }
-
-//func (vm *VM) LastAccepted(ctx context.Context) (ids.ID, error) {
-//	//TODO implement me
-//	panic("implement me")
-//}
 
 func (vm *VM) AppRequest(_ context.Context, nodeID ids.NodeID, requestID uint32, time time.Time, request []byte) error {
 	return nil
