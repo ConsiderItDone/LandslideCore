@@ -5,25 +5,27 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"github.com/ava-labs/avalanchego/database/prefixdb"
-	blockidxkv "github.com/consideritdone/landslidecore/state/indexer/block/kv"
-	txidxkv "github.com/consideritdone/landslidecore/state/txindex/kv"
 	"net/http"
 	"time"
 
-	"github.com/ava-labs/avalanchego/utils/timer/mockable"
-
-	avalanchegoMetrics "github.com/ava-labs/avalanchego/api/metrics"
+	"github.com/ava-labs/avalanchego/api/metrics"
 	"github.com/ava-labs/avalanchego/database"
 	"github.com/ava-labs/avalanchego/database/manager"
+	"github.com/ava-labs/avalanchego/database/prefixdb"
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/snow"
 	"github.com/ava-labs/avalanchego/snow/choices"
 	"github.com/ava-labs/avalanchego/snow/consensus/snowman"
 	"github.com/ava-labs/avalanchego/snow/engine/common"
 	"github.com/ava-labs/avalanchego/snow/engine/snowman/block"
+	"github.com/ava-labs/avalanchego/utils/json"
+	"github.com/ava-labs/avalanchego/utils/timer/mockable"
 	"github.com/ava-labs/avalanchego/version"
 	"github.com/ava-labs/avalanchego/vms/components/chain"
+	"github.com/gorilla/rpc/v2"
+	"github.com/prometheus/client_golang/prometheus"
+	dbm "github.com/tendermint/tm-db"
+
 	abciTypes "github.com/consideritdone/landslidecore/abci/types"
 	"github.com/consideritdone/landslidecore/config"
 	cs "github.com/consideritdone/landslidecore/consensus"
@@ -37,12 +39,11 @@ import (
 	rpcserver "github.com/consideritdone/landslidecore/rpc/jsonrpc/server"
 	sm "github.com/consideritdone/landslidecore/state"
 	"github.com/consideritdone/landslidecore/state/indexer"
+	blockidxkv "github.com/consideritdone/landslidecore/state/indexer/block/kv"
 	"github.com/consideritdone/landslidecore/state/txindex"
+	txidxkv "github.com/consideritdone/landslidecore/state/txindex/kv"
 	"github.com/consideritdone/landslidecore/store"
 	"github.com/consideritdone/landslidecore/types"
-	"github.com/gorilla/rpc/v2"
-	"github.com/prometheus/client_golang/prometheus"
-	dbm "github.com/tendermint/tm-db"
 )
 
 var (
@@ -51,12 +52,12 @@ var (
 	Version = &version.Semantic{
 		Major: 0,
 		Minor: 1,
-		Patch: 0,
+		Patch: 1,
 	}
 )
 
 const (
-	Name = "LandslideCore"
+	Name = "landslide"
 
 	decidedCacheSize    = 100
 	missingCacheSize    = 50
@@ -123,7 +124,7 @@ type VM struct {
 	genChunks []string
 
 	// Metrics
-	multiGatherer avalanchegoMetrics.MultiGatherer
+	multiGatherer metrics.MultiGatherer
 
 	txIndexer      txindex.TxIndexer
 	txIndexerDB    dbm.DB
@@ -400,7 +401,7 @@ func (vm *VM) initChainState(lastAcceptedBlock *types.Block) error {
 }
 
 func (vm *VM) initializeMetrics() error {
-	vm.multiGatherer = avalanchegoMetrics.NewMultiGatherer()
+	vm.multiGatherer = metrics.NewMultiGatherer()
 
 	if err := vm.ctx.Metrics.Register(vm.multiGatherer); err != nil {
 		return err
@@ -619,22 +620,22 @@ func (vm *VM) CreateStaticHandlers(ctx context.Context) (map[string]*common.HTTP
 	return nil, nil
 }
 
-func (vm *VM) CreateHandlers(ctx context.Context) (map[string]*common.HTTPHandler, error) {
+func (vm *VM) CreateHandlers(_ context.Context) (map[string]*common.HTTPHandler, error) {
 	mux := http.NewServeMux()
 	rpcLogger := vm.tmLogger.With("module", "rpc-server")
 	rpcserver.RegisterRPCFuncs(mux, rpccore.Routes, rpcLogger)
 
 	server := rpc.NewServer()
-	//server.RegisterCodec(json.NewCodec(), "application/json")
-	//server.RegisterCodec(json.NewCodec(), "application/json;charset=UTF-8")
+	server.RegisterCodec(json.NewCodec(), "application/json")
+	server.RegisterCodec(json.NewCodec(), "application/json;charset=UTF-8")
 	if err := server.RegisterService(NewService(vm), Name); err != nil {
 		return nil, err
 	}
 
 	return map[string]*common.HTTPHandler{
-		"": {
+		"/rpc": {
 			LockOptions: common.WriteLock,
-			Handler:     mux,
+			Handler:     server,
 		},
 	}, nil
 }
