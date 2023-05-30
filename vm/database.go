@@ -61,12 +61,12 @@ func (db Database) NewBatch() dbm.Batch {
 
 func (db Database) Print() error {
 	//TODO implement me
-	panic("implement me")
+	return nil
 }
 
 func (db Database) Stats() map[string]string {
 	//TODO implement me
-	panic("implement me")
+	return nil
 }
 
 func (iter Iterator) Domain() (start []byte, end []byte) {

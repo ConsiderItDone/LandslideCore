@@ -8,9 +8,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/ava-labs/avalanchego/utils/timer/mockable"
-
-	avalanchegoMetrics "github.com/ava-labs/avalanchego/api/metrics"
+	"github.com/ava-labs/avalanchego/api/metrics"
 	"github.com/ava-labs/avalanchego/database"
 	"github.com/ava-labs/avalanchego/database/manager"
 	"github.com/ava-labs/avalanchego/database/prefixdb"
@@ -20,8 +18,14 @@ import (
 	"github.com/ava-labs/avalanchego/snow/consensus/snowman"
 	"github.com/ava-labs/avalanchego/snow/engine/common"
 	"github.com/ava-labs/avalanchego/snow/engine/snowman/block"
+	"github.com/ava-labs/avalanchego/utils/json"
+	"github.com/ava-labs/avalanchego/utils/timer/mockable"
 	"github.com/ava-labs/avalanchego/version"
 	"github.com/ava-labs/avalanchego/vms/components/chain"
+	"github.com/gorilla/rpc/v2"
+	"github.com/prometheus/client_golang/prometheus"
+	dbm "github.com/tendermint/tm-db"
+
 	abciTypes "github.com/consideritdone/landslidecore/abci/types"
 	"github.com/consideritdone/landslidecore/config"
 	cs "github.com/consideritdone/landslidecore/consensus"
@@ -40,17 +44,20 @@ import (
 	txidxkv "github.com/consideritdone/landslidecore/state/txindex/kv"
 	"github.com/consideritdone/landslidecore/store"
 	"github.com/consideritdone/landslidecore/types"
-	"github.com/gorilla/rpc/v2"
-	"github.com/prometheus/client_golang/prometheus"
-	dbm "github.com/tendermint/tm-db"
 )
 
 var (
 	_ block.ChainVM = &VM{}
+
+	Version = &version.Semantic{
+		Major: 0,
+		Minor: 1,
+		Patch: 1,
+	}
 )
 
 const (
-	Name = "LandslideCore"
+	Name = "landslide"
 
 	decidedCacheSize    = 100
 	missingCacheSize    = 50
@@ -117,7 +124,7 @@ type VM struct {
 	genChunks []string
 
 	// Metrics
-	multiGatherer avalanchegoMetrics.MultiGatherer
+	multiGatherer metrics.MultiGatherer
 
 	txIndexer      txindex.TxIndexer
 	txIndexerDB    dbm.DB
@@ -215,17 +222,38 @@ func (vm *VM) Initialize(
 	}
 	vm.tmState = &state
 
+	genesisBlock, err := vm.buildGenesisBlock(genesisBytes)
+	if err != nil {
+		return fmt.Errorf("failed to build genesis block: %w ", err)
+	}
+
 	vm.mempool = vm.createMempool()
 
 	if err := vm.initializeMetrics(); err != nil {
 		return err
 	}
 
-	if err := vm.initChainState(nil); err != nil {
+	if err := vm.initChainState(genesisBlock); err != nil {
 		return err
 	}
 
 	return nil
+}
+
+// builds genesis block if required
+func (vm *VM) buildGenesisBlock(genesisData []byte) (*types.Block, error) {
+	if vm.tmState.LastBlockHeight != 0 {
+		return nil, nil
+	}
+	txs := types.Txs{types.Tx(genesisData)}
+	if len(txs) == 0 {
+		return nil, errNoPendingTxs
+	}
+	height := vm.tmState.LastBlockHeight + 1
+
+	commit := makeCommitMock(height, time.Now())
+	genesisBlock, _ := vm.tmState.MakeBlock(height, txs, commit, nil, proposerAddress)
+	return genesisBlock, nil
 }
 
 // Initializes Genesis if required
@@ -245,9 +273,6 @@ func (vm *VM) initGenesis(genesisData []byte) error {
 			if err != nil {
 				return fmt.Errorf("failed to save genesis data: %w ", err)
 			}
-
-			// store genesis as first block
-
 		} else {
 			return err
 		}
@@ -376,7 +401,7 @@ func (vm *VM) initChainState(lastAcceptedBlock *types.Block) error {
 }
 
 func (vm *VM) initializeMetrics() error {
-	vm.multiGatherer = avalanchegoMetrics.NewMultiGatherer()
+	vm.multiGatherer = metrics.NewMultiGatherer()
 
 	if err := vm.ctx.Metrics.Register(vm.multiGatherer); err != nil {
 		return err
@@ -540,36 +565,77 @@ func (vm *VM) SetState(ctx context.Context, state snow.State) error {
 }
 
 func (vm *VM) Shutdown(ctx context.Context) error {
-	//TODO implement me
-	panic("implement me")
+	// first stop the non-reactor services
+	if err := vm.eventBus.Stop(); err != nil {
+		return fmt.Errorf("Error closing eventBus: %w ", err)
+	}
+	if err := vm.indexerService.Stop(); err != nil {
+		return fmt.Errorf("Error closing indexerService: %w ", err)
+	}
+	//TODO: investigate wal configuration
+	// stop mempool WAL
+	//if vm.config.Mempool.WalEnabled() {
+	//	n.mempool.CloseWAL()
+	//}
+	//if n.prometheusSrv != nil {
+	//	if err := n.prometheusSrv.Shutdown(context.Background()); err != nil {
+	//		// Error from closing listeners, or context timeout:
+	//		n.Logger.Error("Prometheus HTTP server Shutdown", "err", err)
+	//	}
+	//}
+	if err := vm.blockStore.Close(); err != nil {
+		return fmt.Errorf("Error closing blockStore: %w ", err)
+	}
+	if err := vm.stateStore.Close(); err != nil {
+		return fmt.Errorf("Error closing stateStore: %w ", err)
+	}
+	return nil
+	//timestampVM and deprecated landslide
+	//if vm.state == nil {
+	//	return nil
+	//}
+	//
+	//return vm.state.Close() // close versionDB
+
+	//coreth
+	//if vm.ctx == nil {
+	//	return nil
+	//}
+	//vm.Network.Shutdown()
+	//if err := vm.StateSyncClient.Shutdown(); err != nil {
+	//	log.Error("error stopping state syncer", "err", err)
+	//}
+	//close(vm.shutdownChan)
+	//vm.eth.Stop()
+	//vm.shutdownWg.Wait()
+	//return nil
 }
 
 func (vm *VM) Version(ctx context.Context) (string, error) {
-	//TODO implement me
-	panic("implement me")
+	return Version.String(), nil
 }
 
 func (vm *VM) CreateStaticHandlers(ctx context.Context) (map[string]*common.HTTPHandler, error) {
 	//TODO implement me
-	panic("implement me")
+	return nil, nil
 }
 
-func (vm *VM) CreateHandlers(ctx context.Context) (map[string]*common.HTTPHandler, error) {
+func (vm *VM) CreateHandlers(_ context.Context) (map[string]*common.HTTPHandler, error) {
 	mux := http.NewServeMux()
 	rpcLogger := vm.tmLogger.With("module", "rpc-server")
 	rpcserver.RegisterRPCFuncs(mux, rpccore.Routes, rpcLogger)
 
 	server := rpc.NewServer()
-	//server.RegisterCodec(json.NewCodec(), "application/json")
-	//server.RegisterCodec(json.NewCodec(), "application/json;charset=UTF-8")
+	server.RegisterCodec(json.NewCodec(), "application/json")
+	server.RegisterCodec(json.NewCodec(), "application/json;charset=UTF-8")
 	if err := server.RegisterService(NewService(vm), Name); err != nil {
 		return nil, err
 	}
 
 	return map[string]*common.HTTPHandler{
-		"": {
+		"/rpc": {
 			LockOptions: common.WriteLock,
-			Handler:     mux,
+			Handler:     server,
 		},
 	}, nil
 }
@@ -578,19 +644,10 @@ func (vm *VM) ProxyApp() proxy.AppConns {
 	return vm.proxyApp
 }
 
-func (vm *VM) ParseBlock(ctx context.Context, blockBytes []byte) (snowman.Block, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
 func (vm *VM) SetPreference(ctx context.Context, blkID ids.ID) error {
+	//TODO implement me
 	return nil
 }
-
-//func (vm *VM) LastAccepted(ctx context.Context) (ids.ID, error) {
-//	//TODO implement me
-//	panic("implement me")
-//}
 
 func (vm *VM) AppRequest(_ context.Context, nodeID ids.NodeID, requestID uint32, time time.Time, request []byte) error {
 	return nil
