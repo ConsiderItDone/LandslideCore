@@ -58,6 +58,11 @@ var (
 const (
 	Name = "LandslideCore"
 
+	chainStateMetricsPrefix = "chain_state"
+	tendermintMetricsPrefix = "tendermint"
+
+	prometheusNamespace = "landslide"
+
 	decidedCacheSize    = 100
 	missingCacheSize    = 50
 	unverifiedCacheSize = 50
@@ -68,8 +73,6 @@ const (
 )
 
 var (
-	chainStateMetricsPrefix = "chain_state"
-
 	lastAcceptedKey      = []byte("last_accepted_key")
 	blockStoreDBPrefix   = []byte("blockstore")
 	stateDBPrefix        = []byte("state")
@@ -226,13 +229,14 @@ func (vm *VM) Initialize(
 		return fmt.Errorf("failed to build genesis block: %w ", err)
 	}
 
-	vm.mempool = vm.createMempool()
+	vm.mempool = vm.createMempool(true)
 
-	if err := vm.initializeMetrics(); err != nil {
+	chainStateRegistry, err := vm.initChainState(genesisBlock)
+	if err != nil {
 		return err
 	}
 
-	if err := vm.initChainState(genesisBlock); err != nil {
+	if err := vm.initializeMetrics(chainStateRegistry); err != nil {
 		return err
 	}
 
@@ -306,16 +310,26 @@ func (vm *VM) initGenesisChunks() error {
 	return nil
 }
 
-func (vm *VM) createMempool() *mempl.CListMempool {
+func (vm *VM) createMempool(metricsCollection bool) *mempl.CListMempool {
 	cfg := config.DefaultMempoolConfig()
+	cListOptions := []mempl.CListMempoolOption{mempl.WithPreCheck(sm.TxPreCheck(*vm.tmState)),
+		mempl.WithPostCheck(sm.TxPostCheck(*vm.tmState))}
+	if metricsCollection {
+		memplMetrics := mempl.PrometheusMetrics(prometheusNamespace, "chain_id", vm.ctx.ChainID.String())
+
+		memplMetrics.Size.Set(float64(0))
+		memplMetrics.TxSizeBytes.Observe(float64(0))
+		memplMetrics.FailedTxs.Add(float64(0))
+		memplMetrics.RecheckTimes.Add(float64(0))
+
+		cListOptions = append(cListOptions, mempl.WithMetrics(memplMetrics))
+	}
 	mempool := mempl.NewCListMempool(
 		cfg,
 		vm.proxyApp.Mempool(),
 		vm.tmState.LastBlockHeight,
 		vm,
-		mempl.WithMetrics(mempl.NopMetrics()), // TODO: use prometheus metrics based on config
-		mempl.WithPreCheck(sm.TxPreCheck(*vm.tmState)),
-		mempl.WithPostCheck(sm.TxPostCheck(*vm.tmState)),
+		cListOptions...,
 	)
 	mempoolLogger := vm.tmLogger.With("module", "mempool")
 	mempool.SetLogger(mempoolLogger)
@@ -370,10 +384,10 @@ func (vm *VM) doHandshake(genesis *types.GenesisDoc, consensusLogger log.Logger)
 //	}
 //}
 
-func (vm *VM) initChainState(lastAcceptedBlock *types.Block) error {
+func (vm *VM) initChainState(lastAcceptedBlock *types.Block) (*prometheus.Registry, error) {
 	block, err := vm.newBlock(lastAcceptedBlock)
 	if err != nil {
-		return fmt.Errorf("failed to create block wrapper for the last accepted block: %w", err)
+		return nil, fmt.Errorf("failed to create block wrapper for the last accepted block: %w", err)
 	}
 	block.status = choices.Accepted
 
@@ -392,15 +406,23 @@ func (vm *VM) initChainState(lastAcceptedBlock *types.Block) error {
 	chainStateRegisterer := prometheus.NewRegistry()
 	state, err := chain.NewMeteredState(chainStateRegisterer, config)
 	if err != nil {
-		return fmt.Errorf("could not create metered state: %w", err)
+		return nil, fmt.Errorf("could not create metered state: %w", err)
 	}
 	vm.State = state
 
-	return vm.multiGatherer.Register(chainStateMetricsPrefix, chainStateRegisterer)
+	return chainStateRegisterer, nil
 }
 
-func (vm *VM) initializeMetrics() error {
+func (vm *VM) initializeMetrics(chainStateRegisterer *prometheus.Registry) error {
 	vm.multiGatherer = avalanchegoMetrics.NewMultiGatherer()
+
+	if err := vm.multiGatherer.Register(tendermintMetricsPrefix, prometheus.DefaultGatherer); err != nil {
+		return err
+	}
+
+	if err := vm.multiGatherer.Register(chainStateMetricsPrefix, chainStateRegisterer); err != nil {
+		return err
+	}
 
 	if err := vm.ctx.Metrics.Register(vm.multiGatherer); err != nil {
 		return err
