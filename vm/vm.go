@@ -5,6 +5,9 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"github.com/ava-labs/avalanchego/database/prefixdb"
+	blockidxkv "github.com/consideritdone/landslidecore/state/indexer/block/kv"
+	txidxkv "github.com/consideritdone/landslidecore/state/txindex/kv"
 	"net/http"
 	"time"
 
@@ -13,7 +16,6 @@ import (
 	avalanchegoMetrics "github.com/ava-labs/avalanchego/api/metrics"
 	"github.com/ava-labs/avalanchego/database"
 	"github.com/ava-labs/avalanchego/database/manager"
-	"github.com/ava-labs/avalanchego/database/prefixdb"
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/snow"
 	"github.com/ava-labs/avalanchego/snow/choices"
@@ -35,9 +37,7 @@ import (
 	rpcserver "github.com/consideritdone/landslidecore/rpc/jsonrpc/server"
 	sm "github.com/consideritdone/landslidecore/state"
 	"github.com/consideritdone/landslidecore/state/indexer"
-	blockidxkv "github.com/consideritdone/landslidecore/state/indexer/block/kv"
 	"github.com/consideritdone/landslidecore/state/txindex"
-	txidxkv "github.com/consideritdone/landslidecore/state/txindex/kv"
 	"github.com/consideritdone/landslidecore/store"
 	"github.com/consideritdone/landslidecore/types"
 	"github.com/gorilla/rpc/v2"
@@ -47,10 +47,21 @@ import (
 
 var (
 	_ block.ChainVM = &VM{}
+
+	Version = &version.Semantic{
+		Major: 0,
+		Minor: 1,
+		Patch: 0,
+	}
 )
 
 const (
 	Name = "LandslideCore"
+
+	chainStateMetricsPrefix = "chain_state"
+	tendermintMetricsPrefix = "tendermint"
+
+	prometheusNamespace = "landslide"
 
 	decidedCacheSize    = 100
 	missingCacheSize    = 50
@@ -62,8 +73,6 @@ const (
 )
 
 var (
-	chainStateMetricsPrefix = "chain_state"
-
 	lastAcceptedKey      = []byte("last_accepted_key")
 	blockStoreDBPrefix   = []byte("blockstore")
 	stateDBPrefix        = []byte("state")
@@ -215,17 +224,39 @@ func (vm *VM) Initialize(
 	}
 	vm.tmState = &state
 
-	vm.mempool = vm.createMempool()
+	genesisBlock, err := vm.buildGenesisBlock(genesisBytes)
+	if err != nil {
+		return fmt.Errorf("failed to build genesis block: %w ", err)
+	}
 
-	if err := vm.initializeMetrics(); err != nil {
+	vm.mempool = vm.createMempool(true)
+
+	chainStateRegistry, err := vm.initChainState(genesisBlock)
+	if err != nil {
 		return err
 	}
 
-	if err := vm.initChainState(nil); err != nil {
+	if err := vm.initializeMetrics(chainStateRegistry); err != nil {
 		return err
 	}
 
 	return nil
+}
+
+// builds genesis block if required
+func (vm *VM) buildGenesisBlock(genesisData []byte) (*types.Block, error) {
+	if vm.tmState.LastBlockHeight != 0 {
+		return nil, nil
+	}
+	txs := types.Txs{types.Tx(genesisData)}
+	if len(txs) == 0 {
+		return nil, errNoPendingTxs
+	}
+	height := vm.tmState.LastBlockHeight + 1
+
+	commit := makeCommitMock(height, time.Now())
+	genesisBlock, _ := vm.tmState.MakeBlock(height, txs, commit, nil, proposerAddress)
+	return genesisBlock, nil
 }
 
 // Initializes Genesis if required
@@ -245,9 +276,6 @@ func (vm *VM) initGenesis(genesisData []byte) error {
 			if err != nil {
 				return fmt.Errorf("failed to save genesis data: %w ", err)
 			}
-
-			// store genesis as first block
-
 		} else {
 			return err
 		}
@@ -282,16 +310,26 @@ func (vm *VM) initGenesisChunks() error {
 	return nil
 }
 
-func (vm *VM) createMempool() *mempl.CListMempool {
+func (vm *VM) createMempool(metricsCollection bool) *mempl.CListMempool {
 	cfg := config.DefaultMempoolConfig()
+	cListOptions := []mempl.CListMempoolOption{mempl.WithPreCheck(sm.TxPreCheck(*vm.tmState)),
+		mempl.WithPostCheck(sm.TxPostCheck(*vm.tmState))}
+	if metricsCollection {
+		memplMetrics := mempl.PrometheusMetrics(prometheusNamespace, "chain_id", vm.ctx.ChainID.String())
+
+		memplMetrics.Size.Set(float64(0))
+		memplMetrics.TxSizeBytes.Observe(float64(0))
+		memplMetrics.FailedTxs.Add(float64(0))
+		memplMetrics.RecheckTimes.Add(float64(0))
+
+		cListOptions = append(cListOptions, mempl.WithMetrics(memplMetrics))
+	}
 	mempool := mempl.NewCListMempool(
 		cfg,
 		vm.proxyApp.Mempool(),
 		vm.tmState.LastBlockHeight,
 		vm,
-		mempl.WithMetrics(mempl.NopMetrics()), // TODO: use prometheus metrics based on config
-		mempl.WithPreCheck(sm.TxPreCheck(*vm.tmState)),
-		mempl.WithPostCheck(sm.TxPostCheck(*vm.tmState)),
+		cListOptions...,
 	)
 	mempoolLogger := vm.tmLogger.With("module", "mempool")
 	mempool.SetLogger(mempoolLogger)
@@ -346,10 +384,10 @@ func (vm *VM) doHandshake(genesis *types.GenesisDoc, consensusLogger log.Logger)
 //	}
 //}
 
-func (vm *VM) initChainState(lastAcceptedBlock *types.Block) error {
+func (vm *VM) initChainState(lastAcceptedBlock *types.Block) (*prometheus.Registry, error) {
 	block, err := vm.newBlock(lastAcceptedBlock)
 	if err != nil {
-		return fmt.Errorf("failed to create block wrapper for the last accepted block: %w", err)
+		return nil, fmt.Errorf("failed to create block wrapper for the last accepted block: %w", err)
 	}
 	block.status = choices.Accepted
 
@@ -368,15 +406,23 @@ func (vm *VM) initChainState(lastAcceptedBlock *types.Block) error {
 	chainStateRegisterer := prometheus.NewRegistry()
 	state, err := chain.NewMeteredState(chainStateRegisterer, config)
 	if err != nil {
-		return fmt.Errorf("could not create metered state: %w", err)
+		return nil, fmt.Errorf("could not create metered state: %w", err)
 	}
 	vm.State = state
 
-	return vm.multiGatherer.Register(chainStateMetricsPrefix, chainStateRegisterer)
+	return chainStateRegisterer, nil
 }
 
-func (vm *VM) initializeMetrics() error {
+func (vm *VM) initializeMetrics(chainStateRegisterer *prometheus.Registry) error {
 	vm.multiGatherer = avalanchegoMetrics.NewMultiGatherer()
+
+	if err := vm.multiGatherer.Register(tendermintMetricsPrefix, prometheus.DefaultGatherer); err != nil {
+		return err
+	}
+
+	if err := vm.multiGatherer.Register(chainStateMetricsPrefix, chainStateRegisterer); err != nil {
+		return err
+	}
 
 	if err := vm.ctx.Metrics.Register(vm.multiGatherer); err != nil {
 		return err
@@ -540,18 +586,59 @@ func (vm *VM) SetState(ctx context.Context, state snow.State) error {
 }
 
 func (vm *VM) Shutdown(ctx context.Context) error {
-	//TODO implement me
-	panic("implement me")
+	// first stop the non-reactor services
+	if err := vm.eventBus.Stop(); err != nil {
+		return fmt.Errorf("Error closing eventBus: %w ", err)
+	}
+	if err := vm.indexerService.Stop(); err != nil {
+		return fmt.Errorf("Error closing indexerService: %w ", err)
+	}
+	//TODO: investigate wal configuration
+	// stop mempool WAL
+	//if vm.config.Mempool.WalEnabled() {
+	//	n.mempool.CloseWAL()
+	//}
+	//if n.prometheusSrv != nil {
+	//	if err := n.prometheusSrv.Shutdown(context.Background()); err != nil {
+	//		// Error from closing listeners, or context timeout:
+	//		n.Logger.Error("Prometheus HTTP server Shutdown", "err", err)
+	//	}
+	//}
+	if err := vm.blockStore.Close(); err != nil {
+		return fmt.Errorf("Error closing blockStore: %w ", err)
+	}
+	if err := vm.stateStore.Close(); err != nil {
+		return fmt.Errorf("Error closing stateStore: %w ", err)
+	}
+	return nil
+	//timestampVM and deprecated landslide
+	//if vm.state == nil {
+	//	return nil
+	//}
+	//
+	//return vm.state.Close() // close versionDB
+
+	//coreth
+	//if vm.ctx == nil {
+	//	return nil
+	//}
+	//vm.Network.Shutdown()
+	//if err := vm.StateSyncClient.Shutdown(); err != nil {
+	//	log.Error("error stopping state syncer", "err", err)
+	//}
+	//close(vm.shutdownChan)
+	//vm.eth.Stop()
+	//vm.shutdownWg.Wait()
+	//return nil
 }
 
 func (vm *VM) Version(ctx context.Context) (string, error) {
-	//TODO implement me
-	panic("implement me")
+	return Version.String(), nil
 }
 
 func (vm *VM) CreateStaticHandlers(ctx context.Context) (map[string]*common.HTTPHandler, error) {
 	//TODO implement me
-	panic("implement me")
+	return nil, nil
 }
 
 func (vm *VM) CreateHandlers(ctx context.Context) (map[string]*common.HTTPHandler, error) {
@@ -578,19 +665,10 @@ func (vm *VM) ProxyApp() proxy.AppConns {
 	return vm.proxyApp
 }
 
-func (vm *VM) ParseBlock(ctx context.Context, blockBytes []byte) (snowman.Block, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
 func (vm *VM) SetPreference(ctx context.Context, blkID ids.ID) error {
+	//TODO implement me
 	return nil
 }
-
-//func (vm *VM) LastAccepted(ctx context.Context) (ids.ID, error) {
-//	//TODO implement me
-//	panic("implement me")
-//}
 
 func (vm *VM) AppRequest(_ context.Context, nodeID ids.NodeID, requestID uint32, time time.Time, request []byte) error {
 	return nil
