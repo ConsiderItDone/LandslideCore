@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/rpc"
 	"time"
 
 	"github.com/ava-labs/avalanchego/api/metrics"
@@ -18,11 +19,9 @@ import (
 	"github.com/ava-labs/avalanchego/snow/consensus/snowman"
 	"github.com/ava-labs/avalanchego/snow/engine/common"
 	"github.com/ava-labs/avalanchego/snow/engine/snowman/block"
-	"github.com/ava-labs/avalanchego/utils/json"
 	"github.com/ava-labs/avalanchego/utils/timer/mockable"
 	"github.com/ava-labs/avalanchego/version"
 	"github.com/ava-labs/avalanchego/vms/components/chain"
-	"github.com/gorilla/rpc/v2"
 	"github.com/prometheus/client_golang/prometheus"
 	dbm "github.com/tendermint/tm-db"
 
@@ -35,7 +34,6 @@ import (
 	"github.com/consideritdone/landslidecore/node"
 	tmproto "github.com/consideritdone/landslidecore/proto/tendermint/types"
 	"github.com/consideritdone/landslidecore/proxy"
-	rpccore "github.com/consideritdone/landslidecore/rpc/core"
 	rpcserver "github.com/consideritdone/landslidecore/rpc/jsonrpc/server"
 	sm "github.com/consideritdone/landslidecore/state"
 	"github.com/consideritdone/landslidecore/state/indexer"
@@ -620,24 +618,164 @@ func (vm *VM) CreateStaticHandlers(ctx context.Context) (map[string]*common.HTTP
 	return nil, nil
 }
 
-func (vm *VM) CreateHandlers(_ context.Context) (map[string]*common.HTTPHandler, error) {
-	mux := http.NewServeMux()
-	rpcLogger := vm.tmLogger.With("module", "rpc-server")
-	rpcserver.RegisterRPCFuncs(mux, rpccore.Routes, rpcLogger)
+// Routes is a map of available routes.
+var Routes = map[string]*rpcserver.RPCFunc{
+	//// subscribe/unsubscribe are reserved for websocket events.
+	//"subscribe":       rpc.NewWSRPCFunc(Subscribe, "query"),
+	//"unsubscribe":     rpc.NewWSRPCFunc(Unsubscribe, "query"),
+	//"unsubscribe_all": rpc.NewWSRPCFunc(UnsubscribeAll, ""),
+	//
+	//// info API
+	//"health":               rpc.NewRPCFunc(Health, ""),
+	//"status":               rpc.NewRPCFunc(Status, ""),
+	//"net_info":             rpc.NewRPCFunc(NetInfo, ""),
+	//"blockchain":           rpc.NewRPCFunc(BlockchainInfo, "minHeight,maxHeight"),
+	//"genesis":              rpc.NewRPCFunc(Genesis, ""),
+	//"genesis_chunked":      rpc.NewRPCFunc(GenesisChunked, "chunk"),
+	//"block":                rpc.NewRPCFunc(Block, "height"),
+	//"block_by_hash":        rpc.NewRPCFunc(BlockByHash, "hash"),
+	//"block_results":        rpc.NewRPCFunc(BlockResults, "height"),
+	//"commit":               rpc.NewRPCFunc(Commit, "height"),
+	//"check_tx":             rpc.NewRPCFunc(CheckTx, "tx"),
+	//"tx":                   rpc.NewRPCFunc(Tx, "hash,prove"),
+	//"tx_search":            rpc.NewRPCFunc(TxSearch, "query,prove,page,per_page,order_by"),
+	//"block_search":         rpc.NewRPCFunc(BlockSearch, "query,page,per_page,order_by"),
+	//"validators":           rpc.NewRPCFunc(Validators, "height,page,per_page"),
+	//"dump_consensus_state": rpc.NewRPCFunc(DumpConsensusState, ""),
+	//"consensus_state":      rpc.NewRPCFunc(ConsensusState, ""),
+	//"consensus_params":     rpc.NewRPCFunc(ConsensusParams, "height"),
+	//"unconfirmed_txs":      rpc.NewRPCFunc(UnconfirmedTxs, "limit"),
+	//"num_unconfirmed_txs":  rpc.NewRPCFunc(NumUnconfirmedTxs, ""),
+	//
+	//// tx broadcast API
+	//"broadcast_tx_commit": rpc.NewRPCFunc(BroadcastTxCommit, "tx"),
+	//"broadcast_tx_sync":   rpc.NewRPCFunc(BroadcastTxSync, "tx"),
+	//"broadcast_tx_async":  rpc.NewRPCFunc(BroadcastTxAsync, "tx"),
+	//
+	//// abci API
+	//"abci_query": rpc.NewRPCFunc(ABCIQuery, "path,data,height,prove"),
+	"abci_info": rpcserver.NewRPCFunc(ABCIInfo, ""),
+	//
+	//// evidence API
+	//"broadcast_evidence": rpc.NewRPCFunc(BroadcastEvidence, "evidence"),
+}
 
-	server := rpc.NewServer()
-	server.RegisterCodec(json.NewCodec(), "application/json")
-	server.RegisterCodec(json.NewCodec(), "application/json;charset=UTF-8")
-	if err := server.RegisterService(NewService(vm), Name); err != nil {
-		return nil, err
-	}
+//func (vm *VM) CreateHandlers(_ context.Context) (map[string]*common.HTTPHandler, error) {
+//	server := rpc.NewServer()
+//	tmService := NewService(vm)
+//	err := rpc.Register(tmService)
+//	if err != nil {
+//		return nil, fmt.Errorf("Failed to create vm handlers: failed to register tendermint service: %w ", err)
+//	}
+//	rpc.HandleHTTP()
+//
+//	return map[string]*common.HTTPHandler{
+//		"/rpc": {
+//			LockOptions: common.WriteLock,
+//			Handler: func(w http.ResponseWriter, r *http.Request) {
+//				if r.Method != "POST" {
+//					http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+//					return
+//				}
+//
+//				err := r.ParseForm()
+//				if err != nil {
+//					http.Error(w, "Bad request", http.StatusBadRequest)
+//					return
+//				}
+//
+//				method := r.FormValue("method")
+//				if method == "" {
+//					http.Error(w, "Method not specified", http.StatusBadRequest)
+//					return
+//				}
+//
+//				switch method {
+//				case "math_add":
+//					//Math add handler
+//
+//				case "math_subtract":
+//					//Math subc=stract handler
+//
+//				default:
+//					http.Error(w, "Method not found", http.StatusNotFound)
+//					return
+//				}
+//			},
+//		},
+//	}, nil
+//}
+
+func (vm *VM) CreateHandlers(_ context.Context) (map[string]*common.HTTPHandler, error) {
+	//server := rpc.NewServer()
+	//tmService := NewService(vm)
+	//err := rpc.Register(tmService)
+	//if err != nil {
+	//	return nil, fmt.Errorf("Failed to create vm handlers: failed to register tendermint service: %w ", err)
+	//}
+	//rpc.HandleHTTP()
+
+	rpcserver.RegisterRPCFuncs(mux, rpccore.Routes, rpcLogger)
 
 	return map[string]*common.HTTPHandler{
 		"/rpc": {
 			LockOptions: common.WriteLock,
-			Handler:     server,
+			Handler: rpcserver.
 		},
 	}, nil
+}
+
+// convert from a function name to the http handler
+func makeHTTPHandler(rpcFunc *RPCFunc, logger log.Logger) func(http.ResponseWriter, *http.Request) {
+	// Always return -1 as there's no ID here.
+	dummyID := types.JSONRPCIntID(-1) // URIClientRequestID
+
+	// Exception for websocket endpoints
+	if rpcFunc.ws {
+		return func(w http.ResponseWriter, r *http.Request) {
+			res := types.RPCMethodNotFoundError(dummyID)
+			if wErr := WriteRPCResponseHTTPError(w, http.StatusNotFound, res); wErr != nil {
+				logger.Error("failed to write response", "res", res, "err", wErr)
+			}
+		}
+	}
+
+	// All other endpoints
+	return func(w http.ResponseWriter, r *http.Request) {
+		logger.Debug("HTTP HANDLER", "req", r)
+
+		ctx := &types.Context{HTTPReq: r}
+		args := []reflect.Value{reflect.ValueOf(ctx)}
+
+		fnArgs, err := httpParamsToArgs(rpcFunc, r)
+		if err != nil {
+			res := types.RPCInvalidParamsError(dummyID,
+				fmt.Errorf("error converting http params to arguments: %w", err),
+			)
+			if wErr := WriteRPCResponseHTTPError(w, http.StatusInternalServerError, res); wErr != nil {
+				logger.Error("failed to write response", "res", res, "err", wErr)
+			}
+			return
+		}
+		args = append(args, fnArgs...)
+
+		returns := rpcFunc.f.Call(args)
+
+		logger.Debug("HTTPRestRPC", "method", r.URL.Path, "args", args, "returns", returns)
+		result, err := unreflectResult(returns)
+		if err != nil {
+			if err := WriteRPCResponseHTTPError(w, http.StatusInternalServerError,
+				types.RPCInternalError(dummyID, err)); err != nil {
+				logger.Error("failed to write response", "res", result, "err", err)
+				return
+			}
+			return
+		}
+		if err := WriteRPCResponseHTTP(w, types.NewRPCSuccessResponse(dummyID, result)); err != nil {
+			logger.Error("failed to write response", "res", result, "err", err)
+			return
+		}
+	}
 }
 
 func (vm *VM) ProxyApp() proxy.AppConns {
