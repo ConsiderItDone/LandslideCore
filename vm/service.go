@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	rpctypes "github.com/consideritdone/landslidecore/rpc/jsonrpc/types"
 	"net/http"
 	"sort"
 	"time"
@@ -14,7 +15,6 @@ import (
 	tmquery "github.com/consideritdone/landslidecore/libs/pubsub/query"
 	mempl "github.com/consideritdone/landslidecore/mempool"
 	"github.com/consideritdone/landslidecore/p2p"
-	"github.com/consideritdone/landslidecore/proxy"
 	"github.com/consideritdone/landslidecore/rpc/core"
 	ctypes "github.com/consideritdone/landslidecore/rpc/core/types"
 	"github.com/consideritdone/landslidecore/types"
@@ -56,7 +56,8 @@ type (
 
 	ABCIService interface {
 		// Reading from abci app
-		ABCIInfo(_ *http.Request, _ *struct{}, reply *ctypes.ResultABCIInfo) error
+		ABCIInfo(ctx *rpctypes.Context) (*ctypes.ResultABCIInfo, error)
+		//ABCIInfo(_ *http.Request, _ *struct{}, reply *ctypes.ResultABCIInfo) error
 		ABCIQuery(_ *http.Request, args *ABCIQueryArgs, reply *ctypes.ResultABCIQuery) error
 		ABCIQueryWithOptions(_ *http.Request, args *ABCIQueryWithOptionsArgs, reply *ctypes.ResultABCIQuery) error
 
@@ -169,13 +170,18 @@ func NewService(vm *VM) Service {
 	return &LocalService{vm}
 }
 
-func (s *LocalService) ABCIInfo(_ *http.Request, _ *struct{}, reply *ctypes.ResultABCIInfo) error {
-	resInfo, err := s.vm.proxyApp.Query().InfoSync(proxy.RequestInfo)
-	if err != nil {
-		return err
-	}
-	reply.Response = *resInfo
-	return nil
+//func (s *LocalService) ABCIInfo(_ *http.Request, _ *struct{}, reply *ctypes.ResultABCIInfo) error {
+//	resInfo, err := s.vm.proxyApp.Query().InfoSync(proxy.RequestInfo)
+//	if err != nil {
+//		return err
+//	}
+//	reply.Response = *resInfo
+//	return nil
+//}
+
+func (s *LocalService) ABCIInfo(ctx *rpctypes.Context) (*ctypes.ResultABCIInfo, error) {
+
+	return &ctypes.ResultABCIInfo{Response: abci.ResponseInfo{}}, nil
 }
 
 func (s *LocalService) ABCIQuery(req *http.Request, args *ABCIQueryArgs, reply *ctypes.ResultABCIQuery) error {
