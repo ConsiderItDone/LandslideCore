@@ -2,10 +2,10 @@ package vm
 
 import (
 	"fmt"
+	rpctypes "github.com/consideritdone/landslidecore/rpc/jsonrpc/types"
 
 	tmmath "github.com/consideritdone/landslidecore/libs/math"
 	"github.com/consideritdone/landslidecore/rpc/client"
-	coretypes "github.com/consideritdone/landslidecore/rpc/core/types"
 	"github.com/consideritdone/landslidecore/store"
 )
 
@@ -117,8 +117,8 @@ func WaitForHeight(c Service, h int64, waiter client.Waiter) error {
 	}
 	delta := int64(1)
 	for delta > 0 {
-		r := new(coretypes.ResultStatus)
-		if err := c.Status(nil, nil, r); err != nil {
+		r, err := c.Status(&rpctypes.Context{})
+		if err != nil {
 			return err
 		}
 		delta = h - r.SyncInfo.LatestBlockHeight
