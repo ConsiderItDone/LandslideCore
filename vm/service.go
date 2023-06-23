@@ -124,6 +124,8 @@ func (s *LocalService) Subscribe(ctx *rpctypes.Context, query string) (*ctypes.R
 
 	closeIfSlow := s.vm.rpcConfig.CloseOnSlowClient
 
+	// TODO: inspired by Ilnur: usage of ctx.JSONReq.ID may cause situation when user or server try to create multiple subscriptions with the same id.
+	// Solution: return error code with the error sescription when this situation happens
 	// Capture the current ID, since it can change in the future.
 	subscriptionID := ctx.JSONReq.ID
 	go func() {
