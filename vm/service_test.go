@@ -2,7 +2,11 @@ package vm
 
 import (
 	"context"
+	"encoding/base64"
+	tmjson "github.com/consideritdone/landslidecore/libs/json"
 	rpctypes "github.com/consideritdone/landslidecore/rpc/jsonrpc/types"
+	"github.com/consideritdone/landslidecore/types"
+	"strings"
 	"testing"
 	"time"
 
@@ -101,6 +105,67 @@ func TestABCIService(t *testing.T) {
 	})
 }
 
+func TestEventService(t *testing.T) {
+	_, service, _ := mustNewCounterTestVm(t)
+
+	// subscribe to new blocks and make sure height increments by 1
+	t.Run("Subscribe", func(t *testing.T) {
+		events := []string{
+			types.QueryForEvent(types.EventNewBlock).String(),
+			types.QueryForEvent(types.EventNewBlockHeader).String(),
+			types.QueryForEvent(types.EventValidBlock).String(),
+		}
+
+		for i, event := range events {
+			_, err := service.Subscribe(&rpctypes.Context{JSONReq: &rpctypes.RPCRequest{ID: rpctypes.JSONRPCIntID(i)}}, event)
+			require.NoError(t, err)
+		}
+		t.Cleanup(func() {
+			if _, err := service.UnsubscribeAll(&rpctypes.Context{}); err != nil {
+				t.Error(err)
+			}
+		})
+	})
+
+	t.Run("Unsubscribe", func(t *testing.T) {
+		events := []string{
+			types.QueryForEvent(types.EventNewBlock).String(),
+			types.QueryForEvent(types.EventNewBlockHeader).String(),
+			types.QueryForEvent(types.EventValidBlock).String(),
+		}
+
+		for i, event := range events {
+			_, err := service.Subscribe(&rpctypes.Context{JSONReq: &rpctypes.RPCRequest{ID: rpctypes.JSONRPCIntID(i)}}, event)
+			require.NoError(t, err)
+			_, err = service.Unsubscribe(&rpctypes.Context{}, event)
+			require.NoError(t, err)
+		}
+		//TODO: investigate the need to use Cleanup with UnsubscribeAll
+		//t.Cleanup(func() {
+		//	if _, err := service.UnsubscribeAll(&rpctypes.Context{}); err != nil {
+		//		t.Error(err)
+		//	}
+		//})
+	})
+
+	t.Run("UnsubscribeAll", func(t *testing.T) {
+		events := []string{
+			types.QueryForEvent(types.EventNewBlock).String(),
+			types.QueryForEvent(types.EventNewBlockHeader).String(),
+			types.QueryForEvent(types.EventValidBlock).String(),
+		}
+
+		for i, event := range events {
+			_, err := service.Subscribe(&rpctypes.Context{JSONReq: &rpctypes.RPCRequest{ID: rpctypes.JSONRPCIntID(i)}}, event)
+			require.NoError(t, err)
+		}
+		_, err := service.UnsubscribeAll(&rpctypes.Context{})
+		if err != nil {
+			t.Error(err)
+		}
+	})
+}
+
 func TestHistoryService(t *testing.T) {
 	vm, service, _ := mustNewCounterTestVm(t)
 
@@ -123,6 +188,27 @@ func TestHistoryService(t *testing.T) {
 		reply, err := service.Genesis(&rpctypes.Context{})
 		assert.NoError(t, err)
 		assert.Equal(t, vm.genesis, reply.Genesis)
+	})
+
+	t.Run("GenesisChunked", func(t *testing.T) {
+
+		first, err := service.GenesisChunked(&rpctypes.Context{}, 0)
+		require.NoError(t, err)
+
+		decoded := make([]string, 0, first.TotalChunks)
+		for i := 0; i < first.TotalChunks; i++ {
+			chunk, err := service.GenesisChunked(&rpctypes.Context{}, uint(i))
+			require.NoError(t, err)
+			data, err := base64.StdEncoding.DecodeString(chunk.Data)
+			require.NoError(t, err)
+			decoded = append(decoded, string(data))
+
+		}
+		doc := []byte(strings.Join(decoded, ""))
+
+		var out types.GenesisDoc
+		require.NoError(t, tmjson.Unmarshal(doc, &out),
+			"first: %+v, doc: %s", first, string(doc))
 	})
 }
 
@@ -171,6 +257,8 @@ func TestNetworkService(t *testing.T) {
 
 func TestSignService(t *testing.T) {
 	_, _, tx := MakeTxKV()
+	tx2 := []byte{0x02}
+	tx3 := []byte{0x03}
 	vm, service, _ := mustNewKVTestVm(t)
 
 	blk0, err := vm.BuildBlock(context.Background())
@@ -236,17 +324,145 @@ func TestSignService(t *testing.T) {
 		assert.EqualValues(t, tx, reply.Tx)
 	})
 
-	//t.Run("TxSearch", func(t *testing.T) {
-	//	reply := new(ctypes.ResultTxSearch)
-	//	assert.NoError(t, service.TxSearch(nil, &TxSearchArgs{Query: "tx.height>0"}, reply))
-	//	assert.True(t, len(reply.Txs) > 0)
-	//})
+	t.Run("TxSearch", func(t *testing.T) {
+		txReply, err := service.BroadcastTxAsync(&rpctypes.Context{}, tx2)
+		require.NoError(t, err)
+		assert.Equal(t, atypes.CodeTypeOK, txReply.Code)
+		//TODO: why it is not able to find tx?
+		reply, err := service.TxSearch(&rpctypes.Context{}, "tx.height>=0", false, nil, nil, "desc")
+		assert.NoError(t, err)
+		assert.True(t, len(reply.Txs) > 0)
+	})
 
-	//t.Run("BlockSearch", func(t *testing.T) {
-	//	reply := new(ctypes.ResultBlockSearch)
-	//	assert.NoError(t, service.BlockSearch(nil, &BlockSearchArgs{Query: "block.height>0"}, reply))
-	//	assert.True(t, len(reply.Blocks) > 0)
-	//})
+	//TODO: Check logic of test
+	t.Run("Commit", func(t *testing.T) {
+		txReply, err := service.BroadcastTxAsync(&rpctypes.Context{}, tx3)
+		require.NoError(t, err)
+		assert.Equal(t, atypes.CodeTypeOK, txReply.Code)
+
+		assert, require := assert.New(t), require.New(t)
+
+		// get an offset of height to avoid racing and guessing
+		s, err := service.Status(&rpctypes.Context{})
+		require.NoError(err)
+		// sh is start height or status height
+		sh := s.SyncInfo.LatestBlockHeight
+
+		// look for the future
+		h := sh + 20
+		_, err = service.Block(&rpctypes.Context{}, &h)
+		require.Error(err) // no block yet
+
+		// write something
+		k, v, tx := MakeTxKV()
+		bres, err := service.BroadcastTxCommit(&rpctypes.Context{}, tx)
+		require.NoError(err)
+		require.True(bres.DeliverTx.IsOK())
+		txh := bres.Height
+		apph := txh + 1 // this is where the tx will be applied to the state
+
+		// wait before querying
+		err = WaitForHeight(service, apph, nil)
+		require.NoError(err)
+
+		qres, err := service.ABCIQuery(&rpctypes.Context{}, "/key", k, 0, false)
+		require.NoError(err)
+		if assert.True(qres.Response.IsOK()) {
+			assert.Equal(k, qres.Response.Key)
+			assert.EqualValues(v, qres.Response.Value)
+		}
+
+		// make sure we can lookup the tx with proof
+		ptx, err := service.Tx(&rpctypes.Context{}, bres.Hash, true)
+		require.NoError(err)
+		assert.EqualValues(txh, ptx.Height)
+		assert.EqualValues(tx, ptx.Tx)
+
+		// and we can even check the block is added
+		block, err := service.Block(&rpctypes.Context{}, &apph)
+		require.NoError(err)
+		appHash := block.Block.Header.AppHash
+		assert.True(len(appHash) > 0)
+		assert.EqualValues(apph, block.Block.Header.Height)
+
+		blockByHash, err := service.BlockByHash(&rpctypes.Context{}, block.BlockID.Hash)
+		require.NoError(err)
+		require.Equal(block, blockByHash)
+
+		// now check the results
+		blockResults, err := service.BlockResults(&rpctypes.Context{}, &txh)
+		require.Nil(err, "%+v", err)
+		assert.Equal(txh, blockResults.Height)
+		if assert.Equal(1, len(blockResults.TxsResults)) {
+			// check success code
+			assert.EqualValues(0, blockResults.TxsResults[0].Code)
+		}
+
+		// check blockchain info, now that we know there is info
+		info, err := service.BlockchainInfo(&rpctypes.Context{}, apph, apph)
+		require.NoError(err)
+		assert.True(info.LastHeight >= apph)
+		if assert.Equal(1, len(info.BlockMetas)) {
+			lastMeta := info.BlockMetas[0]
+			assert.EqualValues(apph, lastMeta.Header.Height)
+			blockData := block.Block
+			assert.Equal(blockData.Header.AppHash, lastMeta.Header.AppHash)
+			assert.Equal(block.BlockID, lastMeta.BlockID)
+		}
+
+		// and get the corresponding commit with the same apphash
+		commit, err := service.Commit(&rpctypes.Context{}, &apph)
+		require.NoError(err)
+		cappHash := commit.Header.AppHash
+		assert.Equal(appHash, cappHash)
+		assert.NotNil(commit.Commit)
+
+		// compare the commits (note Commit(2) has commit from Block(3))
+		h = apph - 1
+		commit2, err := service.Commit(&rpctypes.Context{}, &h)
+		require.NoError(err)
+		assert.Equal(block.Block.LastCommitHash, commit2.Commit.Hash())
+
+		// and we got a proof that works!
+		pres, err := service.ABCIQuery(&rpctypes.Context{}, "/key", k, 0, true)
+		require.NoError(err)
+		assert.True(pres.Response.IsOK())
+
+		// XXX Test proof
+	})
+
+	//TODO: COMMIT
+	//TODO: VALIDATORS
+
+	t.Run("Validators", func(t *testing.T) {
+
+		// make sure this is the right genesis file
+		gen, err := service.Genesis(&rpctypes.Context{})
+		require.Nil(t, err, "%+v", err)
+		// get the genesis validator
+		require.Equal(t, 1, len(gen.Genesis.Validators))
+		gval := gen.Genesis.Validators[0]
+
+		// get the current validators
+		h := int64(1)
+		vals, err := service.Validators(&rpctypes.Context{}, &h, nil, nil)
+		require.Nil(t, err, "%d: %+v", err)
+		require.Equal(t, 1, len(vals.Validators))
+		require.Equal(t, 1, vals.Count)
+		require.Equal(t, 1, vals.Total)
+		val := vals.Validators[0]
+
+		// make sure the current set is also the genesis set
+		assert.Equal(t, gval.Power, val.VotingPower)
+		assert.Equal(t, gval.PubKey, val.PubKey)
+	})
+
+	t.Run("BlockSearch", func(t *testing.T) {
+		//TODO: CREATE BLOCK?
+		reply, err := service.BlockSearch(&rpctypes.Context{}, "block.height>0", nil, nil, "desc")
+		assert.NoError(t, err)
+		assert.True(t, len(reply.Blocks) > 0)
+	})
 }
 
 func TestStatusService(t *testing.T) {
@@ -284,6 +500,7 @@ func TestMempoolService(t *testing.T) {
 	assert.Nil(t, blk0)
 
 	tx := []byte{0x01}
+	expectedTx := types.Tx(tx)
 	txReply, err := service.BroadcastTxSync(&rpctypes.Context{}, []byte{0x01})
 	assert.NoError(t, err)
 	assert.Equal(t, atypes.CodeTypeOK, txReply.Code)
@@ -293,7 +510,7 @@ func TestMempoolService(t *testing.T) {
 		reply, err := service.UnconfirmedTxs(&rpctypes.Context{}, &limit)
 		assert.NoError(t, err)
 		assert.True(t, len(reply.Txs) == 1)
-		assert.Equal(t, reply.Txs[0], tx)
+		assert.Equal(t, expectedTx, reply.Txs[0])
 	})
 
 	t.Run("NumUnconfirmedTxs", func(t *testing.T) {

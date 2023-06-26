@@ -132,7 +132,7 @@ type VM struct {
 	blockIndexerDB dbm.DB
 	indexerService *txindex.IndexerService
 
-	rpcConfig cfg.RPCConfig
+	rpcConfig *cfg.RPCConfig
 
 	clock mockable.Clock
 }
@@ -202,6 +202,8 @@ func (vm *VM) Initialize(
 		return fmt.Errorf("failed to create and start event bus: %w ", err)
 	}
 	vm.eventBus = eventBus
+
+	vm.rpcConfig = config.DefaultRPCConfig()
 
 	vm.txIndexerDB = Database{prefixdb.NewNested(txIndexerDBPrefix, baseDB)}
 	vm.txIndexer = txidxkv.NewTxIndex(vm.txIndexerDB)
