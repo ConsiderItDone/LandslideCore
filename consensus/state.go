@@ -1203,14 +1203,14 @@ func (cs *State) createProposalBlock() (block *types.Block, blockParts *types.Pa
 
 	default: // This shouldn't happen.
 		cs.Logger.Error("propose step; cannot propose anything without commit for the previous block")
-		return
+		return nil, nil
 	}
 
 	if cs.privValidatorPubKey == nil {
 		// If this node is a validator & proposer in the current round, it will
 		// miss the opportunity to create a block.
 		cs.Logger.Error("propose step; empty priv validator public key", "err", errPubKeyIsNotSet)
-		return
+		return nil, nil
 	}
 
 	proposerAddr := cs.privValidatorPubKey.Address()
@@ -2006,12 +2006,12 @@ func (cs *State) addVote(vote *types.Vote, peerID p2p.ID) (added bool, err error
 		if cs.Step != cstypes.RoundStepNewHeight {
 			// Late precommit at prior height is ignored
 			cs.Logger.Debug("precommit vote came in after commit timeout and has been ignored", "vote", vote)
-			return
+			return false, nil
 		}
 
 		added, err = cs.LastCommit.AddVote(vote)
 		if !added {
-			return
+			return added, err
 		}
 
 		cs.Logger.Debug("added vote to last precommits", "last_commit", cs.LastCommit.StringShort())
@@ -2028,21 +2028,21 @@ func (cs *State) addVote(vote *types.Vote, peerID p2p.ID) (added bool, err error
 			cs.enterNewRound(cs.Height, 0)
 		}
 
-		return
+		return added, err
 	}
 
 	// Height mismatch is ignored.
 	// Not necessarily a bad peer, but not favourable behaviour.
 	if vote.Height != cs.Height {
 		cs.Logger.Debug("vote ignored and not added", "vote_height", vote.Height, "cs_height", cs.Height, "peer", peerID)
-		return
+		return false, nil
 	}
 
 	height := cs.Height
 	added, err = cs.Votes.AddVote(vote, peerID)
 	if !added {
 		// Either duplicate, or error upon cs.Votes.AddByIndex()
-		return
+		return added, err
 	}
 
 	if err := cs.eventBus.PublishEventVote(types.EventDataVote{Vote: vote}); err != nil {

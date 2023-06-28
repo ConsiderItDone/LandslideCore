@@ -43,10 +43,6 @@ issues:
     - text: 'ST1016:'
       linters:
         - stylecheck
-    - path: 'migrations'
-      text: 'SA1019:'
-      linters:
-        - staticcheck
     - text: 'SA1019: codec.NewAminoCodec is deprecated' # TODO remove once migration path is set out
       linters:
         - staticcheck
@@ -74,6 +70,7 @@ linters-settings:
       - default # Default section: contains all imports that could not be matched to another section type.
       - prefix(cosmossdk.io)
       - prefix(github.com/cosmos/cosmos-sdk)
+      - prefix(github.com/ConsiderItDone/LandslideCore)
   revive:
     rules:
       - name: redefines-builtin-id

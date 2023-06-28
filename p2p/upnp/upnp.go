@@ -204,33 +204,33 @@ func localIPv4() (net.IP, error) {
 func getServiceURL(rootURL string) (url, urnDomain string, err error) {
 	r, err := http.Get(rootURL) // nolint: gosec
 	if err != nil {
-		return
+		return url, urnDomain, err
 	}
 	defer r.Body.Close()
 
 	if r.StatusCode >= 400 {
 		err = errors.New(string(rune(r.StatusCode)))
-		return
+		return url, urnDomain, err
 	}
 	var root Root
 	err = xml.NewDecoder(r.Body).Decode(&root)
 	if err != nil {
-		return
+		return url, urnDomain, err
 	}
 	a := &root.Device
 	if !strings.Contains(a.DeviceType, "InternetGatewayDevice:1") {
 		err = errors.New("no InternetGatewayDevice")
-		return
+		return url, urnDomain, err
 	}
 	b := getChildDevice(a, "WANDevice:1")
 	if b == nil {
 		err = errors.New("no WANDevice")
-		return
+		return url, urnDomain, err
 	}
 	c := getChildDevice(b, "WANConnectionDevice:1")
 	if c == nil {
 		err = errors.New("no WANConnectionDevice")
-		return
+		return url, urnDomain, err
 	}
 	d := getChildService(c, "WANIPConnection:1")
 	if d == nil {
@@ -240,7 +240,7 @@ func getServiceURL(rootURL string) (url, urnDomain string, err error) {
 
 		if d == nil {
 			err = errors.New("no WANIPConnection")
-			return
+			return url, urnDomain, err
 		}
 	}
 	// Extract the domain name, which isn't always 'schemas-upnp-org'
@@ -289,7 +289,7 @@ func soapRequest(url, function, message, domain string) (r *http.Response, err e
 		// log.Stderr(function, r.StatusCode)
 		err = errors.New("error " + strconv.Itoa(r.StatusCode) + " for " + function)
 		r = nil
-		return
+		return nil, err
 	}
 	return r, err
 }
@@ -368,7 +368,7 @@ func (n *upnpNAT) AddPortMapping(
 		defer response.Body.Close()
 	}
 	if err != nil {
-		return
+		return 0, err
 	}
 
 	// TODO: check response to see if the port was forwarded

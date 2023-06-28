@@ -366,11 +366,11 @@ func (cs *State) addVote(
 		if cs.Step != cstypes.RoundStepNewHeight {
 			// Late precommit at prior height is ignored
 			cs.Logger.Debug("Precommit vote came in after commit timeout and has been ignored", "vote", vote)
-			return
+			return false, nil
 		}
 		added, err = cs.LastCommit.AddVote(vote)
 		if !added {
-			return
+			return added, err
 		}
 
 		cs.Logger.Info(fmt.Sprintf("Added to lastPrecommits: %v", cs.LastCommit.StringShort()))
@@ -384,20 +384,20 @@ func (cs *State) addVote(
 			cs.enterNewRound(cs.Height, 0)
 		}
 
-		return
+		return added, err
 	}
 
 	// Height mismatch is ignored.
 	// Not necessarily a bad peer, but not favourable behaviour.
 	if vote.Height != cs.Height {
 		cs.Logger.Debug("vote ignored and not added", "voteHeight", vote.Height, "csHeight", cs.Height, "peerID", peerID)
-		return
+		return false, nil
 	}
 
 	added, err = cs.Votes.AddVote(vote, peerID)
 	if !added {
 		// Either duplicate, or error upon cs.Votes.AddByIndex()
-		return
+		return added, err
 	}
 
 	_ = cs.eventBus.PublishEventVote(types.EventDataVote{Vote: vote})
