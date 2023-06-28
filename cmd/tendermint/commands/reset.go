@@ -4,11 +4,10 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/spf13/cobra"
-
 	"github.com/consideritdone/landslidecore/libs/log"
 	tmos "github.com/consideritdone/landslidecore/libs/os"
 	"github.com/consideritdone/landslidecore/privval"
+	"github.com/spf13/cobra"
 )
 
 // ResetAllCmd removes the database of this Tendermint core
@@ -94,7 +93,7 @@ func resetAll(dbDir, addrBookFile, privValKeyFile, privValStateFile string, logg
 		logger.Error("Error removing all blockchain history", "dir", dbDir, "err", err)
 	}
 
-	if err := tmos.EnsureDir(dbDir, 0700); err != nil {
+	if err := tmos.EnsureDir(dbDir, 0o700); err != nil {
 		logger.Error("unable to recreate dbDir", "err", err)
 	}
 
@@ -151,7 +150,7 @@ func resetState(dbDir string, logger log.Logger) error {
 		}
 	}
 
-	if err := tmos.EnsureDir(dbDir, 0700); err != nil {
+	if err := tmos.EnsureDir(dbDir, 0o700); err != nil {
 		logger.Error("unable to recreate dbDir", "err", err)
 	}
 	return nil

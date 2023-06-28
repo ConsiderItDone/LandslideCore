@@ -13,17 +13,15 @@ import (
 	"time"
 
 	"github.com/adlio/schema"
+	abci "github.com/consideritdone/landslidecore/abci/types"
+	"github.com/consideritdone/landslidecore/types"
 	"github.com/gogo/protobuf/proto"
+	// Register the Postgres database driver.
+	_ "github.com/lib/pq"
 	"github.com/ory/dockertest"
 	"github.com/ory/dockertest/docker"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	abci "github.com/consideritdone/landslidecore/abci/types"
-	"github.com/consideritdone/landslidecore/types"
-
-	// Register the Postgres database driver.
-	_ "github.com/lib/pq"
 )
 
 var (

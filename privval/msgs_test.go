@@ -5,9 +5,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
-	"github.com/stretchr/testify/require"
-
 	"github.com/consideritdone/landslidecore/crypto"
 	"github.com/consideritdone/landslidecore/crypto/ed25519"
 	cryptoenc "github.com/consideritdone/landslidecore/crypto/encoding"
@@ -16,6 +13,8 @@ import (
 	privproto "github.com/consideritdone/landslidecore/proto/tendermint/privval"
 	tmproto "github.com/consideritdone/landslidecore/proto/tendermint/types"
 	"github.com/consideritdone/landslidecore/types"
+	"github.com/gogo/protobuf/proto"
+	"github.com/stretchr/testify/require"
 )
 
 var stamp = time.Date(2019, 10, 13, 16, 14, 44, 0, time.UTC)
@@ -39,7 +38,6 @@ func exampleVote() *types.Vote {
 }
 
 func exampleProposal() *types.Proposal {
-
 	return &types.Proposal{
 		Type:      tmproto.SignedMsgType(1),
 		Height:    3,

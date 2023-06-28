@@ -5,13 +5,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
 	"github.com/consideritdone/landslidecore/libs/log"
 	tmrand "github.com/consideritdone/landslidecore/libs/rand"
 	"github.com/consideritdone/landslidecore/p2p"
 	"github.com/consideritdone/landslidecore/types"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestPeerMonitor(t *testing.T) {
@@ -180,7 +179,6 @@ func TestPeerAddBlock(t *testing.T) {
 }
 
 func TestPeerOnErrFuncCalledDueToExpiration(t *testing.T) {
-
 	params := &BpPeerParams{timeout: 10 * time.Millisecond}
 	var (
 		numErrFuncCalls int        // number of calls to the onErr function

@@ -161,9 +161,7 @@ type (
 	}
 )
 
-var (
-	DefaultABCIQueryOptions = ABCIQueryOptions{Height: 0, Prove: false}
-)
+var DefaultABCIQueryOptions = ABCIQueryOptions{Height: 0, Prove: false}
 
 func NewService(vm *VM) Service {
 	return &LocalService{vm}

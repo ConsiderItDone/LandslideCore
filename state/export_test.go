@@ -1,12 +1,11 @@
 package state
 
 import (
-	dbm "github.com/tendermint/tm-db"
-
 	abci "github.com/consideritdone/landslidecore/abci/types"
 	tmstate "github.com/consideritdone/landslidecore/proto/tendermint/state"
 	tmproto "github.com/consideritdone/landslidecore/proto/tendermint/types"
 	"github.com/consideritdone/landslidecore/types"
+	dbm "github.com/tendermint/tm-db"
 )
 
 //

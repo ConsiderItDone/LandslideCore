@@ -7,9 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-
 	tmrand "github.com/consideritdone/landslidecore/libs/rand"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestPanicOnMaxLength(t *testing.T) {
@@ -63,7 +62,6 @@ func TestSmall(t *testing.T) {
 	if l.Len() != 0 {
 		t.Error("Expected len 0, got ", l.Len())
 	}
-
 }
 
 // This test is quite hacky because it relies on SetFinalizer
@@ -166,7 +164,6 @@ func _TestGCRandom(t *testing.T) {
 }
 
 func TestScanRightDeleteRandom(t *testing.T) {
-
 	const numElements = 1000
 	const numTimes = 100
 	const numScanners = 10

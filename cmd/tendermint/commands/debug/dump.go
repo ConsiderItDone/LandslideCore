@@ -8,12 +8,11 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
-
 	cfg "github.com/consideritdone/landslidecore/config"
 	"github.com/consideritdone/landslidecore/libs/cli"
 	rpchttp "github.com/consideritdone/landslidecore/rpc/client/http"
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 var dumpCmd = &cobra.Command{

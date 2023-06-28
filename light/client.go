@@ -178,8 +178,8 @@ func NewClient(
 	primary provider.Provider,
 	witnesses []provider.Provider,
 	trustedStore store.Store,
-	options ...Option) (*Client, error) {
-
+	options ...Option,
+) (*Client, error) {
 	if err := trustOptions.ValidateBasic(); err != nil {
 		return nil, fmt.Errorf("invalid TrustOptions: %w", err)
 	}
@@ -215,8 +215,8 @@ func NewClientFromTrustedStore(
 	primary provider.Provider,
 	witnesses []provider.Provider,
 	trustedStore store.Store,
-	options ...Option) (*Client, error) {
-
+	options ...Option,
+) (*Client, error) {
 	c := &Client{
 		chainID:          chainID,
 		trustingPeriod:   trustingPeriod,
@@ -559,7 +559,7 @@ func (c *Client) verifyLightBlock(ctx context.Context, newLightBlock *types.Ligh
 	c.logger.Info("VerifyHeader", "height", newLightBlock.Height, "hash", newLightBlock.Hash())
 
 	var (
-		verifyFunc func(ctx context.Context, trusted *types.LightBlock, new *types.LightBlock, now time.Time) error
+		verifyFunc func(ctx context.Context, trusted, new *types.LightBlock, now time.Time) error
 		err        error
 	)
 
@@ -614,8 +614,8 @@ func (c *Client) verifySequential(
 	ctx context.Context,
 	trustedBlock *types.LightBlock,
 	newLightBlock *types.LightBlock,
-	now time.Time) error {
-
+	now time.Time,
+) error {
 	var (
 		verifiedBlock = trustedBlock
 		interimBlock  *types.LightBlock
@@ -708,8 +708,8 @@ func (c *Client) verifySkipping(
 	source provider.Provider,
 	trustedBlock *types.LightBlock,
 	newLightBlock *types.LightBlock,
-	now time.Time) ([]*types.LightBlock, error) {
-
+	now time.Time,
+) ([]*types.LightBlock, error) {
 	var (
 		blockCache = []*types.LightBlock{newLightBlock}
 		depth      = 0
@@ -778,8 +778,8 @@ func (c *Client) verifySkippingAgainstPrimary(
 	ctx context.Context,
 	trustedBlock *types.LightBlock,
 	newLightBlock *types.LightBlock,
-	now time.Time) error {
-
+	now time.Time,
+) error {
 	trace, err := c.verifySkipping(ctx, c.primary, trustedBlock, newLightBlock, now)
 
 	switch errors.Unwrap(err).(type) {
@@ -933,8 +933,8 @@ func (c *Client) updateTrustedLightBlock(l *types.LightBlock) error {
 func (c *Client) backwards(
 	ctx context.Context,
 	trustedHeader *types.Header,
-	newHeader *types.Header) error {
-
+	newHeader *types.Header,
+) error {
 	var (
 		verifiedHeader = trustedHeader
 		interimHeader  *types.Header

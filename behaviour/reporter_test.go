@@ -40,7 +40,7 @@ type scriptItem struct {
 
 // equalBehaviours returns true if a and b contain the same PeerBehaviours with
 // the same freequencies and otherwise false.
-func equalBehaviours(a []bh.PeerBehaviour, b []bh.PeerBehaviour) bool {
+func equalBehaviours(a, b []bh.PeerBehaviour) bool {
 	aHistogram := map[bh.PeerBehaviour]int{}
 	bHistogram := map[bh.PeerBehaviour]int{}
 
@@ -88,11 +88,15 @@ func TestEqualPeerBehaviours(t *testing.T) {
 			// Single behaviours
 			{[]bh.PeerBehaviour{consensusVote}, []bh.PeerBehaviour{consensusVote}},
 			// Equal Frequencies
-			{[]bh.PeerBehaviour{consensusVote, consensusVote},
-				[]bh.PeerBehaviour{consensusVote, consensusVote}},
+			{
+				[]bh.PeerBehaviour{consensusVote, consensusVote},
+				[]bh.PeerBehaviour{consensusVote, consensusVote},
+			},
 			// Equal frequencies different orders
-			{[]bh.PeerBehaviour{consensusVote, blockPart},
-				[]bh.PeerBehaviour{blockPart, consensusVote}},
+			{
+				[]bh.PeerBehaviour{consensusVote, blockPart},
+				[]bh.PeerBehaviour{blockPart, consensusVote},
+			},
 		}
 		unequals = []struct {
 			left  []bh.PeerBehaviour
@@ -103,8 +107,10 @@ func TestEqualPeerBehaviours(t *testing.T) {
 			// Different behaviours
 			{[]bh.PeerBehaviour{consensusVote}, []bh.PeerBehaviour{blockPart}},
 			// Same behaviour with different frequencies
-			{[]bh.PeerBehaviour{consensusVote},
-				[]bh.PeerBehaviour{consensusVote, consensusVote}},
+			{
+				[]bh.PeerBehaviour{consensusVote},
+				[]bh.PeerBehaviour{consensusVote, consensusVote},
+			},
 		}
 	)
 
@@ -126,33 +132,40 @@ func TestEqualPeerBehaviours(t *testing.T) {
 // This test reproduces the conditions in which MockReporter will
 // be used within a Reactor `Receive` method tests to ensure thread safety.
 func TestMockPeerBehaviourReporterConcurrency(t *testing.T) {
-	var (
-		behaviourScript = []struct {
-			peerID     p2p.ID
-			behaviours []bh.PeerBehaviour
-		}{
-			{"1", []bh.PeerBehaviour{bh.ConsensusVote("1", "")}},
-			{"2", []bh.PeerBehaviour{bh.ConsensusVote("2", ""), bh.ConsensusVote("2", ""), bh.ConsensusVote("2", "")}},
-			{
-				"3",
-				[]bh.PeerBehaviour{bh.BlockPart("3", ""),
-					bh.ConsensusVote("3", ""),
-					bh.BlockPart("3", ""),
-					bh.ConsensusVote("3", "")}},
-			{
-				"4",
-				[]bh.PeerBehaviour{bh.ConsensusVote("4", ""),
-					bh.ConsensusVote("4", ""),
-					bh.ConsensusVote("4", ""),
-					bh.ConsensusVote("4", "")}},
-			{
-				"5",
-				[]bh.PeerBehaviour{bh.BlockPart("5", ""),
-					bh.ConsensusVote("5", ""),
-					bh.BlockPart("5", ""),
-					bh.ConsensusVote("5", "")}},
-		}
-	)
+	behaviourScript := []struct {
+		peerID     p2p.ID
+		behaviours []bh.PeerBehaviour
+	}{
+		{"1", []bh.PeerBehaviour{bh.ConsensusVote("1", "")}},
+		{"2", []bh.PeerBehaviour{bh.ConsensusVote("2", ""), bh.ConsensusVote("2", ""), bh.ConsensusVote("2", "")}},
+		{
+			"3",
+			[]bh.PeerBehaviour{
+				bh.BlockPart("3", ""),
+				bh.ConsensusVote("3", ""),
+				bh.BlockPart("3", ""),
+				bh.ConsensusVote("3", ""),
+			},
+		},
+		{
+			"4",
+			[]bh.PeerBehaviour{
+				bh.ConsensusVote("4", ""),
+				bh.ConsensusVote("4", ""),
+				bh.ConsensusVote("4", ""),
+				bh.ConsensusVote("4", ""),
+			},
+		},
+		{
+			"5",
+			[]bh.PeerBehaviour{
+				bh.BlockPart("5", ""),
+				bh.ConsensusVote("5", ""),
+				bh.BlockPart("5", ""),
+				bh.ConsensusVote("5", ""),
+			},
+		},
+	}
 
 	var receiveWg sync.WaitGroup
 	pr := bh.NewMockReporter()

@@ -189,7 +189,7 @@ func (pool *BlockPool) IsCaughtUp() bool {
 // We need to see the second block's Commit to validate the first block.
 // So we peek two blocks at a time.
 // The caller will verify the commit.
-func (pool *BlockPool) PeekTwoBlocks() (first *types.Block, second *types.Block) {
+func (pool *BlockPool) PeekTwoBlocks() (first, second *types.Block) {
 	pool.mtx.Lock()
 	defer pool.mtx.Unlock()
 
@@ -286,7 +286,7 @@ func (pool *BlockPool) MaxPeerHeight() int64 {
 }
 
 // SetPeerRange sets the peer's alleged blockchain base and height.
-func (pool *BlockPool) SetPeerRange(peerID p2p.ID, base int64, height int64) {
+func (pool *BlockPool) SetPeerRange(peerID p2p.ID, base, height int64) {
 	pool.mtx.Lock()
 	defer pool.mtx.Unlock()
 
@@ -445,7 +445,7 @@ type bpPeer struct {
 	logger log.Logger
 }
 
-func newBPPeer(pool *BlockPool, peerID p2p.ID, base int64, height int64) *bpPeer {
+func newBPPeer(pool *BlockPool, peerID p2p.ID, base, height int64) *bpPeer {
 	peer := &bpPeer{
 		pool:       pool,
 		id:         peerID,

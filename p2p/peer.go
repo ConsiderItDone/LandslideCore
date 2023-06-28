@@ -8,7 +8,6 @@ import (
 	"github.com/consideritdone/landslidecore/libs/cmap"
 	"github.com/consideritdone/landslidecore/libs/log"
 	"github.com/consideritdone/landslidecore/libs/service"
-
 	tmconn "github.com/consideritdone/landslidecore/p2p/conn"
 )
 
@@ -60,7 +59,6 @@ func newPeerConn(
 	conn net.Conn,
 	socketAddr *NetAddress,
 ) peerConn {
-
 	return peerConn{
 		outbound:   outbound,
 		persistent: persistent,
@@ -374,7 +372,6 @@ func createMConnection(
 	onPeerError func(Peer, interface{}),
 	config tmconn.MConnConfig,
 ) *tmconn.MConnection {
-
 	onReceive := func(chID byte, msgBytes []byte) {
 		reactor := reactorsByCh[chID]
 		if reactor == nil {

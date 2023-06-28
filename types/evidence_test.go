@@ -5,15 +5,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
 	"github.com/consideritdone/landslidecore/crypto"
 	"github.com/consideritdone/landslidecore/crypto/tmhash"
 	tmrand "github.com/consideritdone/landslidecore/libs/rand"
 	tmproto "github.com/consideritdone/landslidecore/proto/tendermint/types"
 	tmversion "github.com/consideritdone/landslidecore/proto/tendermint/version"
 	"github.com/consideritdone/landslidecore/version"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 var defaultVoteTime = time.Date(2019, 1, 1, 0, 0, 0, 0, time.UTC)
@@ -220,7 +219,6 @@ func TestLightClientAttackEvidenceValidation(t *testing.T) {
 			}
 		})
 	}
-
 }
 
 func TestMockEvidenceValidateBasic(t *testing.T) {
@@ -230,7 +228,8 @@ func TestMockEvidenceValidateBasic(t *testing.T) {
 
 func makeVote(
 	t *testing.T, val PrivValidator, chainID string, valIndex int32, height int64, round int32, step int, blockID BlockID,
-	time time.Time) *Vote {
+	time time.Time,
+) *Vote {
 	pubKey, err := val.GetPubKey()
 	require.NoError(t, err)
 	v := &Vote{

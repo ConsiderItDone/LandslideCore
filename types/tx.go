@@ -111,7 +111,6 @@ func (tp TxProof) Validate(dataHash []byte) error {
 }
 
 func (tp TxProof) ToProto() tmproto.TxProof {
-
 	pbProof := tp.Proof.ToProto()
 
 	pbtp := tmproto.TxProof{
@@ -122,8 +121,8 @@ func (tp TxProof) ToProto() tmproto.TxProof {
 
 	return pbtp
 }
-func TxProofFromProto(pb tmproto.TxProof) (TxProof, error) {
 
+func TxProofFromProto(pb tmproto.TxProof) (TxProof, error) {
 	pbProof, err := merkle.ProofFromProto(pb.Proof)
 	if err != nil {
 		return TxProof{}, err

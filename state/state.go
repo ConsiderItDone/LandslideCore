@@ -7,14 +7,13 @@ import (
 	"io/ioutil"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
-
 	tmstate "github.com/consideritdone/landslidecore/proto/tendermint/state"
 	tmproto "github.com/consideritdone/landslidecore/proto/tendermint/types"
 	tmversion "github.com/consideritdone/landslidecore/proto/tendermint/version"
 	"github.com/consideritdone/landslidecore/types"
 	tmtime "github.com/consideritdone/landslidecore/types/time"
 	"github.com/consideritdone/landslidecore/version"
+	"github.com/gogo/protobuf/proto"
 )
 
 // database keys
@@ -82,7 +81,6 @@ type State struct {
 
 // Copy makes a copy of the State for mutating.
 func (state State) Copy() State {
-
 	return State{
 		Version:       state.Version,
 		ChainID:       state.ChainID,
@@ -239,7 +237,6 @@ func (state State) MakeBlock(
 	evidence []types.Evidence,
 	proposerAddress []byte,
 ) (*types.Block, *types.PartSet) {
-
 	// Build base block with block data.
 	block := types.MakeBlock(height, txs, commit, evidence)
 

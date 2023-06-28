@@ -4,12 +4,11 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
 	tmrand "github.com/consideritdone/landslidecore/libs/rand"
 	ctest "github.com/consideritdone/landslidecore/libs/test"
 	tmproto "github.com/consideritdone/landslidecore/proto/tendermint/types"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func makeTxs(cnt, size int) Txs {
@@ -128,8 +127,7 @@ func testTxProofUnchangable(t *testing.T) {
 }
 
 // This makes sure that the proof doesn't deserialize into something valid.
-func assertBadProof(t *testing.T, root []byte, bad []byte, good TxProof) {
-
+func assertBadProof(t *testing.T, root, bad []byte, good TxProof) {
 	var (
 		proof   TxProof
 		pbProof tmproto.TxProof

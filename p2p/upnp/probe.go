@@ -13,7 +13,7 @@ type Capabilities struct {
 	Hairpin     bool
 }
 
-func makeUPNPListener(intPort int, extPort int, logger log.Logger) (NAT, net.Listener, net.IP, error) {
+func makeUPNPListener(intPort, extPort int, logger log.Logger) (NAT, net.Listener, net.IP, error) {
 	nat, err := Discover()
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("nat upnp could not be discovered: %v", err)

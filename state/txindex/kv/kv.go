@@ -8,14 +8,13 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/gogo/protobuf/proto"
-	dbm "github.com/tendermint/tm-db"
-
 	abci "github.com/consideritdone/landslidecore/abci/types"
 	"github.com/consideritdone/landslidecore/libs/pubsub/query"
 	"github.com/consideritdone/landslidecore/state/indexer"
 	"github.com/consideritdone/landslidecore/state/txindex"
 	"github.com/consideritdone/landslidecore/types"
+	"github.com/gogo/protobuf/proto"
+	dbm "github.com/tendermint/tm-db"
 )
 
 const (

@@ -7,11 +7,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
 	e2e "github.com/consideritdone/landslidecore/test/e2e/pkg"
 	"github.com/consideritdone/landslidecore/types"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // Tests that any initial state given in genesis has made it into the app.
@@ -92,6 +91,5 @@ func TestApp_Tx(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, key, string(abciResp.Response.Key))
 		assert.Equal(t, value, string(abciResp.Response.Value))
-
 	})
 }

@@ -5,13 +5,12 @@ import (
 	"net"
 	"time"
 
+	"github.com/consideritdone/landslidecore/config"
 	"github.com/consideritdone/landslidecore/crypto"
 	"github.com/consideritdone/landslidecore/crypto/ed25519"
 	"github.com/consideritdone/landslidecore/libs/log"
 	tmnet "github.com/consideritdone/landslidecore/libs/net"
 	tmrand "github.com/consideritdone/landslidecore/libs/rand"
-
-	"github.com/consideritdone/landslidecore/config"
 	"github.com/consideritdone/landslidecore/p2p/conn"
 )
 
@@ -180,7 +179,6 @@ func MakeSwitch(
 	initSwitch func(int, *Switch) *Switch,
 	opts ...SwitchOption,
 ) *Switch {
-
 	nodeKey := NodeKey{
 		PrivKey: ed25519.GenPrivKey(),
 	}
@@ -289,7 +287,7 @@ type AddrBookMock struct {
 
 var _ AddrBook = (*AddrBookMock)(nil)
 
-func (book *AddrBookMock) AddAddress(addr *NetAddress, src *NetAddress) error {
+func (book *AddrBookMock) AddAddress(addr, src *NetAddress) error {
 	book.Addrs[addr.String()] = struct{}{}
 	return nil
 }
@@ -303,6 +301,7 @@ func (book *AddrBookMock) HasAddress(addr *NetAddress) bool {
 	_, ok := book.Addrs[addr.String()]
 	return ok
 }
+
 func (book *AddrBookMock) RemoveAddress(addr *NetAddress) {
 	delete(book.Addrs, addr.String())
 }

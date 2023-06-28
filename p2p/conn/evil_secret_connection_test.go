@@ -6,16 +6,15 @@ import (
 	"io"
 	"testing"
 
-	gogotypes "github.com/gogo/protobuf/types"
-	"github.com/gtank/merlin"
-	"github.com/stretchr/testify/assert"
-	"golang.org/x/crypto/chacha20poly1305"
-
 	"github.com/consideritdone/landslidecore/crypto"
 	"github.com/consideritdone/landslidecore/crypto/ed25519"
 	cryptoenc "github.com/consideritdone/landslidecore/crypto/encoding"
 	"github.com/consideritdone/landslidecore/libs/protoio"
 	tmp2p "github.com/consideritdone/landslidecore/proto/tendermint/p2p"
+	gogotypes "github.com/gogo/protobuf/types"
+	"github.com/gtank/merlin"
+	"github.com/stretchr/testify/assert"
+	"golang.org/x/crypto/chacha20poly1305"
 )
 
 type buffer struct {

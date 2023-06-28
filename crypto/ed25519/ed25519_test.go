@@ -3,15 +3,13 @@ package ed25519_test
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
 	"github.com/consideritdone/landslidecore/crypto"
 	"github.com/consideritdone/landslidecore/crypto/ed25519"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestSignAndValidateEd25519(t *testing.T) {
-
 	privKey := ed25519.GenPrivKey()
 	pubKey := privKey.PubKey()
 

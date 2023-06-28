@@ -4,10 +4,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/consideritdone/landslidecore/libs/json"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/consideritdone/landslidecore/libs/json"
 )
 
 func TestMarshal(t *testing.T) {

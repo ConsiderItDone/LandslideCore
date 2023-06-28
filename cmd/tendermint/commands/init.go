@@ -3,8 +3,6 @@ package commands
 import (
 	"fmt"
 
-	"github.com/spf13/cobra"
-
 	cfg "github.com/consideritdone/landslidecore/config"
 	tmos "github.com/consideritdone/landslidecore/libs/os"
 	tmrand "github.com/consideritdone/landslidecore/libs/rand"
@@ -12,6 +10,7 @@ import (
 	"github.com/consideritdone/landslidecore/privval"
 	"github.com/consideritdone/landslidecore/types"
 	tmtime "github.com/consideritdone/landslidecore/types/time"
+	"github.com/spf13/cobra"
 )
 
 // InitFilesCmd initialises a fresh Tendermint Core instance.

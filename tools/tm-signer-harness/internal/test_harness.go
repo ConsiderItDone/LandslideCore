@@ -8,16 +8,14 @@ import (
 	"os/signal"
 	"time"
 
-	"github.com/consideritdone/landslidecore/crypto/tmhash"
-
 	"github.com/consideritdone/landslidecore/crypto/ed25519"
-	"github.com/consideritdone/landslidecore/privval"
-	"github.com/consideritdone/landslidecore/state"
-
+	"github.com/consideritdone/landslidecore/crypto/tmhash"
 	"github.com/consideritdone/landslidecore/libs/log"
 	tmnet "github.com/consideritdone/landslidecore/libs/net"
 	tmos "github.com/consideritdone/landslidecore/libs/os"
+	"github.com/consideritdone/landslidecore/privval"
 	tmproto "github.com/consideritdone/landslidecore/proto/tendermint/types"
+	"github.com/consideritdone/landslidecore/state"
 	"github.com/consideritdone/landslidecore/types"
 )
 

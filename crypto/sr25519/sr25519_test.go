@@ -3,15 +3,13 @@ package sr25519_test
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
 	"github.com/consideritdone/landslidecore/crypto"
 	"github.com/consideritdone/landslidecore/crypto/sr25519"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestSignAndValidateSr25519(t *testing.T) {
-
 	privKey := sr25519.GenPrivKey()
 	pubKey := privKey.PubKey()
 

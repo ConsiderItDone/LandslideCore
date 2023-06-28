@@ -37,11 +37,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/consideritdone/landslidecore/libs/protoio"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/test"
 	"github.com/stretchr/testify/require"
-
-	"github.com/consideritdone/landslidecore/libs/protoio"
 )
 
 func iotest(writer protoio.WriteCloser, reader protoio.ReadCloser) error {

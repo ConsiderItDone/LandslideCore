@@ -9,12 +9,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gorilla/websocket"
-	"github.com/stretchr/testify/require"
-
 	"github.com/consideritdone/landslidecore/libs/log"
 	tmsync "github.com/consideritdone/landslidecore/libs/sync"
 	types "github.com/consideritdone/landslidecore/rpc/jsonrpc/types"
+	"github.com/gorilla/websocket"
+	"github.com/stretchr/testify/require"
 )
 
 var wsCallTimeout = 5 * time.Second

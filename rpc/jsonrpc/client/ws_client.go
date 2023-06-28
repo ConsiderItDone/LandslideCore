@@ -9,13 +9,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gorilla/websocket"
-	metrics "github.com/rcrowley/go-metrics"
-
 	tmrand "github.com/consideritdone/landslidecore/libs/rand"
 	"github.com/consideritdone/landslidecore/libs/service"
 	tmsync "github.com/consideritdone/landslidecore/libs/sync"
 	types "github.com/consideritdone/landslidecore/rpc/jsonrpc/types"
+	"github.com/gorilla/websocket"
+	metrics "github.com/rcrowley/go-metrics"
 )
 
 const (

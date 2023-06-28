@@ -14,14 +14,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/minio/highwayhash"
-
 	"github.com/consideritdone/landslidecore/crypto"
 	tmmath "github.com/consideritdone/landslidecore/libs/math"
 	tmrand "github.com/consideritdone/landslidecore/libs/rand"
 	"github.com/consideritdone/landslidecore/libs/service"
 	tmsync "github.com/consideritdone/landslidecore/libs/sync"
 	"github.com/consideritdone/landslidecore/p2p"
+	"github.com/minio/highwayhash"
 )
 
 const (
@@ -44,7 +43,7 @@ type AddrBook interface {
 	AddPrivateIDs([]string)
 
 	// Add and remove an address
-	AddAddress(addr *p2p.NetAddress, src *p2p.NetAddress) error
+	AddAddress(addr, src *p2p.NetAddress) error
 	RemoveAddress(*p2p.NetAddress)
 
 	// Check if the address is in the book
@@ -209,7 +208,7 @@ func (a *addrBook) AddPrivateIDs(ids []string) {
 // Add address to a "new" bucket. If it's already in one, only add it probabilistically.
 // Returns error if the addr is non-routable. Does not add self.
 // NOTE: addr must not be nil
-func (a *addrBook) AddAddress(addr *p2p.NetAddress, src *p2p.NetAddress) error {
+func (a *addrBook) AddAddress(addr, src *p2p.NetAddress) error {
 	a.mtx.Lock()
 	defer a.mtx.Unlock()
 

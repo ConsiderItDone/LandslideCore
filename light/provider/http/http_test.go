@@ -7,9 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
 	"github.com/consideritdone/landslidecore/abci/example/kvstore"
 	"github.com/consideritdone/landslidecore/light/provider"
 	lighthttp "github.com/consideritdone/landslidecore/light/provider/http"
@@ -17,6 +14,8 @@ import (
 	rpchttp "github.com/consideritdone/landslidecore/rpc/client/http"
 	rpctest "github.com/consideritdone/landslidecore/rpc/test"
 	"github.com/consideritdone/landslidecore/types"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNewProvider(t *testing.T) {

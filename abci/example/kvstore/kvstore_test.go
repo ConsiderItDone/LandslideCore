@@ -6,16 +6,14 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/stretchr/testify/require"
-
-	"github.com/consideritdone/landslidecore/libs/log"
-	"github.com/consideritdone/landslidecore/libs/service"
-
 	abcicli "github.com/consideritdone/landslidecore/abci/client"
 	"github.com/consideritdone/landslidecore/abci/example/code"
 	abciserver "github.com/consideritdone/landslidecore/abci/server"
 	"github.com/consideritdone/landslidecore/abci/types"
+	"github.com/consideritdone/landslidecore/libs/log"
+	"github.com/consideritdone/landslidecore/libs/service"
 	tmproto "github.com/consideritdone/landslidecore/proto/tendermint/types"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -114,7 +112,6 @@ func TestPersistentKVStoreInfo(t *testing.T) {
 	if resInfo.LastBlockHeight != height {
 		t.Fatalf("expected height of %d, got %d", height, resInfo.LastBlockHeight)
 	}
-
 }
 
 // add a validator, remove a validator, update a validator
@@ -181,7 +178,6 @@ func TestValUpdates(t *testing.T) {
 	vals1 = append([]types.ValidatorUpdate{v1}, vals1[1:]...)
 	vals2 = kvstore.Validators()
 	valsEqual(t, vals1, vals2)
-
 }
 
 func makeApplyBlock(
@@ -189,7 +185,8 @@ func makeApplyBlock(
 	kvstore types.Application,
 	heightInt int,
 	diff []types.ValidatorUpdate,
-	txs ...[]byte) {
+	txs ...[]byte,
+) {
 	// make and apply block
 	height := int64(heightInt)
 	hash := []byte("foo")
@@ -207,7 +204,6 @@ func makeApplyBlock(
 	kvstore.Commit()
 
 	valsEqual(t, diff, resEndBlock.ValidatorUpdates)
-
 }
 
 // order doesn't matter

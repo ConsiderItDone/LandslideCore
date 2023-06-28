@@ -5,10 +5,9 @@ import (
 	"os"
 	"testing"
 
+	"github.com/consideritdone/landslidecore/p2p"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/consideritdone/landslidecore/p2p"
 )
 
 func setupChunkQueue(t *testing.T) (*chunkQueue, func()) {

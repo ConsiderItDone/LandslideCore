@@ -12,17 +12,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-kit/log/term"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
 	tmbytes "github.com/consideritdone/landslidecore/libs/bytes"
 	"github.com/consideritdone/landslidecore/libs/log"
 	tmrand "github.com/consideritdone/landslidecore/libs/rand"
-
 	client "github.com/consideritdone/landslidecore/rpc/jsonrpc/client"
 	server "github.com/consideritdone/landslidecore/rpc/jsonrpc/server"
 	types "github.com/consideritdone/landslidecore/rpc/jsonrpc/types"
+	"github.com/go-kit/log/term"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // Client and Server should work over tcp or unix sockets
@@ -37,9 +35,7 @@ const (
 	testVal = "acbd"
 )
 
-var (
-	ctx = context.Background()
-)
+var ctx = context.Background()
 
 type ResultEcho struct {
 	Value string `json:"value"`
@@ -233,7 +229,6 @@ func echoViaWS(cl *client.WSClient, val string) (string, error) {
 	msg := <-cl.ResponsesCh
 	if msg.Error != nil {
 		return "", err
-
 	}
 	result := new(ResultEcho)
 	err = json.Unmarshal(msg.Result, result)
@@ -255,7 +250,6 @@ func echoBytesViaWS(cl *client.WSClient, bytes []byte) ([]byte, error) {
 	msg := <-cl.ResponsesCh
 	if msg.Error != nil {
 		return []byte{}, msg.Error
-
 	}
 	result := new(ResultEchoBytes)
 	err = json.Unmarshal(msg.Result, result)

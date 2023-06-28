@@ -4,17 +4,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
-	dbm "github.com/tendermint/tm-db"
-
 	"github.com/consideritdone/landslidecore/libs/log"
 	"github.com/consideritdone/landslidecore/light"
 	"github.com/consideritdone/landslidecore/light/provider"
 	mockp "github.com/consideritdone/landslidecore/light/provider/mock"
 	dbs "github.com/consideritdone/landslidecore/light/store/db"
 	"github.com/consideritdone/landslidecore/types"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	dbm "github.com/tendermint/tm-db"
 )
 
 func TestLightClientAttackEvidence_Lunatic(t *testing.T) {
@@ -302,7 +300,6 @@ func TestLightClientAttackEvidence_ForwardLunatic(t *testing.T) {
 
 	_, err = c.Update(ctx, bTime.Add(time.Duration(forgedHeight)*time.Minute))
 	assert.NoError(t, err)
-
 }
 
 // 1. Different nodes therefore a divergent header is produced.

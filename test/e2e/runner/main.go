@@ -6,15 +6,12 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/spf13/cobra"
-
 	"github.com/consideritdone/landslidecore/libs/log"
 	e2e "github.com/consideritdone/landslidecore/test/e2e/pkg"
+	"github.com/spf13/cobra"
 )
 
-var (
-	logger = log.NewTMLogger(log.NewSyncWriter(os.Stdout))
-)
+var logger = log.NewTMLogger(log.NewSyncWriter(os.Stdout))
 
 func main() {
 	NewCLI().Run()

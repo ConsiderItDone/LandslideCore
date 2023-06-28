@@ -3,10 +3,9 @@ package commands
 import (
 	"fmt"
 
-	"github.com/spf13/cobra"
-
 	tmjson "github.com/consideritdone/landslidecore/libs/json"
 	"github.com/consideritdone/landslidecore/p2p/upnp"
+	"github.com/spf13/cobra"
 )
 
 // ProbeUpnpCmd adds capabilities to test the UPnP functionality.

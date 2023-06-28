@@ -8,11 +8,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
-
 	abcimocks "github.com/consideritdone/landslidecore/abci/client/mocks"
 	"github.com/consideritdone/landslidecore/proxy/mocks"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 func TestAppConns_Start_Stop(t *testing.T) {

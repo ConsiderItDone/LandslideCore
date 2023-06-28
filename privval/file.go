@@ -7,8 +7,6 @@ import (
 	"io/ioutil"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
-
 	"github.com/consideritdone/landslidecore/crypto"
 	"github.com/consideritdone/landslidecore/crypto/ed25519"
 	tmbytes "github.com/consideritdone/landslidecore/libs/bytes"
@@ -19,6 +17,7 @@ import (
 	tmproto "github.com/consideritdone/landslidecore/proto/tendermint/types"
 	"github.com/consideritdone/landslidecore/types"
 	tmtime "github.com/consideritdone/landslidecore/types/time"
+	"github.com/gogo/protobuf/proto"
 )
 
 // TODO: type ?
@@ -64,7 +63,7 @@ func (pvKey FilePVKey) Save() {
 		panic(err)
 	}
 
-	if err := tempfile.WriteFileAtomic(outFile, jsonBytes, 0600); err != nil {
+	if err := tempfile.WriteFileAtomic(outFile, jsonBytes, 0o600); err != nil {
 		panic(err)
 	}
 }
@@ -90,7 +89,6 @@ type FilePVLastSignState struct {
 // we have already signed for this HRS, and can reuse the existing signature).
 // It panics if the HRS matches the arguments, there's a SignBytes, but no Signature.
 func (lss *FilePVLastSignState) CheckHRS(height int64, round int32, step int8) (bool, error) {
-
 	if lss.Height > height {
 		return false, fmt.Errorf("height regression. Got %v, last height %v", height, lss.Height)
 	}
@@ -133,7 +131,7 @@ func (lss *FilePVLastSignState) Save() {
 	if err != nil {
 		panic(err)
 	}
-	err = tempfile.WriteFileAtomic(outFile, jsonBytes, 0600)
+	err = tempfile.WriteFileAtomic(outFile, jsonBytes, 0o600)
 	if err != nil {
 		panic(err)
 	}
@@ -384,8 +382,8 @@ func (pv *FilePV) signProposal(chainID string, proposal *tmproto.Proposal) error
 
 // Persist height/round/step and signature
 func (pv *FilePV) saveSigned(height int64, round int32, step int8,
-	signBytes []byte, sig []byte) {
-
+	signBytes, sig []byte,
+) {
 	pv.LastSignState.Height = height
 	pv.LastSignState.Round = round
 	pv.LastSignState.Step = step

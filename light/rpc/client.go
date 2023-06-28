@@ -8,8 +8,6 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
-
 	abci "github.com/consideritdone/landslidecore/abci/types"
 	"github.com/consideritdone/landslidecore/crypto/merkle"
 	tmbytes "github.com/consideritdone/landslidecore/libs/bytes"
@@ -19,6 +17,7 @@ import (
 	ctypes "github.com/consideritdone/landslidecore/rpc/core/types"
 	rpctypes "github.com/consideritdone/landslidecore/rpc/jsonrpc/types"
 	"github.com/consideritdone/landslidecore/types"
+	"github.com/gogo/protobuf/proto"
 )
 
 var errNegOrZeroHeight = errors.New("negative or zero height")
@@ -131,8 +130,8 @@ func (c *Client) ABCIQuery(ctx context.Context, path string, data tmbytes.HexByt
 
 // ABCIQueryWithOptions returns an error if opts.Prove is false.
 func (c *Client) ABCIQueryWithOptions(ctx context.Context, path string, data tmbytes.HexBytes,
-	opts rpcclient.ABCIQueryOptions) (*ctypes.ResultABCIQuery, error) {
-
+	opts rpcclient.ABCIQueryOptions,
+) (*ctypes.ResultABCIQuery, error) {
 	// always request the proof
 	opts.Prove = true
 
@@ -503,7 +502,6 @@ func (c *Client) Validators(
 	height *int64,
 	pagePtr, perPagePtr *int,
 ) (*ctypes.ResultValidators, error) {
-
 	// Update the light client if we're behind and retrieve the light block at the
 	// requested height or at the latest height if no height is provided.
 	l, err := c.updateLightClientIfNeededTo(ctx, height)
@@ -525,7 +523,8 @@ func (c *Client) Validators(
 		BlockHeight: l.Height,
 		Validators:  v,
 		Count:       len(v),
-		Total:       totalCount}, nil
+		Total:       totalCount,
+	}, nil
 }
 
 func (c *Client) BroadcastEvidence(ctx context.Context, ev types.Evidence) (*ctypes.ResultBroadcastEvidence, error) {
@@ -533,7 +532,8 @@ func (c *Client) BroadcastEvidence(ctx context.Context, ev types.Evidence) (*cty
 }
 
 func (c *Client) Subscribe(ctx context.Context, subscriber, query string,
-	outCapacity ...int) (out <-chan ctypes.ResultEvent, err error) {
+	outCapacity ...int,
+) (out <-chan ctypes.ResultEvent, err error) {
 	return c.next.Subscribe(ctx, subscriber, query, outCapacity...)
 }
 

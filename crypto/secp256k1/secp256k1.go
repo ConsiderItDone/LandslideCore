@@ -8,11 +8,10 @@ import (
 	"io"
 	"math/big"
 
-	secp256k1 "github.com/consideritdone/landslidecore/crypto/secp256k1/btcec"
-	"golang.org/x/crypto/ripemd160" // nolint: staticcheck // necessary for Bitcoin address format
-
 	"github.com/consideritdone/landslidecore/crypto"
+	secp256k1 "github.com/consideritdone/landslidecore/crypto/secp256k1/btcec"
 	tmjson "github.com/consideritdone/landslidecore/libs/json"
+	"golang.org/x/crypto/ripemd160" // nolint: staticcheck // necessary for Bitcoin address format
 )
 
 // -------------------------------------
@@ -194,7 +193,7 @@ func (pubKey PubKey) Type() string {
 
 // VerifySignature verifies a signature of the form R || S.
 // It rejects signatures which are not in lower-S form.
-func (pubKey PubKey) VerifySignature(msg []byte, sigStr []byte) bool {
+func (pubKey PubKey) VerifySignature(msg, sigStr []byte) bool {
 	if len(sigStr) != 64 {
 		return false
 	}

@@ -5,11 +5,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-
 	tmmath "github.com/consideritdone/landslidecore/libs/math"
 	"github.com/consideritdone/landslidecore/light"
 	"github.com/consideritdone/landslidecore/types"
+	"github.com/stretchr/testify/assert"
 )
 
 const (
@@ -166,7 +165,6 @@ func TestVerifyAdjacentHeaders(t *testing.T) {
 			}
 		})
 	}
-
 }
 
 func TestVerifyNonAdjacentHeaders(t *testing.T) {

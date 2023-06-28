@@ -4,9 +4,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/gogo/protobuf/proto"
-
 	ssproto "github.com/consideritdone/landslidecore/proto/tendermint/statesync"
+	"github.com/gogo/protobuf/proto"
 )
 
 const (

@@ -3,11 +3,10 @@ package tests
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-
 	abciclient "github.com/consideritdone/landslidecore/abci/client"
 	"github.com/consideritdone/landslidecore/abci/example/kvstore"
 	abciserver "github.com/consideritdone/landslidecore/abci/server"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestClientServerNoAddrPrefix(t *testing.T) {

@@ -1,9 +1,8 @@
 package types
 
 import (
-	gogotypes "github.com/gogo/protobuf/types"
-
 	"github.com/consideritdone/landslidecore/libs/bytes"
+	gogotypes "github.com/gogo/protobuf/types"
 )
 
 // cdcEncode returns nil if the input is nil, otherwise returns

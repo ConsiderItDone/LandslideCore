@@ -3,11 +3,10 @@ package server
 import (
 	"net"
 
-	"google.golang.org/grpc"
-
 	"github.com/consideritdone/landslidecore/abci/types"
 	tmnet "github.com/consideritdone/landslidecore/libs/net"
 	"github.com/consideritdone/landslidecore/libs/service"
+	"google.golang.org/grpc"
 )
 
 type GRPCServer struct {
@@ -36,7 +35,6 @@ func NewGRPCServer(protoAddr string, app types.ABCIApplicationServer) service.Se
 
 // OnStart starts the gRPC service.
 func (s *GRPCServer) OnStart() error {
-
 	ln, err := net.Listen(s.proto, s.addr)
 	if err != nil {
 		return err

@@ -5,11 +5,10 @@ import (
 	"os"
 	"testing"
 
-	"github.com/stretchr/testify/require"
-
 	"github.com/consideritdone/landslidecore/abci/example/kvstore"
 	core_grpc "github.com/consideritdone/landslidecore/rpc/grpc"
 	rpctest "github.com/consideritdone/landslidecore/rpc/test"
+	"github.com/stretchr/testify/require"
 )
 
 func TestMain(m *testing.M) {

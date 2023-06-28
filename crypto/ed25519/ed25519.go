@@ -6,11 +6,10 @@ import (
 	"fmt"
 	"io"
 
-	"golang.org/x/crypto/ed25519"
-
 	"github.com/consideritdone/landslidecore/crypto"
 	"github.com/consideritdone/landslidecore/crypto/tmhash"
 	tmjson "github.com/consideritdone/landslidecore/libs/json"
+	"golang.org/x/crypto/ed25519"
 )
 
 //-------------------------------------
@@ -145,7 +144,7 @@ func (pubKey PubKey) Bytes() []byte {
 	return []byte(pubKey)
 }
 
-func (pubKey PubKey) VerifySignature(msg []byte, sig []byte) bool {
+func (pubKey PubKey) VerifySignature(msg, sig []byte) bool {
 	// make sure we use the same algorithm to sign
 	if len(sig) != SignatureSize {
 		return false

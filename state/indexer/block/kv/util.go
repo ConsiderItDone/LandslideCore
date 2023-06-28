@@ -5,10 +5,9 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/google/orderedcode"
-
 	"github.com/consideritdone/landslidecore/libs/pubsub/query"
 	"github.com/consideritdone/landslidecore/types"
+	"github.com/google/orderedcode"
 )
 
 func intInSlice(a int, list []int) bool {

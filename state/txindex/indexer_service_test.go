@@ -4,15 +4,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
-	db "github.com/tendermint/tm-db"
-
 	abci "github.com/consideritdone/landslidecore/abci/types"
 	"github.com/consideritdone/landslidecore/libs/log"
 	blockidxkv "github.com/consideritdone/landslidecore/state/indexer/block/kv"
 	"github.com/consideritdone/landslidecore/state/txindex"
 	"github.com/consideritdone/landslidecore/state/txindex/kv"
 	"github.com/consideritdone/landslidecore/types"
+	"github.com/stretchr/testify/require"
+	db "github.com/tendermint/tm-db"
 )
 
 func TestIndexerServiceIndexesBlocks(t *testing.T) {

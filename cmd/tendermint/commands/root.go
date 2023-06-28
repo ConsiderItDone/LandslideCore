@@ -5,13 +5,12 @@ import (
 	"os"
 	"strings"
 
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
-
 	cfg "github.com/consideritdone/landslidecore/config"
 	"github.com/consideritdone/landslidecore/libs/cli"
 	tmflags "github.com/consideritdone/landslidecore/libs/cli/flags"
 	"github.com/consideritdone/landslidecore/libs/log"
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 var (

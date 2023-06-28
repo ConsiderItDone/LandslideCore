@@ -9,8 +9,6 @@ import (
 	"testing"
 	"time"
 
-	db "github.com/tendermint/tm-db"
-
 	"github.com/consideritdone/landslidecore/abci/example/kvstore"
 	cfg "github.com/consideritdone/landslidecore/config"
 	tmcon "github.com/consideritdone/landslidecore/consensus"
@@ -21,6 +19,7 @@ import (
 	sm "github.com/consideritdone/landslidecore/state"
 	"github.com/consideritdone/landslidecore/store"
 	"github.com/consideritdone/landslidecore/types"
+	db "github.com/tendermint/tm-db"
 )
 
 // WALGenerateNBlocks generates a consensus WAL. It does this by spinning up a
@@ -221,7 +220,8 @@ func (w *byteBufferWAL) FlushAndSync() error { return nil }
 
 func (w *byteBufferWAL) SearchForEndHeight(
 	height int64,
-	options *tmcon.WALSearchOptions) (rd io.ReadCloser, found bool, err error) {
+	options *tmcon.WALSearchOptions,
+) (rd io.ReadCloser, found bool, err error) {
 	return nil, false, nil
 }
 

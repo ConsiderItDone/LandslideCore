@@ -5,15 +5,14 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/consideritdone/landslidecore/crypto"
-	"github.com/consideritdone/landslidecore/state"
-	"github.com/consideritdone/landslidecore/types"
-
 	abci "github.com/consideritdone/landslidecore/abci/types"
+	"github.com/consideritdone/landslidecore/crypto"
 	"github.com/consideritdone/landslidecore/libs/log"
 	mempl "github.com/consideritdone/landslidecore/mempool"
 	tmstate "github.com/consideritdone/landslidecore/proto/tendermint/state"
 	"github.com/consideritdone/landslidecore/proxy"
+	"github.com/consideritdone/landslidecore/state"
+	"github.com/consideritdone/landslidecore/types"
 )
 
 func makeCommitMock(height int64, timestamp time.Time) *types.Commit {
@@ -107,7 +106,7 @@ func execBlockOnProxyApp(
 	store state.Store,
 	initialHeight int64,
 ) (*tmstate.ABCIResponses, error) {
-	var validTxs, invalidTxs = 0, 0
+	validTxs, invalidTxs := 0, 0
 
 	txIndex := 0
 	abciResponses := new(tmstate.ABCIResponses)

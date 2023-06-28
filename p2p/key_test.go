@@ -6,11 +6,10 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
 	"github.com/consideritdone/landslidecore/crypto/ed25519"
 	tmrand "github.com/consideritdone/landslidecore/libs/rand"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestLoadOrGenNodeKey(t *testing.T) {
@@ -60,7 +59,6 @@ func padBytes(bz []byte, targetBytes int) []byte {
 }
 
 func TestPoWTarget(t *testing.T) {
-
 	targetBytes := 20
 	cases := []struct {
 		difficulty uint

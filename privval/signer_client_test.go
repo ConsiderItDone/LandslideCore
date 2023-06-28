@@ -5,9 +5,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
 	"github.com/consideritdone/landslidecore/crypto"
 	"github.com/consideritdone/landslidecore/crypto/tmhash"
 	tmrand "github.com/consideritdone/landslidecore/libs/rand"
@@ -15,6 +12,8 @@ import (
 	privvalproto "github.com/consideritdone/landslidecore/proto/tendermint/privval"
 	tmproto "github.com/consideritdone/landslidecore/proto/tendermint/types"
 	"github.com/consideritdone/landslidecore/types"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type signerTestCase struct {
@@ -390,7 +389,8 @@ func TestSignerSignVoteErrors(t *testing.T) {
 }
 
 func brokenHandler(privVal types.PrivValidator, request privvalproto.Message,
-	chainID string) (privvalproto.Message, error) {
+	chainID string,
+) (privvalproto.Message, error) {
 	var res privvalproto.Message
 	var err error
 

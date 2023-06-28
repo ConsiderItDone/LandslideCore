@@ -5,17 +5,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
-	dbm "github.com/tendermint/tm-db"
-
 	"github.com/consideritdone/landslidecore/crypto"
 	"github.com/consideritdone/landslidecore/crypto/tmhash"
 	tmrand "github.com/consideritdone/landslidecore/libs/rand"
 	tmversion "github.com/consideritdone/landslidecore/proto/tendermint/version"
 	"github.com/consideritdone/landslidecore/types"
 	"github.com/consideritdone/landslidecore/version"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	dbm "github.com/tendermint/tm-db"
 )
 
 func TestLast_FirstLightBlockHeight(t *testing.T) {
@@ -70,7 +68,6 @@ func Test_SaveLightBlock(t *testing.T) {
 	h, err = dbStore.LightBlock(1)
 	require.Error(t, err)
 	assert.Nil(t, h)
-
 }
 
 func Test_LightBlockBefore(t *testing.T) {

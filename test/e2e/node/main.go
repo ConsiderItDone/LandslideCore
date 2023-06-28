@@ -11,8 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/spf13/viper"
-
 	"github.com/consideritdone/landslidecore/abci/server"
 	"github.com/consideritdone/landslidecore/config"
 	"github.com/consideritdone/landslidecore/crypto/ed25519"
@@ -32,6 +30,7 @@ import (
 	e2e "github.com/consideritdone/landslidecore/test/e2e/pkg"
 	mcs "github.com/consideritdone/landslidecore/test/maverick/consensus"
 	maverick "github.com/consideritdone/landslidecore/test/maverick/node"
+	"github.com/spf13/viper"
 )
 
 var logger = log.NewTMLogger(log.NewSyncWriter(os.Stdout))

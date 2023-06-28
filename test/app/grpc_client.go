@@ -1,11 +1,10 @@
 package main
 
 import (
+	"context"
 	"encoding/hex"
 	"fmt"
 	"os"
-
-	"context"
 
 	tmjson "github.com/consideritdone/landslidecore/libs/json"
 	coregrpc "github.com/consideritdone/landslidecore/rpc/grpc"

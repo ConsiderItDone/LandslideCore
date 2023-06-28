@@ -9,9 +9,8 @@ import (
 	"time"
 
 	abci "github.com/consideritdone/landslidecore/abci/types"
-	"github.com/consideritdone/landslidecore/libs/log"
-
 	cfg "github.com/consideritdone/landslidecore/config"
+	"github.com/consideritdone/landslidecore/libs/log"
 	tmnet "github.com/consideritdone/landslidecore/libs/net"
 	nm "github.com/consideritdone/landslidecore/node"
 	"github.com/consideritdone/landslidecore/p2p"
@@ -29,11 +28,13 @@ type Options struct {
 	recreateConfig bool
 }
 
-var globalConfig *cfg.Config
-var defaultOptions = Options{
-	suppressStdout: false,
-	recreateConfig: false,
-}
+var (
+	globalConfig   *cfg.Config
+	defaultOptions = Options{
+		suppressStdout: false,
+		recreateConfig: false,
+	}
+)
 
 func waitForRPC() {
 	laddr := GetConfig().RPC.ListenAddress

@@ -5,14 +5,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
 	abcicli "github.com/consideritdone/landslidecore/abci/client"
 	"github.com/consideritdone/landslidecore/abci/server"
 	"github.com/consideritdone/landslidecore/abci/types"
 	tmrand "github.com/consideritdone/landslidecore/libs/rand"
 	"github.com/consideritdone/landslidecore/libs/service"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestProperSyncCalls(t *testing.T) {
@@ -93,7 +92,8 @@ func TestHangingSyncCalls(t *testing.T) {
 }
 
 func setupClientServer(t *testing.T, app types.Application) (
-	service.Service, abcicli.Client) {
+	service.Service, abcicli.Client,
+) {
 	// some port between 20k and 30k
 	port := 20000 + tmrand.Int32()%10000
 	addr := fmt.Sprintf("localhost:%d", port)

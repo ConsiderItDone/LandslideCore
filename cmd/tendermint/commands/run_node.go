@@ -7,16 +7,13 @@ import (
 	"io"
 	"os"
 
-	"github.com/spf13/cobra"
-
 	cfg "github.com/consideritdone/landslidecore/config"
 	tmos "github.com/consideritdone/landslidecore/libs/os"
 	nm "github.com/consideritdone/landslidecore/node"
+	"github.com/spf13/cobra"
 )
 
-var (
-	genesisHash []byte
-)
+var genesisHash []byte
 
 // AddNodeFlags exposes some common configuration options on the command-line
 // These are exposed for convenience of commands embedding a tendermint node

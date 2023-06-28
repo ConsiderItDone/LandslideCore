@@ -22,7 +22,7 @@ func AddressHash(bz []byte) Address {
 type PubKey interface {
 	Address() Address
 	Bytes() []byte
-	VerifySignature(msg []byte, sig []byte) bool
+	VerifySignature(msg, sig []byte) bool
 	Equals(PubKey) bool
 	Type() string
 }
@@ -37,6 +37,6 @@ type PrivKey interface {
 
 type Symmetric interface {
 	Keygen() []byte
-	Encrypt(plaintext []byte, secret []byte) (ciphertext []byte)
-	Decrypt(ciphertext []byte, secret []byte) (plaintext []byte, err error)
+	Encrypt(plaintext, secret []byte) (ciphertext []byte)
+	Decrypt(ciphertext, secret []byte) (plaintext []byte, err error)
 }

@@ -6,10 +6,9 @@ import (
 	"strings"
 	"testing"
 
+	tmproto "github.com/consideritdone/landslidecore/proto/tendermint/types"
 	"github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/assert"
-
-	tmproto "github.com/consideritdone/landslidecore/proto/tendermint/types"
 )
 
 func TestMarshalJSON(t *testing.T) {

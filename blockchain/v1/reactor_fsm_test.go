@@ -5,13 +5,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-
 	"github.com/consideritdone/landslidecore/libs/log"
 	tmmath "github.com/consideritdone/landslidecore/libs/math"
 	tmrand "github.com/consideritdone/landslidecore/libs/rand"
 	"github.com/consideritdone/landslidecore/p2p"
 	"github.com/consideritdone/landslidecore/types"
+	"github.com/stretchr/testify/assert"
 )
 
 type lastBlockRequestT struct {
@@ -59,7 +58,8 @@ func sStopFSMEv(current, expected string) fsmStepTestValues {
 		currentState: current,
 		event:        stopFSMEv,
 		wantState:    expected,
-		wantErr:      errNoErrorFinished}
+		wantErr:      errNoErrorFinished,
+	}
 }
 
 func sUnknownFSMEv(current string) fsmStepTestValues {
@@ -67,7 +67,8 @@ func sUnknownFSMEv(current string) fsmStepTestValues {
 		currentState: current,
 		event:        1234,
 		wantState:    current,
-		wantErr:      errInvalidEvent}
+		wantErr:      errInvalidEvent,
+	}
 }
 
 func sStartFSMEv() fsmStepTestValues {
@@ -75,10 +76,11 @@ func sStartFSMEv() fsmStepTestValues {
 		currentState:      "unknown",
 		event:             startFSMEv,
 		wantState:         "waitForPeer",
-		wantStatusReqSent: true}
+		wantStatusReqSent: true,
+	}
 }
 
-func sStateTimeoutEv(current, expected string, timedoutState string, wantErr error) fsmStepTestValues {
+func sStateTimeoutEv(current, expected, timedoutState string, wantErr error) fsmStepTestValues {
 	return fsmStepTestValues{
 		currentState: current,
 		event:        stateTimeoutEv,
@@ -108,7 +110,8 @@ func sStatusEv(current, expected string, peerID p2p.ID, height int64, err error)
 		event:        statusResponseEv,
 		data:         bReactorEventData{peerID: peerID, height: height},
 		wantState:    expected,
-		wantErr:      err}
+		wantErr:      err,
+	}
 }
 
 func sMakeRequestsEv(current, expected string, maxPendingRequests int) fsmStepTestValues {
@@ -122,7 +125,8 @@ func sMakeRequestsEv(current, expected string, maxPendingRequests int) fsmStepTe
 }
 
 func sMakeRequestsEvErrored(current, expected string,
-	maxPendingRequests int, err error, peersRemoved []p2p.ID) fsmStepTestValues {
+	maxPendingRequests int, err error, peersRemoved []p2p.ID,
+) fsmStepTestValues {
 	return fsmStepTestValues{
 		currentState:     current,
 		event:            makeRequestsEv,
@@ -143,14 +147,16 @@ func sBlockRespEv(current, expected string, peerID p2p.ID, height int64, prevBlo
 			peerID: peerID,
 			height: height,
 			block:  types.MakeBlock(height, txs, nil, nil),
-			length: 100},
+			length: 100,
+		},
 		wantState:     expected,
 		wantNewBlocks: append(prevBlocks, height),
 	}
 }
 
 func sBlockRespEvErrored(current, expected string,
-	peerID p2p.ID, height int64, prevBlocks []int64, wantErr error, peersRemoved []p2p.ID) fsmStepTestValues {
+	peerID p2p.ID, height int64, prevBlocks []int64, wantErr error, peersRemoved []p2p.ID,
+) fsmStepTestValues {
 	txs := []types.Tx{types.Tx("foo"), types.Tx("bar")}
 
 	return fsmStepTestValues{
@@ -160,7 +166,8 @@ func sBlockRespEvErrored(current, expected string,
 			peerID: peerID,
 			height: height,
 			block:  types.MakeBlock(height, txs, nil, nil),
-			length: 100},
+			length: 100,
+		},
 		wantState:        expected,
 		wantErr:          wantErr,
 		wantRemovedPeers: peersRemoved,
@@ -726,9 +733,9 @@ func TestFSMPeerStateTimeoutEvent(t *testing.T) {
 	executeFSMTests(t, tests, false)
 }
 
-func makeCorrectTransitionSequence(startingHeight int64, numBlocks int64, numPeers int, randomPeerHeights bool,
-	maxRequestsPerPeer int, maxPendingRequests int) testFields {
-
+func makeCorrectTransitionSequence(startingHeight, numBlocks int64, numPeers int, randomPeerHeights bool,
+	maxRequestsPerPeer, maxPendingRequests int,
+) testFields {
 	// Generate numPeers peers with random or numBlocks heights according to the randomPeerHeights flag.
 	peerHeights := make([]int64, numPeers)
 	for i := 0; i < numPeers; i++ {
@@ -859,7 +866,6 @@ func shouldApplyProcessedBlockEvStep(step *fsmStepTestValues, testBcR *testReact
 }
 
 func TestFSMCorrectTransitionSequences(t *testing.T) {
-
 	tests := []testFields{
 		makeCorrectTransitionSequence(1, 100, 10, true, 10, 40),
 		makeCorrectTransitionSequenceWithRandomParameters(),
@@ -899,7 +905,6 @@ func TestFSMCorrectTransitionSequences(t *testing.T) {
 					assert.True(t, testBcR.fsm.isCaughtUp())
 				}
 			}
-
 		})
 	}
 }

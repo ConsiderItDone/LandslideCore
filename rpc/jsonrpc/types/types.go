@@ -99,7 +99,7 @@ func (req RPCRequest) String() string {
 }
 
 func MapToRequest(id jsonrpcid, method string, params map[string]interface{}) (RPCRequest, error) {
-	var paramsMap = make(map[string]json.RawMessage, len(params))
+	paramsMap := make(map[string]json.RawMessage, len(params))
 	for name, value := range params {
 		valueJSON, err := tmjson.Marshal(value)
 		if err != nil {
@@ -117,7 +117,7 @@ func MapToRequest(id jsonrpcid, method string, params map[string]interface{}) (R
 }
 
 func ArrayToRequest(id jsonrpcid, method string, params []interface{}) (RPCRequest, error) {
-	var paramsMap = make([]json.RawMessage, len(params))
+	paramsMap := make([]json.RawMessage, len(params))
 	for i, value := range params {
 		valueJSON, err := tmjson.Marshal(value)
 		if err != nil {
@@ -199,7 +199,7 @@ func NewRPCSuccessResponse(id jsonrpcid, res interface{}) RPCResponse {
 	return RPCResponse{JSONRPC: "2.0", ID: id, Result: rawMsg}
 }
 
-func NewRPCErrorResponse(id jsonrpcid, code int, msg string, data string) RPCResponse {
+func NewRPCErrorResponse(id jsonrpcid, code int, msg, data string) RPCResponse {
 	return RPCResponse{
 		JSONRPC: "2.0",
 		ID:      id,

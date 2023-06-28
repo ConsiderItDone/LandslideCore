@@ -22,10 +22,6 @@ import (
 	"github.com/ava-labs/avalanchego/utils/timer/mockable"
 	"github.com/ava-labs/avalanchego/version"
 	"github.com/ava-labs/avalanchego/vms/components/chain"
-	"github.com/gorilla/rpc/v2"
-	"github.com/prometheus/client_golang/prometheus"
-	dbm "github.com/tendermint/tm-db"
-
 	abciTypes "github.com/consideritdone/landslidecore/abci/types"
 	"github.com/consideritdone/landslidecore/config"
 	cs "github.com/consideritdone/landslidecore/consensus"
@@ -44,6 +40,9 @@ import (
 	txidxkv "github.com/consideritdone/landslidecore/state/txindex/kv"
 	"github.com/consideritdone/landslidecore/store"
 	"github.com/consideritdone/landslidecore/types"
+	"github.com/gorilla/rpc/v2"
+	"github.com/prometheus/client_golang/prometheus"
+	dbm "github.com/tendermint/tm-db"
 )
 
 var (
@@ -185,7 +184,7 @@ func (vm *VM) Initialize(
 		vm.tmLogger.Info("init block", "b", block, "part set", partSet)
 	}
 
-	//vm.genesisHash = vm.ethConfig.Genesis.ToBlock(nil).Hash() // must create genesis hash before [vm.readLastAccepted]
+	// vm.genesisHash = vm.ethConfig.Genesis.ToBlock(nil).Hash() // must create genesis hash before [vm.readLastAccepted]
 
 	// Create the proxyApp and establish connections to the ABCI app (consensus, mempool, query).
 	proxyApp, err := node.CreateAndStartProxyAppConns(proxy.NewLocalClientCreator(vm.app), vm.tmLogger)
@@ -382,7 +381,7 @@ func (vm *VM) initChainState(lastAcceptedBlock *types.Block) error {
 		DecidedCacheSize:    decidedCacheSize,
 		MissingCacheSize:    missingCacheSize,
 		UnverifiedCacheSize: unverifiedCacheSize,
-		//GetBlockIDAtHeight:  vm.GetBlockIDAtHeight,
+		// GetBlockIDAtHeight:  vm.GetBlockIDAtHeight,
 		GetBlock:          vm.getBlock,
 		UnmarshalBlock:    vm.parseBlock,
 		BuildBlock:        vm.buildBlock,
@@ -616,7 +615,7 @@ func (vm *VM) Version(ctx context.Context) (string, error) {
 }
 
 func (vm *VM) CreateStaticHandlers(ctx context.Context) (map[string]*common.HTTPHandler, error) {
-	//TODO implement me
+	// TODO implement me
 	return nil, nil
 }
 
@@ -645,7 +644,7 @@ func (vm *VM) ProxyApp() proxy.AppConns {
 }
 
 func (vm *VM) SetPreference(ctx context.Context, blkID ids.ID) error {
-	//TODO implement me
+	// TODO implement me
 	return nil
 }
 

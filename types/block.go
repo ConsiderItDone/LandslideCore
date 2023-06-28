@@ -7,9 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
-	gogotypes "github.com/gogo/protobuf/types"
-
 	"github.com/consideritdone/landslidecore/crypto"
 	"github.com/consideritdone/landslidecore/crypto/merkle"
 	"github.com/consideritdone/landslidecore/crypto/tmhash"
@@ -20,6 +17,8 @@ import (
 	tmproto "github.com/consideritdone/landslidecore/proto/tendermint/types"
 	tmversion "github.com/consideritdone/landslidecore/proto/tendermint/version"
 	"github.com/consideritdone/landslidecore/version"
+	"github.com/gogo/protobuf/proto"
+	gogotypes "github.com/gogo/protobuf/types"
 )
 
 const (
@@ -721,7 +720,6 @@ func (cs *CommitSig) ToProto() *tmproto.CommitSig {
 // FromProto sets a protobuf CommitSig to the given pointer.
 // It returns an error if the CommitSig is invalid.
 func (cs *CommitSig) FromProto(csp tmproto.CommitSig) error {
-
 	cs.BlockIDFlag = BlockIDFlag(csp.BlockIdFlag)
 	cs.ValidatorAddress = csp.ValidatorAddress
 	cs.Timestamp = csp.Timestamp
@@ -962,9 +960,7 @@ func CommitFromProto(cp *tmproto.Commit) (*Commit, error) {
 		return nil, errors.New("nil Commit")
 	}
 
-	var (
-		commit = new(Commit)
-	)
+	commit := new(Commit)
 
 	bi, err := BlockIDFromProto(&cp.BlockID)
 	if err != nil {
@@ -990,7 +986,6 @@ func CommitFromProto(cp *tmproto.Commit) (*Commit, error) {
 
 // Data contains the set of transactions included in the block
 type Data struct {
-
 	// Txs that will be applied by state @ block.Height+1.
 	// NOTE: not all txs here are valid.  We're just agreeing on the order first.
 	// This means that block.AppHash does not include these txs.

@@ -8,9 +8,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/spf13/cobra"
-
 	"github.com/consideritdone/landslidecore/libs/log"
+	"github.com/spf13/cobra"
 )
 
 const (
@@ -58,7 +57,7 @@ func NewCLI() *CLI {
 
 // generate generates manifests in a directory.
 func (cli *CLI) generate(dir string, groups int) error {
-	err := os.MkdirAll(dir, 0755)
+	err := os.MkdirAll(dir, 0o755)
 	if err != nil {
 		return err
 	}

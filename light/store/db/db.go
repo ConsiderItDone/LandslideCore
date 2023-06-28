@@ -6,17 +6,14 @@ import (
 	"regexp"
 	"strconv"
 
-	dbm "github.com/tendermint/tm-db"
-
 	tmsync "github.com/consideritdone/landslidecore/libs/sync"
 	"github.com/consideritdone/landslidecore/light/store"
 	tmproto "github.com/consideritdone/landslidecore/proto/tendermint/types"
 	"github.com/consideritdone/landslidecore/types"
+	dbm "github.com/tendermint/tm-db"
 )
 
-var (
-	sizeKey = []byte("size")
-)
+var sizeKey = []byte("size")
 
 type dbs struct {
 	db     dbm.DB
@@ -29,7 +26,6 @@ type dbs struct {
 // New returns a Store that wraps any DB (with an optional prefix in case you
 // want to use one DB with many light clients).
 func New(db dbm.DB, prefix string) store.Store {
-
 	size := uint16(0)
 	bz, err := db.Get(sizeKey)
 	if err == nil && len(bz) > 0 {
@@ -295,7 +291,7 @@ func (s *dbs) lbKey(height int64) []byte {
 
 var keyPattern = regexp.MustCompile(`^(lb)/([^/]*)/([0-9]+)$`)
 
-func parseKey(key []byte) (part string, prefix string, height int64, ok bool) {
+func parseKey(key []byte) (part, prefix string, height int64, ok bool) {
 	submatch := keyPattern.FindSubmatch(key)
 	if submatch == nil {
 		return "", "", 0, false

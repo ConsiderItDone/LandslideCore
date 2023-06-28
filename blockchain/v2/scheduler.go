@@ -298,7 +298,7 @@ func (sc *scheduler) addNewBlocks() {
 	}
 }
 
-func (sc *scheduler) setPeerRange(peerID p2p.ID, base int64, height int64) error {
+func (sc *scheduler) setPeerRange(peerID p2p.ID, base, height int64) error {
 	peer := sc.ensurePeer(peerID)
 
 	if peer.state == peerStateRemoved {
@@ -366,7 +366,7 @@ func (sc *scheduler) setStateAtHeight(height int64, state blockState) {
 }
 
 // CONTRACT: peer exists and in Ready state.
-func (sc *scheduler) markReceived(peerID p2p.ID, height int64, size int64, now time.Time) error {
+func (sc *scheduler) markReceived(peerID p2p.ID, height, size int64, now time.Time) error {
 	peer := sc.peers[peerID]
 
 	if state := sc.getStateAtHeight(height); state != blockStatePending || sc.pendingBlocks[height] != peerID {
@@ -514,6 +514,7 @@ type PeerByID []p2p.ID
 func (peers PeerByID) Len() int {
 	return len(peers)
 }
+
 func (peers PeerByID) Less(i, j int) bool {
 	return bytes.Compare([]byte(peers[i]), []byte(peers[j])) == -1
 }
@@ -551,9 +552,11 @@ func (sc *scheduler) handleNoBlockResponse(event bcNoBlockResponse) (Event, erro
 	// The peer may have been just removed due to errors, low speed or timeouts.
 	sc.removePeer(event.peerID)
 
-	return scPeerError{peerID: event.peerID,
+	return scPeerError{
+		peerID: event.peerID,
 		reason: fmt.Errorf("peer %v with base %d height %d claims no block for %d",
-			event.peerID, peer.base, peer.height, event.height)}, nil
+			event.peerID, peer.base, peer.height, event.height),
+	}, nil
 }
 
 func (sc *scheduler) handleBlockProcessed(event pcBlockProcessed) (Event, error) {
@@ -663,7 +666,6 @@ func (sc *scheduler) handleTrySchedule(event rTrySchedule) (Event, error) {
 		return scSchedulerFail{reason: err}, nil // XXX: peerError might be more appropriate
 	}
 	return scBlockRequest{peerID: bestPeerID, height: nextHeight}, nil
-
 }
 
 func (sc *scheduler) handleStatusResponse(event bcStatusResponse) (Event, error) {

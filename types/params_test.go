@@ -6,10 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-
 	abci "github.com/consideritdone/landslidecore/abci/types"
 	tmproto "github.com/consideritdone/landslidecore/proto/tendermint/types"
+	"github.com/stretchr/testify/assert"
 )
 
 var (

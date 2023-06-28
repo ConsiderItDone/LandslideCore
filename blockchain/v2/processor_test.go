@@ -3,11 +3,10 @@ package v2
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-
 	"github.com/consideritdone/landslidecore/p2p"
 	tmState "github.com/consideritdone/landslidecore/state"
 	"github.com/consideritdone/landslidecore/types"
+	"github.com/stretchr/testify/assert"
 )
 
 // pcBlock is a test helper structure with simple types. Its purpose is to help with test readability.
@@ -242,8 +241,10 @@ func TestRProcessBlockFailures(t *testing.T) {
 			name: "blocks H+1 and H+2 present from same peers - H+1 verification fails ",
 			steps: []pcFsmMakeStateValues{
 				{
-					currentState: &params{height: 0, items: []pcBlock{{"P1", 1}, {"P1", 2}, {"P2", 3}},
-						verBL: []int64{1}}, event: rProcessBlock{},
+					currentState: &params{
+						height: 0, items: []pcBlock{{"P1", 1}, {"P1", 2}, {"P2", 3}},
+						verBL: []int64{1},
+					}, event: rProcessBlock{},
 					wantState:     &params{height: 0, items: []pcBlock{{"P2", 3}}, verBL: []int64{1}},
 					wantNextEvent: pcBlockVerificationFailure{height: 1, firstPeerID: "P1", secondPeerID: "P1"},
 				},
@@ -281,7 +282,8 @@ func TestScFinishedEv(t *testing.T) {
 			steps: []pcFsmMakeStateValues{
 				{
 					currentState: &params{height: 100, items: []pcBlock{
-						{"P1", 101}}, blocksSynced: 100}, event: scFinishedEv{},
+						{"P1", 101},
+					}, blocksSynced: 100}, event: scFinishedEv{},
 					wantState:     &params{height: 100, items: []pcBlock{{"P1", 101}}, blocksSynced: 100},
 					wantNextEvent: pcFinished{tmState: tmState.State{LastBlockHeight: 100}, blocksSynced: 100},
 				},
@@ -292,9 +294,11 @@ func TestScFinishedEv(t *testing.T) {
 			steps: []pcFsmMakeStateValues{
 				{
 					currentState: &params{height: 100, items: []pcBlock{
-						{"P1", 101}, {"P1", 102}}, blocksSynced: 100}, event: scFinishedEv{},
+						{"P1", 101}, {"P1", 102},
+					}, blocksSynced: 100}, event: scFinishedEv{},
 					wantState: &params{height: 100, items: []pcBlock{
-						{"P1", 101}, {"P1", 102}}, blocksSynced: 100, draining: true},
+						{"P1", 101}, {"P1", 102},
+					}, blocksSynced: 100, draining: true},
 					wantNextEvent: noOp,
 					wantErr:       nil,
 				},

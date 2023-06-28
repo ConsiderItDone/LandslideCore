@@ -9,20 +9,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
-
-	"google.golang.org/grpc"
-
-	"golang.org/x/net/context"
-
-	"github.com/consideritdone/landslidecore/libs/log"
-	tmnet "github.com/consideritdone/landslidecore/libs/net"
-
 	abcicli "github.com/consideritdone/landslidecore/abci/client"
 	"github.com/consideritdone/landslidecore/abci/example/code"
 	"github.com/consideritdone/landslidecore/abci/example/kvstore"
 	abciserver "github.com/consideritdone/landslidecore/abci/server"
 	"github.com/consideritdone/landslidecore/abci/types"
+	"github.com/consideritdone/landslidecore/libs/log"
+	tmnet "github.com/consideritdone/landslidecore/libs/net"
+	"github.com/stretchr/testify/require"
+	"golang.org/x/net/context"
+	"google.golang.org/grpc"
 )
 
 func init() {

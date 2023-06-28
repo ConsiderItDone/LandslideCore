@@ -1,9 +1,8 @@
 package commands
 
 import (
-	"github.com/spf13/cobra"
-
 	"github.com/consideritdone/landslidecore/consensus"
+	"github.com/spf13/cobra"
 )
 
 // ReplayCmd allows replaying of messages from the WAL.

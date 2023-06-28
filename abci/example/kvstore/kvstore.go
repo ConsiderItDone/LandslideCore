@@ -6,11 +6,10 @@ import (
 	"encoding/json"
 	"fmt"
 
-	dbm "github.com/tendermint/tm-db"
-
 	"github.com/consideritdone/landslidecore/abci/example/code"
 	"github.com/consideritdone/landslidecore/abci/types"
 	"github.com/consideritdone/landslidecore/version"
+	dbm "github.com/tendermint/tm-db"
 )
 
 var (
