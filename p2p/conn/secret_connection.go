@@ -233,7 +233,7 @@ func (sc *SecretConnection) Read(data []byte) (n int, err error) {
 	if 0 < len(sc.recvBuffer) {
 		n = copy(data, sc.recvBuffer)
 		sc.recvBuffer = sc.recvBuffer[n:]
-		return
+		return n, nil
 	}
 
 	// read off the conn
@@ -241,7 +241,7 @@ func (sc *SecretConnection) Read(data []byte) (n int, err error) {
 	defer pool.Put(sealedFrame)
 	_, err = io.ReadFull(sc.conn, sealedFrame)
 	if err != nil {
-		return
+		return 0, err
 	}
 
 	// decrypt the frame.
@@ -322,7 +322,7 @@ func shareEphPubKey(conn io.ReadWriter, locEphPub *[32]byte) (remEphPub *[32]byt
 	// If error:
 	if trs.FirstError() != nil {
 		err = trs.FirstError()
-		return
+		return nil, err
 	}
 
 	// Otherwise:
@@ -434,7 +434,7 @@ func shareAuthSignature(sc io.ReadWriter, pubKey crypto.PubKey, signature []byte
 	// If error:
 	if trs.FirstError() != nil {
 		err = trs.FirstError()
-		return
+		return authSigMessage{}, err
 	}
 
 	_recvMsg := trs.FirstValue().(authSigMessage)

@@ -66,13 +66,13 @@ func testHairpin(listener net.Listener, extAddr string, logger log.Logger) (supp
 	outConn, err := net.Dial("tcp", extAddr)
 	if err != nil {
 		logger.Info(fmt.Sprintf("Outgoing connection dial error: %v", err))
-		return
+		return false
 	}
 
 	n, err := outConn.Write([]byte("test data"))
 	if err != nil {
 		logger.Info(fmt.Sprintf("Outgoing connection write error: %v", err))
-		return
+		return false
 	}
 	logger.Info(fmt.Sprintf("Outgoing connection wrote %v bytes", n))
 

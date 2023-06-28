@@ -39,11 +39,11 @@ type NAT interface {
 func Discover() (nat NAT, err error) {
 	ssdp, err := net.ResolveUDPAddr("udp4", "239.255.255.250:1900")
 	if err != nil {
-		return
+		return nil, err
 	}
 	conn, err := net.ListenPacket("udp4", ":0")
 	if err != nil {
-		return
+		return nil, err
 	}
 	socket := conn.(*net.UDPConn)
 	defer socket.Close()
@@ -65,12 +65,12 @@ func Discover() (nat NAT, err error) {
 	for i := 0; i < 3; i++ {
 		_, err = socket.WriteToUDP(message, ssdp)
 		if err != nil {
-			return
+			return nil, err
 		}
 		var n int
 		_, _, err = socket.ReadFromUDP(answerBytes)
 		if err != nil {
-			return
+			return nil, err
 		}
 		for {
 			n, _, err = socket.ReadFromUDP(answerBytes)
@@ -98,15 +98,15 @@ func Discover() (nat NAT, err error) {
 			var serviceURL, urnDomain string
 			serviceURL, urnDomain, err = getServiceURL(locURL)
 			if err != nil {
-				return
+				return nil, err
 			}
 			var ourIP net.IP
 			ourIP, err = localIPv4()
 			if err != nil {
-				return
+				return nil, err
 			}
 			nat = &upnpNAT{serviceURL: serviceURL, ourIP: ourIP.String(), urnDomain: urnDomain}
-			return
+			return nat, nil
 		}
 	}
 	err = errors.New("upnp port discovery failed")
