@@ -3,10 +3,9 @@ package types
 import (
 	"testing"
 
-	"github.com/stretchr/testify/require"
-
 	"github.com/consideritdone/landslidecore/crypto/tmhash"
 	tmrand "github.com/consideritdone/landslidecore/libs/rand"
+	"github.com/stretchr/testify/require"
 )
 
 func TestBlockMeta_ToProto(t *testing.T) {
@@ -49,10 +48,14 @@ func TestBlockMeta_ToProto(t *testing.T) {
 func TestBlockMeta_ValidateBasic(t *testing.T) {
 	h := makeRandHeader()
 	bi := BlockID{Hash: h.Hash(), PartSetHeader: PartSetHeader{Total: 123, Hash: tmrand.Bytes(tmhash.Size)}}
-	bi2 := BlockID{Hash: tmrand.Bytes(tmhash.Size),
-		PartSetHeader: PartSetHeader{Total: 123, Hash: tmrand.Bytes(tmhash.Size)}}
-	bi3 := BlockID{Hash: []byte("incorrect hash"),
-		PartSetHeader: PartSetHeader{Total: 123, Hash: []byte("incorrect hash")}}
+	bi2 := BlockID{
+		Hash:          tmrand.Bytes(tmhash.Size),
+		PartSetHeader: PartSetHeader{Total: 123, Hash: tmrand.Bytes(tmhash.Size)},
+	}
+	bi3 := BlockID{
+		Hash:          []byte("incorrect hash"),
+		PartSetHeader: PartSetHeader{Total: 123, Hash: []byte("incorrect hash")},
+	}
 
 	bm := &BlockMeta{
 		BlockID:   bi,

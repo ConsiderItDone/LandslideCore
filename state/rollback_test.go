@@ -4,9 +4,6 @@ import (
 	"crypto/rand"
 	"testing"
 
-	"github.com/stretchr/testify/require"
-	dbm "github.com/tendermint/tm-db"
-
 	"github.com/consideritdone/landslidecore/crypto"
 	"github.com/consideritdone/landslidecore/crypto/tmhash"
 	tmstate "github.com/consideritdone/landslidecore/proto/tendermint/state"
@@ -15,6 +12,8 @@ import (
 	"github.com/consideritdone/landslidecore/state/mocks"
 	"github.com/consideritdone/landslidecore/types"
 	"github.com/consideritdone/landslidecore/version"
+	"github.com/stretchr/testify/require"
+	dbm "github.com/tendermint/tm-db"
 )
 
 func TestRollback(t *testing.T) {

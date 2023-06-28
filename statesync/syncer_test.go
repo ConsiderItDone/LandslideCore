@@ -5,10 +5,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
-
 	abci "github.com/consideritdone/landslidecore/abci/types"
 	"github.com/consideritdone/landslidecore/config"
 	"github.com/consideritdone/landslidecore/libs/log"
@@ -24,6 +20,9 @@ import (
 	"github.com/consideritdone/landslidecore/statesync/mocks"
 	"github.com/consideritdone/landslidecore/types"
 	"github.com/consideritdone/landslidecore/version"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 const testAppVersion = 9
@@ -427,7 +426,8 @@ func TestSyncer_applyChunks_Results(t *testing.T) {
 				connSnapshot.On("ApplySnapshotChunkSync", abci.RequestApplySnapshotChunk{
 					Index: 0, Chunk: body,
 				}).Once().Return(&abci.ResponseApplySnapshotChunk{
-					Result: abci.ResponseApplySnapshotChunk_ACCEPT}, nil)
+					Result: abci.ResponseApplySnapshotChunk_ACCEPT,
+				}, nil)
 			}
 
 			err = syncer.applyChunks(chunks)

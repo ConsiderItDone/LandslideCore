@@ -13,10 +13,9 @@ import (
 	"strings"
 	"time"
 
-	"golang.org/x/net/netutil"
-
 	"github.com/consideritdone/landslidecore/libs/log"
 	types "github.com/consideritdone/landslidecore/rpc/jsonrpc/types"
+	"golang.org/x/net/netutil"
 )
 
 // Config is a RPC server configuration.
@@ -164,7 +163,6 @@ func RecoverAndLogHandler(handler http.Handler, logger log.Logger) http.Handler 
 			// Without this, Chrome & Firefox were retrying aborted ajax requests,
 			// at least to my localhost.
 			if e := recover(); e != nil {
-
 				// If RPCResponse
 				if res, ok := e.(types.RPCResponse); ok {
 					if wErr := WriteRPCResponseHTTP(rww, res); wErr != nil {

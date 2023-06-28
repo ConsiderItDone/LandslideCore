@@ -14,20 +14,17 @@ import (
 	"testing"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
 	"github.com/consideritdone/landslidecore/config"
 	"github.com/consideritdone/landslidecore/crypto/ed25519"
 	"github.com/consideritdone/landslidecore/libs/log"
 	tmsync "github.com/consideritdone/landslidecore/libs/sync"
 	"github.com/consideritdone/landslidecore/p2p/conn"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-var (
-	cfg *config.P2PConfig
-)
+var cfg *config.P2PConfig
 
 func init() {
 	cfg = config.DefaultP2PConfig()
@@ -99,7 +96,8 @@ func MakeSwitchPair(t testing.TB, initSwitch func(int, *Switch) *Switch) (*Switc
 func initSwitchFunc(i int, sw *Switch) *Switch {
 	sw.SetAddrBook(&AddrBookMock{
 		Addrs:    make(map[string]struct{}),
-		OurAddrs: make(map[string]struct{})})
+		OurAddrs: make(map[string]struct{}),
+	})
 
 	// Make two reactors of two channels each
 	sw.AddReactor("foo", NewTestReactor([]*conn.ChannelDescriptor{
@@ -681,9 +679,11 @@ func (et errorTransport) NetAddress() NetAddress {
 func (et errorTransport) Accept(c peerConfig) (Peer, error) {
 	return nil, et.acceptErr
 }
+
 func (errorTransport) Dial(NetAddress, peerConfig) (Peer, error) {
 	panic("not implemented")
 }
+
 func (errorTransport) Cleanup(Peer) {
 	panic("not implemented")
 }

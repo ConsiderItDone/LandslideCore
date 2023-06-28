@@ -5,9 +5,7 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
-var (
-	_ dbm.DB = &Database{}
-)
+var _ dbm.DB = &Database{}
 
 type (
 	Database struct {
@@ -35,11 +33,11 @@ func (db Database) Get(key []byte) ([]byte, error) {
 	return res, nil
 }
 
-func (db Database) Set(key []byte, value []byte) error {
+func (db Database) Set(key, value []byte) error {
 	return db.Database.Put(key, value)
 }
 
-func (db Database) SetSync(key []byte, value []byte) error {
+func (db Database) SetSync(key, value []byte) error {
 	return db.Database.Put(key, value)
 }
 
@@ -60,16 +58,16 @@ func (db Database) NewBatch() dbm.Batch {
 }
 
 func (db Database) Print() error {
-	//TODO implement me
+	// TODO implement me
 	return nil
 }
 
 func (db Database) Stats() map[string]string {
-	//TODO implement me
+	// TODO implement me
 	return nil
 }
 
-func (iter Iterator) Domain() (start []byte, end []byte) {
+func (iter Iterator) Domain() (start, end []byte) {
 	return iter.start, iter.end
 }
 

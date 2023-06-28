@@ -6,13 +6,9 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-
 	// "sync"
 	"testing"
 	"time"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 
 	"github.com/consideritdone/landslidecore/consensus/types"
 	"github.com/consideritdone/landslidecore/crypto/merkle"
@@ -20,6 +16,8 @@ import (
 	"github.com/consideritdone/landslidecore/libs/log"
 	tmtypes "github.com/consideritdone/landslidecore/types"
 	tmtime "github.com/consideritdone/landslidecore/types/time"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -269,18 +267,23 @@ func BenchmarkWalDecode512B(b *testing.B) {
 func BenchmarkWalDecode10KB(b *testing.B) {
 	benchmarkWalDecode(b, 10*1024)
 }
+
 func BenchmarkWalDecode100KB(b *testing.B) {
 	benchmarkWalDecode(b, 100*1024)
 }
+
 func BenchmarkWalDecode1MB(b *testing.B) {
 	benchmarkWalDecode(b, 1024*1024)
 }
+
 func BenchmarkWalDecode10MB(b *testing.B) {
 	benchmarkWalDecode(b, 10*1024*1024)
 }
+
 func BenchmarkWalDecode100MB(b *testing.B) {
 	benchmarkWalDecode(b, 100*1024*1024)
 }
+
 func BenchmarkWalDecode1GB(b *testing.B) {
 	benchmarkWalDecode(b, 1024*1024*1024)
 }

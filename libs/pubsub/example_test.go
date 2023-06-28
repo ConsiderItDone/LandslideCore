@@ -4,12 +4,10 @@ import (
 	"context"
 	"testing"
 
-	"github.com/stretchr/testify/require"
-
 	"github.com/consideritdone/landslidecore/libs/log"
-
 	"github.com/consideritdone/landslidecore/libs/pubsub"
 	"github.com/consideritdone/landslidecore/libs/pubsub/query"
+	"github.com/stretchr/testify/require"
 )
 
 func TestExample(t *testing.T) {

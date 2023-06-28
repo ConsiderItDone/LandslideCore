@@ -9,10 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	dbm "github.com/tendermint/tm-db"
-
 	abci "github.com/consideritdone/landslidecore/abci/types"
 	"github.com/consideritdone/landslidecore/behaviour"
 	bc "github.com/consideritdone/landslidecore/blockchain"
@@ -28,6 +24,9 @@ import (
 	"github.com/consideritdone/landslidecore/store"
 	"github.com/consideritdone/landslidecore/types"
 	tmtime "github.com/consideritdone/landslidecore/types/time"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	dbm "github.com/tendermint/tm-db"
 )
 
 type mockPeer struct {
@@ -79,8 +78,7 @@ func (ml *mockBlockStore) SaveBlock(block *types.Block, part *types.PartSet, com
 	ml.blocks[block.Height] = block
 }
 
-type mockBlockApplier struct {
-}
+type mockBlockApplier struct{}
 
 // XXX: Add whitelist/blacklist?
 func (mba *mockBlockApplier) ApplyBlock(
@@ -350,9 +348,7 @@ func newTestReactor(p testReactorParams) *BlockchainReactor {
 // }
 
 func TestReactorHelperMode(t *testing.T) {
-	var (
-		channelID = byte(0x40)
-	)
+	channelID := byte(0x40)
 
 	config := cfg.ResetTestRoot("blockchain_reactor_v2_test")
 	defer os.RemoveAll(config.RootDir)
@@ -465,7 +461,8 @@ type testApp struct {
 }
 
 func randGenesisDoc(chainID string, numValidators int, randPower bool, minPower int64) (
-	*types.GenesisDoc, []types.PrivValidator) {
+	*types.GenesisDoc, []types.PrivValidator,
+) {
 	validators := make([]types.GenesisValidator, numValidators)
 	privValidators := make([]types.PrivValidator, numValidators)
 	for i := 0; i < numValidators; i++ {
@@ -490,7 +487,8 @@ func randGenesisDoc(chainID string, numValidators int, randPower bool, minPower 
 func newReactorStore(
 	genDoc *types.GenesisDoc,
 	privVals []types.PrivValidator,
-	maxBlockHeight int64) (*store.BlockStore, sm.State, *sm.BlockExecutor) {
+	maxBlockHeight int64,
+) (*store.BlockStore, sm.State, *sm.BlockExecutor) {
 	if len(privVals) != 1 {
 		panic("only support one validator")
 	}

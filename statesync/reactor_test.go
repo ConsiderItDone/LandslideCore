@@ -4,16 +4,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
-
 	abci "github.com/consideritdone/landslidecore/abci/types"
 	"github.com/consideritdone/landslidecore/config"
 	"github.com/consideritdone/landslidecore/p2p"
 	p2pmocks "github.com/consideritdone/landslidecore/p2p/mocks"
 	ssproto "github.com/consideritdone/landslidecore/proto/tendermint/statesync"
 	proxymocks "github.com/consideritdone/landslidecore/proxy/mocks"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 func TestReactor_Receive_ChunkRequest(t *testing.T) {
@@ -25,11 +24,13 @@ func TestReactor_Receive_ChunkRequest(t *testing.T) {
 		"chunk is returned": {
 			&ssproto.ChunkRequest{Height: 1, Format: 1, Index: 1},
 			[]byte{1, 2, 3},
-			&ssproto.ChunkResponse{Height: 1, Format: 1, Index: 1, Chunk: []byte{1, 2, 3}}},
+			&ssproto.ChunkResponse{Height: 1, Format: 1, Index: 1, Chunk: []byte{1, 2, 3}},
+		},
 		"empty chunk is returned, as nil": {
 			&ssproto.ChunkRequest{Height: 1, Format: 1, Index: 1},
 			[]byte{},
-			&ssproto.ChunkResponse{Height: 1, Format: 1, Index: 1, Chunk: nil}},
+			&ssproto.ChunkResponse{Height: 1, Format: 1, Index: 1, Chunk: nil},
+		},
 		"nil (missing) chunk is returned as missing": {
 			&ssproto.ChunkRequest{Height: 1, Format: 1, Index: 1},
 			nil,

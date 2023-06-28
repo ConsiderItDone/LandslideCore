@@ -7,12 +7,11 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/stretchr/testify/require"
-
 	rpchttp "github.com/consideritdone/landslidecore/rpc/client/http"
 	rpctypes "github.com/consideritdone/landslidecore/rpc/core/types"
 	e2e "github.com/consideritdone/landslidecore/test/e2e/pkg"
 	"github.com/consideritdone/landslidecore/types"
+	"github.com/stretchr/testify/require"
 )
 
 func init() {

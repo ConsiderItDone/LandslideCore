@@ -7,13 +7,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
 	abci "github.com/consideritdone/landslidecore/abci/types"
 	tmpubsub "github.com/consideritdone/landslidecore/libs/pubsub"
 	tmquery "github.com/consideritdone/landslidecore/libs/pubsub/query"
 	tmrand "github.com/consideritdone/landslidecore/libs/rand"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestEventBusPublishEventTx(t *testing.T) {
@@ -408,7 +407,7 @@ func BenchmarkEventBus(b *testing.B) {
 	}
 }
 
-func benchmarkEventBus(numClients int, randQueries bool, randEvents bool, b *testing.B) {
+func benchmarkEventBus(numClients int, randQueries, randEvents bool, b *testing.B) {
 	// for random* functions
 	rand.Seed(time.Now().Unix())
 
@@ -473,7 +472,8 @@ var events = []string{
 	EventLock,
 	EventRelock,
 	EventTimeoutWait,
-	EventVote}
+	EventVote,
+}
 
 func randEvent() string {
 	return events[tmrand.Intn(len(events))]
@@ -491,7 +491,8 @@ var queries = []tmpubsub.Query{
 	EventQueryLock,
 	EventQueryRelock,
 	EventQueryTimeoutWait,
-	EventQueryVote}
+	EventQueryVote,
+}
 
 func randQuery() tmpubsub.Query {
 	return queries[tmrand.Intn(len(queries))]

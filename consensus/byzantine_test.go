@@ -9,11 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
-	dbm "github.com/tendermint/tm-db"
-
 	abcicli "github.com/consideritdone/landslidecore/abci/client"
 	abci "github.com/consideritdone/landslidecore/abci/types"
 	"github.com/consideritdone/landslidecore/evidence"
@@ -26,6 +21,9 @@ import (
 	sm "github.com/consideritdone/landslidecore/state"
 	"github.com/consideritdone/landslidecore/store"
 	"github.com/consideritdone/landslidecore/types"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	dbm "github.com/tendermint/tm-db"
 )
 
 //----------------------------------------------
@@ -50,7 +48,7 @@ func TestByzantinePrevoteEquivocation(t *testing.T) {
 		state, _ := stateStore.LoadFromDBOrGenesisDoc(genDoc)
 		thisConfig := ResetConfig(fmt.Sprintf("%s_%d", testName, i))
 		defer os.RemoveAll(thisConfig.RootDir)
-		ensureDir(path.Dir(thisConfig.Consensus.WalFile()), 0700) // dir for wal
+		ensureDir(path.Dir(thisConfig.Consensus.WalFile()), 0o700) // dir for wal
 		app := appFunc()
 		vals := types.TM2PB.ValidatorUpdates(state.Validators)
 		app.InitChain(abci.RequestInitChain{Validators: vals})
@@ -64,7 +62,7 @@ func TestByzantinePrevoteEquivocation(t *testing.T) {
 		proxyAppConnCon := abcicli.NewLocalClient(mtx, app)
 
 		// Make Mempool
-		mempool := mempl.NewCListMempool(thisConfig.Mempool, proxyAppConnMem, 0)
+		mempool := mempl.NewCListMempool(thisConfig.Mempool, proxyAppConnMem, 0, nil)
 		mempool.SetLogger(log.TestingLogger().With("module", "mempool"))
 		if thisConfig.Consensus.WaitForTxs() {
 			mempool.EnableTxsAvailable()
@@ -545,9 +543,11 @@ func (br *ByzantineReactor) AddPeer(peer p2p.Peer) {
 		br.reactor.sendNewRoundStepMessage(peer)
 	}
 }
+
 func (br *ByzantineReactor) RemovePeer(peer p2p.Peer, reason interface{}) {
 	br.reactor.RemovePeer(peer, reason)
 }
+
 func (br *ByzantineReactor) Receive(chID byte, peer p2p.Peer, msgBytes []byte) {
 	br.reactor.Receive(chID, peer, msgBytes)
 }

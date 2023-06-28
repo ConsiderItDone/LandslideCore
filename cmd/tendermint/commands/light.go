@@ -11,10 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/spf13/cobra"
-
-	dbm "github.com/tendermint/tm-db"
-
 	"github.com/consideritdone/landslidecore/libs/log"
 	tmmath "github.com/consideritdone/landslidecore/libs/math"
 	tmos "github.com/consideritdone/landslidecore/libs/os"
@@ -23,6 +19,8 @@ import (
 	lrpc "github.com/consideritdone/landslidecore/light/rpc"
 	dbs "github.com/consideritdone/landslidecore/light/store/db"
 	rpcserver "github.com/consideritdone/landslidecore/rpc/jsonrpc/server"
+	"github.com/spf13/cobra"
+	dbm "github.com/tendermint/tm-db"
 )
 
 // LightCmd represents the base command when called without any subcommands

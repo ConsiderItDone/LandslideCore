@@ -4,10 +4,9 @@ import (
 	"bytes"
 	"fmt"
 
+	schnorrkel "github.com/ChainSafe/go-schnorrkel"
 	"github.com/consideritdone/landslidecore/crypto"
 	"github.com/consideritdone/landslidecore/crypto/tmhash"
-
-	schnorrkel "github.com/ChainSafe/go-schnorrkel"
 )
 
 var _ crypto.PubKey = PubKey{}
@@ -31,7 +30,7 @@ func (pubKey PubKey) Bytes() []byte {
 	return []byte(pubKey)
 }
 
-func (pubKey PubKey) VerifySignature(msg []byte, sig []byte) bool {
+func (pubKey PubKey) VerifySignature(msg, sig []byte) bool {
 	// make sure we use the same algorithm to sign
 	if len(sig) != SignatureSize {
 		return false
@@ -73,5 +72,4 @@ func (pubKey PubKey) Equals(other crypto.PubKey) bool {
 
 func (pubKey PubKey) Type() string {
 	return keyType
-
 }

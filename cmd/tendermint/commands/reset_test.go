@@ -4,10 +4,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/stretchr/testify/require"
-
 	cfg "github.com/consideritdone/landslidecore/config"
 	"github.com/consideritdone/landslidecore/privval"
+	"github.com/stretchr/testify/require"
 )
 
 func Test_ResetAll(t *testing.T) {

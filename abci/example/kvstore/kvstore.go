@@ -6,11 +6,10 @@ import (
 	"encoding/json"
 	"fmt"
 
-	dbm "github.com/tendermint/tm-db"
-
 	"github.com/consideritdone/landslidecore/abci/example/code"
 	"github.com/consideritdone/landslidecore/abci/types"
 	"github.com/consideritdone/landslidecore/version"
+	dbm "github.com/tendermint/tm-db"
 )
 
 var (
@@ -152,7 +151,7 @@ func (app *Application) Query(reqQuery types.RequestQuery) (resQuery types.Respo
 		resQuery.Value = value
 		resQuery.Height = app.state.Height
 
-		return
+		return resQuery
 	}
 
 	resQuery.Key = reqQuery.Data

@@ -6,9 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
 	abci "github.com/consideritdone/landslidecore/abci/types"
 	"github.com/consideritdone/landslidecore/crypto/ed25519"
 	cryptoenc "github.com/consideritdone/landslidecore/crypto/encoding"
@@ -19,6 +16,8 @@ import (
 	"github.com/consideritdone/landslidecore/rpc/client"
 	rpctest "github.com/consideritdone/landslidecore/rpc/test"
 	"github.com/consideritdone/landslidecore/types"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // For some reason the empty node used in tests has a time of
@@ -28,9 +27,9 @@ import (
 var defaultTestTime = time.Date(2018, 10, 10, 8, 20, 13, 695936996, time.UTC)
 
 func newEvidence(t *testing.T, val *privval.FilePV,
-	vote *types.Vote, vote2 *types.Vote,
-	chainID string) *types.DuplicateVoteEvidence {
-
+	vote, vote2 *types.Vote,
+	chainID string,
+) *types.DuplicateVoteEvidence {
 	var err error
 
 	v := vote.ToProto()

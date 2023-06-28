@@ -3,13 +3,12 @@ package types
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
 	abci "github.com/consideritdone/landslidecore/abci/types"
 	"github.com/consideritdone/landslidecore/crypto"
 	"github.com/consideritdone/landslidecore/crypto/ed25519"
 	cryptoenc "github.com/consideritdone/landslidecore/crypto/encoding"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestABCIPubKey(t *testing.T) {
@@ -62,12 +61,12 @@ func TestABCIConsensusParams(t *testing.T) {
 
 type pubKeyEddie struct{}
 
-func (pubKeyEddie) Address() Address                            { return []byte{} }
-func (pubKeyEddie) Bytes() []byte                               { return []byte{} }
-func (pubKeyEddie) VerifySignature(msg []byte, sig []byte) bool { return false }
-func (pubKeyEddie) Equals(crypto.PubKey) bool                   { return false }
-func (pubKeyEddie) String() string                              { return "" }
-func (pubKeyEddie) Type() string                                { return "pubKeyEddie" }
+func (pubKeyEddie) Address() Address                     { return []byte{} }
+func (pubKeyEddie) Bytes() []byte                        { return []byte{} }
+func (pubKeyEddie) VerifySignature(msg, sig []byte) bool { return false }
+func (pubKeyEddie) Equals(crypto.PubKey) bool            { return false }
+func (pubKeyEddie) String() string                       { return "" }
+func (pubKeyEddie) Type() string                         { return "pubKeyEddie" }
 
 func TestABCIValidatorFromPubKeyAndPower(t *testing.T) {
 	pubkey := ed25519.GenPrivKey().PubKey()

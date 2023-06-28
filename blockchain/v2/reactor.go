@@ -58,7 +58,8 @@ type blockApplier interface {
 
 // XXX: unify naming in this package around tmState
 func newReactor(state state.State, store blockStore, reporter behaviour.Reporter,
-	blockApplier blockApplier, fastSync bool) *BlockchainReactor {
+	blockApplier blockApplier, fastSync bool,
+) *BlockchainReactor {
 	initHeight := state.LastBlockHeight + 1
 	if initHeight == 1 {
 		initHeight = state.InitialHeight
@@ -84,7 +85,8 @@ func NewBlockchainReactor(
 	state state.State,
 	blockApplier blockApplier,
 	store blockStore,
-	fastSync bool) *BlockchainReactor {
+	fastSync bool,
+) *BlockchainReactor {
 	reporter := behaviour.NewMockReporter()
 	return newReactor(state, store, reporter, blockApplier, fastSync)
 }
@@ -284,8 +286,8 @@ func (e bcResetState) String() string {
 
 // Takes the channel as a parameter to avoid race conditions on r.events.
 func (r *BlockchainReactor) demux(events <-chan Event) {
-	var lastRate = 0.0
-	var lastHundred = time.Now()
+	lastRate := 0.0
+	lastHundred := time.Now()
 
 	var (
 		processBlockFreq = 20 * time.Millisecond

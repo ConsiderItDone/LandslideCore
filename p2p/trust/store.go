@@ -8,10 +8,9 @@ import (
 	"fmt"
 	"time"
 
-	dbm "github.com/tendermint/tm-db"
-
 	"github.com/consideritdone/landslidecore/libs/service"
 	tmsync "github.com/consideritdone/landslidecore/libs/sync"
+	dbm "github.com/tendermint/tm-db"
 )
 
 const defaultStorePeriodicSaveInterval = 1 * time.Minute

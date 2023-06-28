@@ -5,11 +5,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
-	dbm "github.com/tendermint/tm-db"
-
 	"github.com/consideritdone/landslidecore/crypto"
 	"github.com/consideritdone/landslidecore/crypto/tmhash"
 	"github.com/consideritdone/landslidecore/evidence"
@@ -21,6 +16,9 @@ import (
 	smmocks "github.com/consideritdone/landslidecore/state/mocks"
 	"github.com/consideritdone/landslidecore/types"
 	"github.com/consideritdone/landslidecore/version"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	dbm "github.com/tendermint/tm-db"
 )
 
 const (
@@ -454,7 +452,7 @@ func makeLunaticEvidence(
 	height, commonHeight int64,
 	totalVals, byzVals, phantomVals int,
 	commonTime, attackTime time.Time,
-) (ev *types.LightClientAttackEvidence, trusted *types.LightBlock, common *types.LightBlock) {
+) (ev *types.LightClientAttackEvidence, trusted, common *types.LightBlock) {
 	commonValSet, commonPrivVals := types.RandValidatorSet(totalVals, defaultVotingPower)
 
 	require.Greater(t, totalVals, byzVals)
@@ -529,7 +527,8 @@ func makeLunaticEvidence(
 
 func makeVote(
 	t *testing.T, val types.PrivValidator, chainID string, valIndex int32, height int64,
-	round int32, step int, blockID types.BlockID, time time.Time) *types.Vote {
+	round int32, step int, blockID types.BlockID, time time.Time,
+) *types.Vote {
 	pubKey, err := val.GetPubKey()
 	require.NoError(t, err)
 	v := &types.Vote{
@@ -587,7 +586,8 @@ func makeBlockID(hash []byte, partSetSize uint32, partSetHash []byte) types.Bloc
 }
 
 func orderPrivValsByValSet(
-	t *testing.T, vals *types.ValidatorSet, privVals []types.PrivValidator) []types.PrivValidator {
+	t *testing.T, vals *types.ValidatorSet, privVals []types.PrivValidator,
+) []types.PrivValidator {
 	output := make([]types.PrivValidator, len(privVals))
 	for idx, v := range vals.Validators {
 		for _, p := range privVals {

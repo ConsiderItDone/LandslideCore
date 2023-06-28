@@ -8,13 +8,12 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/google/orderedcode"
-	dbm "github.com/tendermint/tm-db"
-
 	abci "github.com/consideritdone/landslidecore/abci/types"
 	"github.com/consideritdone/landslidecore/libs/pubsub/query"
 	"github.com/consideritdone/landslidecore/state/indexer"
 	"github.com/consideritdone/landslidecore/types"
+	"github.com/google/orderedcode"
+	dbm "github.com/tendermint/tm-db"
 )
 
 var _ indexer.BlockIndexer = (*BlockerIndexer)(nil)
@@ -223,7 +222,6 @@ func (idx *BlockerIndexer) matchRange(
 	filteredHeights map[string][]byte,
 	firstRun bool,
 ) (map[string][]byte, error) {
-
 	// A previous match was attempted but resulted in no matches, so we return
 	// no matches (assuming AND operand).
 	if !firstRun && len(filteredHeights) == 0 {
@@ -331,7 +329,6 @@ func (idx *BlockerIndexer) match(
 	filteredHeights map[string][]byte,
 	firstRun bool,
 ) (map[string][]byte, error) {
-
 	// A previous match was attempted but resulted in no matches, so we return
 	// no matches (assuming AND operand).
 	if !firstRun && len(filteredHeights) == 0 {

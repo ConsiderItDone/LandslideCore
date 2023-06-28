@@ -69,18 +69,19 @@ func (l *filter) Error(msg string, keyvals ...interface{}) {
 // Allow*With methods, it is used as the logger's level.
 //
 // Examples:
-//     logger = log.NewFilter(logger, log.AllowError(), log.AllowInfoWith("module", "crypto"))
-//		 logger.With("module", "crypto").Info("Hello") # produces "I... Hello module=crypto"
 //
-//     logger = log.NewFilter(logger, log.AllowError(),
-//				log.AllowInfoWith("module", "crypto"),
-// 				log.AllowNoneWith("user", "Sam"))
-//		 logger.With("module", "crypto", "user", "Sam").Info("Hello") # returns nil
+//	    logger = log.NewFilter(logger, log.AllowError(), log.AllowInfoWith("module", "crypto"))
+//			 logger.With("module", "crypto").Info("Hello") # produces "I... Hello module=crypto"
 //
-//     logger = log.NewFilter(logger,
-// 				log.AllowError(),
-// 				log.AllowInfoWith("module", "crypto"), log.AllowNoneWith("user", "Sam"))
-//		 logger.With("user", "Sam").With("module", "crypto").Info("Hello") # produces "I... Hello module=crypto user=Sam"
+//	    logger = log.NewFilter(logger, log.AllowError(),
+//					log.AllowInfoWith("module", "crypto"),
+//					log.AllowNoneWith("user", "Sam"))
+//			 logger.With("module", "crypto", "user", "Sam").Info("Hello") # returns nil
+//
+//	    logger = log.NewFilter(logger,
+//					log.AllowError(),
+//					log.AllowInfoWith("module", "crypto"), log.AllowNoneWith("user", "Sam"))
+//			 logger.With("user", "Sam").With("module", "crypto").Info("Hello") # produces "I... Hello module=crypto user=Sam"
 func (l *filter) With(keyvals ...interface{}) Logger {
 	keyInAllowedKeyvals := false
 
@@ -175,21 +176,21 @@ func allowed(allowed level) Option {
 }
 
 // AllowDebugWith allows error, info and debug level log events to pass for a specific key value pair.
-func AllowDebugWith(key interface{}, value interface{}) Option {
+func AllowDebugWith(key, value interface{}) Option {
 	return func(l *filter) { l.allowedKeyvals[keyval{key, value}] = levelError | levelInfo | levelDebug }
 }
 
 // AllowInfoWith allows error and info level log events to pass for a specific key value pair.
-func AllowInfoWith(key interface{}, value interface{}) Option {
+func AllowInfoWith(key, value interface{}) Option {
 	return func(l *filter) { l.allowedKeyvals[keyval{key, value}] = levelError | levelInfo }
 }
 
 // AllowErrorWith allows only error level log events to pass for a specific key value pair.
-func AllowErrorWith(key interface{}, value interface{}) Option {
+func AllowErrorWith(key, value interface{}) Option {
 	return func(l *filter) { l.allowedKeyvals[keyval{key, value}] = levelError }
 }
 
 // AllowNoneWith allows no leveled log events to pass for a specific key value pair.
-func AllowNoneWith(key interface{}, value interface{}) Option {
+func AllowNoneWith(key, value interface{}) Option {
 	return func(l *filter) { l.allowedKeyvals[keyval{key, value}] = 0 }
 }

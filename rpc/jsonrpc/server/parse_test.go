@@ -7,10 +7,9 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-
 	"github.com/consideritdone/landslidecore/libs/bytes"
 	types "github.com/consideritdone/landslidecore/rpc/jsonrpc/types"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestParseJSONMap(t *testing.T) {

@@ -3,10 +3,9 @@ package commands
 import (
 	"fmt"
 
-	"github.com/spf13/cobra"
-
 	tmos "github.com/consideritdone/landslidecore/libs/os"
 	"github.com/consideritdone/landslidecore/p2p"
+	"github.com/spf13/cobra"
 )
 
 // GenNodeKeyCmd allows the generation of a node key. It prints node's ID to

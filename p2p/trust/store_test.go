@@ -9,11 +9,10 @@ import (
 	"os"
 	"testing"
 
+	"github.com/consideritdone/landslidecore/libs/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	dbm "github.com/tendermint/tm-db"
-
-	"github.com/consideritdone/landslidecore/libs/log"
 )
 
 func TestTrustMetricStoreSaveLoad(t *testing.T) {

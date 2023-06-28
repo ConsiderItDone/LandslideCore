@@ -3,11 +3,10 @@ package commands
 import (
 	"fmt"
 
-	"github.com/spf13/cobra"
-
 	tmjson "github.com/consideritdone/landslidecore/libs/json"
 	tmos "github.com/consideritdone/landslidecore/libs/os"
 	"github.com/consideritdone/landslidecore/privval"
+	"github.com/spf13/cobra"
 )
 
 // ShowValidatorCmd adds capabilities for showing the validator info.

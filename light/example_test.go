@@ -9,8 +9,6 @@ import (
 	"testing"
 	"time"
 
-	dbm "github.com/tendermint/tm-db"
-
 	"github.com/consideritdone/landslidecore/abci/example/kvstore"
 	"github.com/consideritdone/landslidecore/libs/log"
 	"github.com/consideritdone/landslidecore/light"
@@ -18,6 +16,7 @@ import (
 	httpp "github.com/consideritdone/landslidecore/light/provider/http"
 	dbs "github.com/consideritdone/landslidecore/light/store/db"
 	rpctest "github.com/consideritdone/landslidecore/rpc/test"
+	dbm "github.com/tendermint/tm-db"
 )
 
 // Automatically getting new headers and verifying them.

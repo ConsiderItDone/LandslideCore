@@ -4,8 +4,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/gogo/protobuf/proto"
-
 	cstypes "github.com/consideritdone/landslidecore/consensus/types"
 	"github.com/consideritdone/landslidecore/libs/bits"
 	tmmath "github.com/consideritdone/landslidecore/libs/math"
@@ -13,6 +11,7 @@ import (
 	tmcons "github.com/consideritdone/landslidecore/proto/tendermint/consensus"
 	tmproto "github.com/consideritdone/landslidecore/proto/tendermint/types"
 	"github.com/consideritdone/landslidecore/types"
+	"github.com/gogo/protobuf/proto"
 )
 
 // MsgToProto takes a consensus message type and returns the proto defined consensus message

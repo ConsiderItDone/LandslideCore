@@ -5,11 +5,10 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/gorilla/websocket"
-	"github.com/stretchr/testify/require"
-
 	"github.com/consideritdone/landslidecore/libs/log"
 	types "github.com/consideritdone/landslidecore/rpc/jsonrpc/types"
+	"github.com/gorilla/websocket"
+	"github.com/stretchr/testify/require"
 )
 
 func TestWebsocketManagerHandler(t *testing.T) {

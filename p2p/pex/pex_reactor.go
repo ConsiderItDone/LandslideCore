@@ -6,8 +6,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
-
 	"github.com/consideritdone/landslidecore/libs/cmap"
 	tmmath "github.com/consideritdone/landslidecore/libs/math"
 	tmrand "github.com/consideritdone/landslidecore/libs/rand"
@@ -15,6 +13,7 @@ import (
 	"github.com/consideritdone/landslidecore/p2p"
 	"github.com/consideritdone/landslidecore/p2p/conn"
 	tmp2p "github.com/consideritdone/landslidecore/proto/tendermint/p2p"
+	"github.com/gogo/protobuf/proto"
 )
 
 type Peer = p2p.Peer
@@ -54,8 +53,7 @@ const (
 	defaultBanTime = 24 * time.Hour
 )
 
-type errMaxAttemptsToDial struct {
-}
+type errMaxAttemptsToDial struct{}
 
 func (e errMaxAttemptsToDial) Error() string {
 	return fmt.Sprintf("reached max attempts %d to dial", maxAttemptsToDial)

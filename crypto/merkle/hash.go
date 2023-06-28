@@ -21,6 +21,6 @@ func leafHash(leaf []byte) []byte {
 }
 
 // returns tmhash(0x01 || left || right)
-func innerHash(left []byte, right []byte) []byte {
+func innerHash(left, right []byte) []byte {
 	return tmhash.Sum(append(innerPrefix, append(left, right...)...))
 }

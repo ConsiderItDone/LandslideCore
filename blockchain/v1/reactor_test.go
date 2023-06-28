@@ -8,11 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
-	dbm "github.com/tendermint/tm-db"
-
 	abci "github.com/consideritdone/landslidecore/abci/types"
 	cfg "github.com/consideritdone/landslidecore/config"
 	"github.com/consideritdone/landslidecore/libs/log"
@@ -24,6 +19,9 @@ import (
 	"github.com/consideritdone/landslidecore/store"
 	"github.com/consideritdone/landslidecore/types"
 	tmtime "github.com/consideritdone/landslidecore/types/time"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	dbm "github.com/tendermint/tm-db"
 )
 
 var config *cfg.Config
@@ -53,8 +51,8 @@ func makeVote(
 	header *types.Header,
 	blockID types.BlockID,
 	valset *types.ValidatorSet,
-	privVal types.PrivValidator) *types.Vote {
-
+	privVal types.PrivValidator,
+) *types.Vote {
 	pubKey, err := privVal.GetPubKey()
 	require.NoError(t, err)
 
@@ -87,7 +85,8 @@ func newBlockchainReactor(
 	logger log.Logger,
 	genDoc *types.GenesisDoc,
 	privVals []types.PrivValidator,
-	maxBlockHeight int64) *BlockchainReactor {
+	maxBlockHeight int64,
+) *BlockchainReactor {
 	if len(privVals) != 1 {
 		panic("only support one validator")
 	}
@@ -157,14 +156,15 @@ func newBlockchainReactorPair(
 	logger log.Logger,
 	genDoc *types.GenesisDoc,
 	privVals []types.PrivValidator,
-	maxBlockHeight int64) BlockchainReactorPair {
-
+	maxBlockHeight int64,
+) BlockchainReactorPair {
 	consensusReactor := &consensusReactorTest{}
 	consensusReactor.BaseReactor = *p2p.NewBaseReactor("Consensus reactor", consensusReactor)
 
 	return BlockchainReactorPair{
 		newBlockchainReactor(t, logger, genDoc, privVals, maxBlockHeight),
-		consensusReactor}
+		consensusReactor,
+	}
 }
 
 type consensusReactorTest struct {
@@ -180,7 +180,6 @@ func (conR *consensusReactorTest) SwitchToConsensus(state sm.State, blocksSynced
 }
 
 func TestFastSyncNoBlockResponse(t *testing.T) {
-
 	config = cfg.ResetTestRoot("blockchain_new_reactor_test")
 	defer os.RemoveAll(config.RootDir)
 	genDoc, privVals := randGenesisDoc(1, false, 30)
@@ -200,7 +199,6 @@ func TestFastSyncNoBlockResponse(t *testing.T) {
 		reactorPairs[i].bcR.SetLogger(logger.With("module", moduleName))
 
 		return s
-
 	}, p2p.Connect2Switches)
 
 	defer func() {
@@ -281,7 +279,6 @@ func TestFastSyncBadBlockStopsPeer(t *testing.T) {
 		reactorPairs[i].bcR.SetLogger(logger[i].With("module", moduleName))
 		reactorPairs[i].conR.mtx.Unlock()
 		return s
-
 	}, p2p.Connect2Switches)
 
 	defer func() {
@@ -321,7 +318,6 @@ outerFor:
 		moduleName := fmt.Sprintf("blockchain-%v", len(reactorPairs)-1)
 		reactorPairs[len(reactorPairs)-1].bcR.SetLogger(lastLogger.With("module", moduleName))
 		return s
-
 	}, p2p.Connect2Switches)...)
 
 	for i := 0; i < len(reactorPairs)-1; i++ {

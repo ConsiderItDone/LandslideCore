@@ -10,9 +10,7 @@ import (
 	"github.com/consideritdone/landslidecore/types"
 )
 
-var (
-	_ snowman.Block = &Block{}
-)
+var _ snowman.Block = &Block{}
 
 // Block implements the snowman.Block interface
 type Block struct {

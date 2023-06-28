@@ -5,12 +5,11 @@ import (
 	"crypto/sha256"
 	"testing"
 
-	"github.com/stretchr/testify/require"
-
 	"github.com/consideritdone/landslidecore/abci/example/kvstore"
 	abci "github.com/consideritdone/landslidecore/abci/types"
 	"github.com/consideritdone/landslidecore/proxy"
 	"github.com/consideritdone/landslidecore/types"
+	"github.com/stretchr/testify/require"
 )
 
 func TestCacheRemove(t *testing.T) {

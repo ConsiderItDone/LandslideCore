@@ -8,15 +8,14 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
-	gogotypes "github.com/gogo/protobuf/types"
-	dbm "github.com/tendermint/tm-db"
-
 	clist "github.com/consideritdone/landslidecore/libs/clist"
 	"github.com/consideritdone/landslidecore/libs/log"
 	tmproto "github.com/consideritdone/landslidecore/proto/tendermint/types"
 	sm "github.com/consideritdone/landslidecore/state"
 	"github.com/consideritdone/landslidecore/types"
+	"github.com/gogo/protobuf/proto"
+	gogotypes "github.com/gogo/protobuf/types"
+	dbm "github.com/tendermint/tm-db"
 )
 
 const (
@@ -52,7 +51,6 @@ type Pool struct {
 // NewPool creates an evidence pool. If using an existing evidence store,
 // it will add all pending evidence to the concurrent list.
 func NewPool(evidenceDB dbm.DB, stateDB sm.Store, blockStore BlockStore) (*Pool, error) {
-
 	state, err := stateDB.Load()
 	if err != nil {
 		return nil, fmt.Errorf("cannot load state: %w", err)
@@ -434,8 +432,8 @@ func (evpool *Pool) removeExpiredPendingEvidence() (int64, time.Time) {
 }
 
 func (evpool *Pool) removeEvidenceFromList(
-	blockEvidenceMap map[string]struct{}) {
-
+	blockEvidenceMap map[string]struct{},
+) {
 	for e := evpool.evidenceList.Front(); e != nil; e = e.Next() {
 		// Remove from clist
 		ev := e.Value.(types.Evidence)

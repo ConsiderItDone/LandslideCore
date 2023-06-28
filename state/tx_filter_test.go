@@ -4,14 +4,12 @@ import (
 	"os"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
-	dbm "github.com/tendermint/tm-db"
-
 	tmrand "github.com/consideritdone/landslidecore/libs/rand"
 	sm "github.com/consideritdone/landslidecore/state"
 	"github.com/consideritdone/landslidecore/types"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	dbm "github.com/tendermint/tm-db"
 )
 
 func TestTxFilter(t *testing.T) {

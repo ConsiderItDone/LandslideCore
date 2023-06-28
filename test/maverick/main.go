@@ -5,9 +5,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
-
 	cmd "github.com/consideritdone/landslidecore/cmd/tendermint/commands"
 	"github.com/consideritdone/landslidecore/cmd/tendermint/commands/debug"
 	cfg "github.com/consideritdone/landslidecore/config"
@@ -21,6 +18,8 @@ import (
 	nd "github.com/consideritdone/landslidecore/test/maverick/node"
 	"github.com/consideritdone/landslidecore/types"
 	tmtime "github.com/consideritdone/landslidecore/types/time"
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 var (

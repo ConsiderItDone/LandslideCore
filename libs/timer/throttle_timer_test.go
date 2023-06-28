@@ -4,11 +4,8 @@ import (
 	"testing"
 	"time"
 
-	// make govet noshadow happy...
-
-	asrt "github.com/stretchr/testify/assert"
-
 	tmsync "github.com/consideritdone/landslidecore/libs/sync"
+	asrt "github.com/stretchr/testify/assert"
 )
 
 type thCounter struct {

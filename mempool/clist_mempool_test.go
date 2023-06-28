@@ -12,11 +12,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
-	gogotypes "github.com/gogo/protobuf/types"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
 	"github.com/consideritdone/landslidecore/abci/example/counter"
 	"github.com/consideritdone/landslidecore/abci/example/kvstore"
 	abciserver "github.com/consideritdone/landslidecore/abci/server"
@@ -27,6 +22,10 @@ import (
 	"github.com/consideritdone/landslidecore/libs/service"
 	"github.com/consideritdone/landslidecore/proxy"
 	"github.com/consideritdone/landslidecore/types"
+	"github.com/gogo/protobuf/proto"
+	gogotypes "github.com/gogo/protobuf/types"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // A cleanupFunc cleans up any config / test files created for a particular
@@ -44,7 +43,7 @@ func newMempoolWithAppAndConfig(cc proxy.ClientCreator, config *cfg.Config) (*CL
 	if err != nil {
 		panic(err)
 	}
-	mempool := NewCListMempool(config.Mempool, appConnMem, 0)
+	mempool := NewCListMempool(config.Mempool, appConnMem, 0, nil)
 	mempool.SetLogger(log.TestingLogger())
 	return mempool, func() { os.RemoveAll(config.RootDir) }
 }
@@ -598,7 +597,6 @@ func TestMempoolTxsBytes(t *testing.T) {
 	assert.EqualValues(t, 1, mempool.TxsBytes())
 	mempool.RemoveTxByKey(TxKey([]byte{0x06}), true)
 	assert.EqualValues(t, 0, mempool.TxsBytes())
-
 }
 
 // This will non-deterministically catch some concurrency failures like
@@ -660,6 +658,7 @@ func newRemoteApp(
 	}
 	return clientCreator, server
 }
+
 func checksumIt(data []byte) string {
 	h := sha256.New()
 	h.Write(data)

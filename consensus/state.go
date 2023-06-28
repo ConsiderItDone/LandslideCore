@@ -10,8 +10,6 @@ import (
 	"sort"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
-
 	cfg "github.com/consideritdone/landslidecore/config"
 	cstypes "github.com/consideritdone/landslidecore/consensus/types"
 	"github.com/consideritdone/landslidecore/crypto"
@@ -28,6 +26,7 @@ import (
 	sm "github.com/consideritdone/landslidecore/state"
 	"github.com/consideritdone/landslidecore/types"
 	tmtime "github.com/consideritdone/landslidecore/types/time"
+	"github.com/gogo/protobuf/proto"
 )
 
 // Consensus sentinel errors
@@ -468,7 +467,6 @@ func (cs *State) AddVote(vote *types.Vote, peerID p2p.ID) (added bool, err error
 
 // SetProposal inputs a proposal.
 func (cs *State) SetProposal(proposal *types.Proposal, peerID p2p.ID) error {
-
 	if peerID == "" {
 		cs.internalMsgQueue <- msgInfo{&ProposalMessage{proposal}, ""}
 	} else {
@@ -481,7 +479,6 @@ func (cs *State) SetProposal(proposal *types.Proposal, peerID p2p.ID) error {
 
 // AddProposalBlockPart inputs a part of the proposal block.
 func (cs *State) AddProposalBlockPart(height int64, round int32, part *types.Part, peerID p2p.ID) error {
-
 	if peerID == "" {
 		cs.internalMsgQueue <- msgInfo{&BlockPartMessage{height, round, part}, ""}
 	} else {
@@ -499,7 +496,6 @@ func (cs *State) SetProposalAndBlock(
 	parts *types.PartSet,
 	peerID p2p.ID,
 ) error {
-
 	if err := cs.SetProposal(proposal, peerID); err != nil {
 		return err
 	}
@@ -937,7 +933,6 @@ func (cs *State) handleTimeout(ti timeoutInfo, rs cstypes.RoundState) {
 	default:
 		panic(fmt.Sprintf("invalid timeout step: %v", ti.Step))
 	}
-
 }
 
 func (cs *State) handleTxsAvailable() {
@@ -1181,7 +1176,6 @@ func (cs *State) isProposalComplete() bool {
 	}
 	// if this is false the proposer is lying or we haven't received the POL yet
 	return cs.Votes.Prevotes(cs.Proposal.POLRound).HasTwoThirdsMajority()
-
 }
 
 // Create the next block to propose and return it. Returns nil block upon error.
@@ -1209,14 +1203,14 @@ func (cs *State) createProposalBlock() (block *types.Block, blockParts *types.Pa
 
 	default: // This shouldn't happen.
 		cs.Logger.Error("propose step; cannot propose anything without commit for the previous block")
-		return
+		return nil, nil
 	}
 
 	if cs.privValidatorPubKey == nil {
 		// If this node is a validator & proposer in the current round, it will
 		// miss the opportunity to create a block.
 		cs.Logger.Error("propose step; empty priv validator public key", "err", errPubKeyIsNotSet)
-		return
+		return nil, nil
 	}
 
 	proposerAddr := cs.privValidatorPubKey.Address()
@@ -1890,7 +1884,7 @@ func (cs *State) addProposalBlockPart(msg *BlockPartMessage, peerID p2p.ID) (add
 			return added, err
 		}
 
-		var pbb = new(tmproto.Block)
+		pbb := new(tmproto.Block)
 		err = proto.Unmarshal(bz, pbb)
 		if err != nil {
 			return added, err
@@ -2012,12 +2006,12 @@ func (cs *State) addVote(vote *types.Vote, peerID p2p.ID) (added bool, err error
 		if cs.Step != cstypes.RoundStepNewHeight {
 			// Late precommit at prior height is ignored
 			cs.Logger.Debug("precommit vote came in after commit timeout and has been ignored", "vote", vote)
-			return
+			return false, nil
 		}
 
 		added, err = cs.LastCommit.AddVote(vote)
 		if !added {
-			return
+			return added, err
 		}
 
 		cs.Logger.Debug("added vote to last precommits", "last_commit", cs.LastCommit.StringShort())
@@ -2034,21 +2028,21 @@ func (cs *State) addVote(vote *types.Vote, peerID p2p.ID) (added bool, err error
 			cs.enterNewRound(cs.Height, 0)
 		}
 
-		return
+		return added, err
 	}
 
 	// Height mismatch is ignored.
 	// Not necessarily a bad peer, but not favourable behaviour.
 	if vote.Height != cs.Height {
 		cs.Logger.Debug("vote ignored and not added", "vote_height", vote.Height, "cs_height", cs.Height, "peer", peerID)
-		return
+		return false, nil
 	}
 
 	height := cs.Height
 	added, err = cs.Votes.AddVote(vote, peerID)
 	if !added {
 		// Either duplicate, or error upon cs.Votes.AddByIndex()
-		return
+		return added, err
 	}
 
 	if err := cs.eventBus.PublishEventVote(types.EventDataVote{Vote: vote}); err != nil {

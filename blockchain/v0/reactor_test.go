@@ -7,11 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
-	dbm "github.com/tendermint/tm-db"
-
 	abci "github.com/consideritdone/landslidecore/abci/types"
 	cfg "github.com/consideritdone/landslidecore/config"
 	"github.com/consideritdone/landslidecore/libs/log"
@@ -22,6 +17,9 @@ import (
 	"github.com/consideritdone/landslidecore/store"
 	"github.com/consideritdone/landslidecore/types"
 	tmtime "github.com/consideritdone/landslidecore/types/time"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	dbm "github.com/tendermint/tm-db"
 )
 
 var config *cfg.Config
@@ -55,7 +53,8 @@ func newBlockchainReactor(
 	logger log.Logger,
 	genDoc *types.GenesisDoc,
 	privVals []types.PrivValidator,
-	maxBlockHeight int64) BlockchainReactorPair {
+	maxBlockHeight int64,
+) BlockchainReactorPair {
 	if len(privVals) != 1 {
 		panic("only support one validator")
 	}
@@ -146,7 +145,6 @@ func TestNoBlockResponse(t *testing.T) {
 	p2p.MakeConnectedSwitches(config.P2P, 2, func(i int, s *p2p.Switch) *p2p.Switch {
 		s.AddReactor("BLOCKCHAIN", reactorPairs[i].reactor)
 		return s
-
 	}, p2p.Connect2Switches)
 
 	defer func() {
@@ -221,7 +219,6 @@ func TestBadBlockStopsPeer(t *testing.T) {
 	switches := p2p.MakeConnectedSwitches(config.P2P, 4, func(i int, s *p2p.Switch) *p2p.Switch {
 		s.AddReactor("BLOCKCHAIN", reactorPairs[i].reactor)
 		return s
-
 	}, p2p.Connect2Switches)
 
 	defer func() {
@@ -260,7 +257,6 @@ func TestBadBlockStopsPeer(t *testing.T) {
 	switches = append(switches, p2p.MakeConnectedSwitches(config.P2P, 1, func(i int, s *p2p.Switch) *p2p.Switch {
 		s.AddReactor("BLOCKCHAIN", reactorPairs[len(reactorPairs)-1].reactor)
 		return s
-
 	}, p2p.Connect2Switches)...)
 
 	for i := 0; i < len(reactorPairs)-1; i++ {

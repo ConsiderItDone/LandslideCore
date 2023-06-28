@@ -6,7 +6,6 @@ import (
 	"sync/atomic"
 
 	"github.com/Workiva/go-datastructures/queue"
-
 	"github.com/consideritdone/landslidecore/libs/log"
 )
 

@@ -5,10 +5,9 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-
 	"github.com/consideritdone/landslidecore/crypto/ed25519"
 	"github.com/consideritdone/landslidecore/libs/service"
+	"github.com/stretchr/testify/assert"
 )
 
 // mockPeer for testing the PeerSet

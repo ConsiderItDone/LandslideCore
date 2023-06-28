@@ -13,7 +13,7 @@ type Capabilities struct {
 	Hairpin     bool
 }
 
-func makeUPNPListener(intPort int, extPort int, logger log.Logger) (NAT, net.Listener, net.IP, error) {
+func makeUPNPListener(intPort, extPort int, logger log.Logger) (NAT, net.Listener, net.IP, error) {
 	nat, err := Discover()
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("nat upnp could not be discovered: %v", err)
@@ -66,13 +66,13 @@ func testHairpin(listener net.Listener, extAddr string, logger log.Logger) (supp
 	outConn, err := net.Dial("tcp", extAddr)
 	if err != nil {
 		logger.Info(fmt.Sprintf("Outgoing connection dial error: %v", err))
-		return
+		return false
 	}
 
 	n, err := outConn.Write([]byte("test data"))
 	if err != nil {
 		logger.Info(fmt.Sprintf("Outgoing connection write error: %v", err))
-		return
+		return false
 	}
 	logger.Info(fmt.Sprintf("Outgoing connection wrote %v bytes", n))
 

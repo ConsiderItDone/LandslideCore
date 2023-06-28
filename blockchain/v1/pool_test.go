@@ -4,11 +4,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-
 	"github.com/consideritdone/landslidecore/libs/log"
 	"github.com/consideritdone/landslidecore/p2p"
 	"github.com/consideritdone/landslidecore/types"
+	"github.com/stretchr/testify/assert"
 )
 
 type testPeer struct {
@@ -46,7 +45,6 @@ func (testR *testBcR) resetStateTimer(name string, timer **time.Timer, timeout t
 }
 
 func (testR *testBcR) switchToConsensus() {
-
 }
 
 func newTestBcR() *testBcR {
@@ -87,7 +85,7 @@ func makeBlockPool(bcr *testBcR, height int64, peers []BpPeer, blocks map[int64]
 	return bPool
 }
 
-func assertPeerSetsEquivalent(t *testing.T, set1 map[p2p.ID]*BpPeer, set2 map[p2p.ID]*BpPeer) {
+func assertPeerSetsEquivalent(t *testing.T, set1, set2 map[p2p.ID]*BpPeer) {
 	assert.Equal(t, len(set1), len(set2))
 	for peerID, peer1 := range set1 {
 		peer2 := set2[peerID]
@@ -109,7 +107,6 @@ func assertBlockPoolEquivalent(t *testing.T, poolWanted, pool *BlockPool) {
 	assertPeerSetsEquivalent(t, poolWanted.peers, pool.peers)
 	assert.Equal(t, poolWanted.MaxPeerHeight, pool.MaxPeerHeight)
 	assert.Equal(t, poolWanted.Height, pool.Height)
-
 }
 
 func TestBlockPoolUpdatePeer(t *testing.T) {
@@ -158,7 +155,8 @@ func TestBlockPoolUpdatePeer(t *testing.T) {
 			name: "decrease the height of P1 from 105 to 102 with blocks",
 			pool: makeBlockPool(testBcR, 100, []BpPeer{{ID: "P1", Height: 105}},
 				map[int64]tPBlocks{
-					100: {"P1", true}, 101: {"P1", true}, 102: {"P1", true}}),
+					100: {"P1", true}, 101: {"P1", true}, 102: {"P1", true},
+				}),
 			args:      testPeer{"P1", 0, 102},
 			errWanted: errPeerLowersItsHeight,
 			poolWanted: makeBlockPool(testBcR, 100, []BpPeer{},
@@ -349,7 +347,8 @@ func TestBlockPoolSendRequestBatch(t *testing.T) {
 			expRequestsSent:    4,
 			expPeerResults: []testPeerResult{
 				{id: "P1", numPendingBlockRequests: 2},
-				{id: "P2", numPendingBlockRequests: 2}},
+				{id: "P2", numPendingBlockRequests: 2},
+			},
 		},
 	}
 
@@ -358,13 +357,13 @@ func TestBlockPoolSendRequestBatch(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			resetPoolTestResults()
 
-			var pool = tt.pool
+			pool := tt.pool
 			maxRequestsPerPeer = tt.maxRequestsPerPeer
 			pool.MakeNextRequests(10)
 
 			assert.Equal(t, tt.expRequestsSent, testResults.numRequestsSent)
 			for _, tPeer := range tt.expPeerResults {
-				var peer = pool.peers[tPeer.id]
+				peer := pool.peers[tPeer.id]
 				assert.NotNil(t, peer)
 				assert.Equal(t, tPeer.numPendingBlockRequests, peer.NumPendingBlockRequests)
 			}
@@ -388,7 +387,8 @@ func TestBlockPoolAddBlock(t *testing.T) {
 		poolWanted *BlockPool
 		errWanted  error
 	}{
-		{name: "block from unknown peer",
+		{
+			name: "block from unknown peer",
 			pool: makeBlockPool(testBcR, 10, []BpPeer{{ID: "P1", Height: 100}}, map[int64]tPBlocks{}),
 			args: args{
 				peerID:    "P2",
@@ -398,7 +398,8 @@ func TestBlockPoolAddBlock(t *testing.T) {
 			poolWanted: makeBlockPool(testBcR, 10, []BpPeer{{ID: "P1", Height: 100}}, map[int64]tPBlocks{}),
 			errWanted:  errBadDataFromPeer,
 		},
-		{name: "unexpected block 11 from known peer - waiting for 10",
+		{
+			name: "unexpected block 11 from known peer - waiting for 10",
 			pool: makeBlockPool(testBcR, 10,
 				[]BpPeer{{ID: "P1", Height: 100}},
 				map[int64]tPBlocks{10: {"P1", false}}),
@@ -412,7 +413,8 @@ func TestBlockPoolAddBlock(t *testing.T) {
 				map[int64]tPBlocks{10: {"P1", false}}),
 			errWanted: errMissingBlock,
 		},
-		{name: "unexpected block 10 from known peer - already have 10",
+		{
+			name: "unexpected block 10 from known peer - already have 10",
 			pool: makeBlockPool(testBcR, 10,
 				[]BpPeer{{ID: "P1", Height: 100}},
 				map[int64]tPBlocks{10: {"P1", true}, 11: {"P1", false}}),
@@ -426,7 +428,8 @@ func TestBlockPoolAddBlock(t *testing.T) {
 				map[int64]tPBlocks{10: {"P1", true}, 11: {"P1", false}}),
 			errWanted: errDuplicateBlock,
 		},
-		{name: "unexpected block 10 from known peer P2 - expected 10 to come from P1",
+		{
+			name: "unexpected block 10 from known peer P2 - expected 10 to come from P1",
 			pool: makeBlockPool(testBcR, 10,
 				[]BpPeer{{ID: "P1", Height: 100}, {ID: "P2", Height: 100}},
 				map[int64]tPBlocks{10: {"P1", false}}),
@@ -440,7 +443,8 @@ func TestBlockPoolAddBlock(t *testing.T) {
 				map[int64]tPBlocks{10: {"P1", false}}),
 			errWanted: errBadDataFromPeer,
 		},
-		{name: "expected block from known peer",
+		{
+			name: "expected block from known peer",
 			pool: makeBlockPool(testBcR, 10,
 				[]BpPeer{{ID: "P1", Height: 100}},
 				map[int64]tPBlocks{10: {"P1", false}}),
@@ -612,13 +616,15 @@ func TestProcessedCurrentHeightBlock(t *testing.T) {
 				map[int64]tPBlocks{
 					100: {"P1", true}, 104: {"P1", true}, 105: {"P1", false},
 					101: {"P2", true}, 103: {"P2", false},
-					102: {"P3", true}, 106: {"P3", true}}),
+					102: {"P3", true}, 106: {"P3", true},
+				}),
 			poolWanted: makeBlockPool(testBcR, 101,
 				[]BpPeer{{ID: "P1", Height: 120}, {ID: "P2", Height: 120}, {ID: "P3", Height: 130}},
 				map[int64]tPBlocks{
 					104: {"P1", true}, 105: {"P1", false},
 					101: {"P2", true}, 103: {"P2", false},
-					102: {"P3", true}, 106: {"P3", true}}),
+					102: {"P3", true}, 106: {"P3", true},
+				}),
 		},
 	}
 
@@ -658,12 +664,14 @@ func TestRemovePeerAtCurrentHeight(t *testing.T) {
 				map[int64]tPBlocks{
 					100: {"P1", false}, 104: {"P1", true}, 105: {"P1", false},
 					101: {"P2", true}, 103: {"P2", false},
-					102: {"P3", true}, 106: {"P3", true}}),
+					102: {"P3", true}, 106: {"P3", true},
+				}),
 			poolWanted: makeBlockPool(testBcR, 100,
 				[]BpPeer{{ID: "P2", Height: 120}, {ID: "P3", Height: 130}},
 				map[int64]tPBlocks{
 					101: {"P2", true}, 103: {"P2", false},
-					102: {"P3", true}, 106: {"P3", true}}),
+					102: {"P3", true}, 106: {"P3", true},
+				}),
 		},
 		{
 			name: "multiple peers, remove peer for block at H+1",
@@ -672,12 +680,14 @@ func TestRemovePeerAtCurrentHeight(t *testing.T) {
 				map[int64]tPBlocks{
 					100: {"P1", true}, 104: {"P1", true}, 105: {"P1", false},
 					101: {"P2", false}, 103: {"P2", false},
-					102: {"P3", true}, 106: {"P3", true}}),
+					102: {"P3", true}, 106: {"P3", true},
+				}),
 			poolWanted: makeBlockPool(testBcR, 100,
 				[]BpPeer{{ID: "P1", Height: 120}, {ID: "P3", Height: 130}},
 				map[int64]tPBlocks{
 					100: {"P1", true}, 104: {"P1", true}, 105: {"P1", false},
-					102: {"P3", true}, 106: {"P3", true}}),
+					102: {"P3", true}, 106: {"P3", true},
+				}),
 		},
 	}
 

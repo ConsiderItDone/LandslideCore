@@ -4,17 +4,15 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
-	dbm "github.com/tendermint/tm-db"
-
 	abci "github.com/consideritdone/landslidecore/abci/types"
 	tmstate "github.com/consideritdone/landslidecore/proto/tendermint/state"
 	ctypes "github.com/consideritdone/landslidecore/rpc/core/types"
 	rpctypes "github.com/consideritdone/landslidecore/rpc/jsonrpc/types"
 	sm "github.com/consideritdone/landslidecore/state"
 	"github.com/consideritdone/landslidecore/types"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	dbm "github.com/tendermint/tm-db"
 )
 
 func TestBlockchainInfo(t *testing.T) {
@@ -25,7 +23,6 @@ func TestBlockchainInfo(t *testing.T) {
 		resultLength int64
 		wantErr      bool
 	}{
-
 		// min > max
 		{0, 0, 0, 0, 10, 0, true},  // min set to 1
 		{0, 1, 0, 0, 10, 0, true},  // max set to height (0)

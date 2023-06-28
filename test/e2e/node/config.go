@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	"github.com/BurntSushi/toml"
-
 	"github.com/consideritdone/landslidecore/test/e2e/app"
 )
 

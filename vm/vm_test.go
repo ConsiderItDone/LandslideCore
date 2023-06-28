@@ -7,8 +7,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/consideritdone/landslidecore/abci/example/kvstore"
-
 	"github.com/ava-labs/avalanchego/database/manager"
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/snow"
@@ -16,13 +14,13 @@ import (
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/avalanchego/version"
 	"github.com/ava-labs/avalanchego/vms/components/chain"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
 	"github.com/consideritdone/landslidecore/abci/example/counter"
+	"github.com/consideritdone/landslidecore/abci/example/kvstore"
 	atypes "github.com/consideritdone/landslidecore/abci/types"
 	tmrand "github.com/consideritdone/landslidecore/libs/rand"
 	ctypes "github.com/consideritdone/landslidecore/rpc/core/types"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 var (

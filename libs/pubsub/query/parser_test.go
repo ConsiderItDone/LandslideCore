@@ -3,9 +3,8 @@ package query_test
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-
 	"github.com/consideritdone/landslidecore/libs/pubsub/query"
+	"github.com/stretchr/testify/assert"
 )
 
 // TODO: fuzzy testing?

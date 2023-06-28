@@ -10,13 +10,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
 	"github.com/consideritdone/landslidecore/libs/log"
 	tmmath "github.com/consideritdone/landslidecore/libs/math"
 	tmrand "github.com/consideritdone/landslidecore/libs/rand"
 	"github.com/consideritdone/landslidecore/p2p"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // FIXME These tests should not rely on .(*addrBook) assertions

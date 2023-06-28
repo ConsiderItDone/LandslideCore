@@ -202,7 +202,7 @@ func generateTestnet(r *rand.Rand, opt map[string]interface{}) (e2e.Manifest, er
 // here, since we need to know the overall network topology and startup
 // sequencing.
 func generateNode(
-	r *rand.Rand, mode e2e.Mode, startAt int64, initialHeight int64, forceArchive bool,
+	r *rand.Rand, mode e2e.Mode, startAt, initialHeight int64, forceArchive bool,
 ) *e2e.ManifestNode {
 	node := e2e.ManifestNode{
 		Mode:             string(mode),

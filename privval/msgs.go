@@ -3,9 +3,8 @@ package privval
 import (
 	"fmt"
 
-	"github.com/gogo/protobuf/proto"
-
 	privvalproto "github.com/consideritdone/landslidecore/proto/tendermint/privval"
+	"github.com/gogo/protobuf/proto"
 )
 
 // TODO: Add ChainIDRequest

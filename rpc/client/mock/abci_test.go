@@ -6,9 +6,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
 	"github.com/consideritdone/landslidecore/abci/example/kvstore"
 	abci "github.com/consideritdone/landslidecore/abci/types"
 	"github.com/consideritdone/landslidecore/libs/bytes"
@@ -16,6 +13,8 @@ import (
 	"github.com/consideritdone/landslidecore/rpc/client/mock"
 	ctypes "github.com/consideritdone/landslidecore/rpc/core/types"
 	"github.com/consideritdone/landslidecore/types"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestABCIMock(t *testing.T) {

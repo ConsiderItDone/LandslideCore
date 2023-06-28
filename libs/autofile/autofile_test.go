@@ -8,10 +8,9 @@ import (
 	"testing"
 	"time"
 
+	tmos "github.com/consideritdone/landslidecore/libs/os"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	tmos "github.com/consideritdone/landslidecore/libs/os"
 )
 
 func TestSIGHUP(t *testing.T) {

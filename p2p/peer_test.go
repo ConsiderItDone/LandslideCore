@@ -7,16 +7,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
+	"github.com/consideritdone/landslidecore/config"
 	"github.com/consideritdone/landslidecore/crypto"
 	"github.com/consideritdone/landslidecore/crypto/ed25519"
 	"github.com/consideritdone/landslidecore/libs/bytes"
 	"github.com/consideritdone/landslidecore/libs/log"
-
-	"github.com/consideritdone/landslidecore/config"
 	tmconn "github.com/consideritdone/landslidecore/p2p/conn"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestPeerBasic(t *testing.T) {
@@ -117,7 +115,6 @@ func testOutboundPeerConn(
 	persistent bool,
 	ourNodePrivKey crypto.PrivKey,
 ) (peerConn, error) {
-
 	var pc peerConn
 	conn, err := testDial(addr, config)
 	if err != nil {

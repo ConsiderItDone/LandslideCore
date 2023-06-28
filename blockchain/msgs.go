@@ -4,10 +4,9 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/gogo/protobuf/proto"
-
 	bcproto "github.com/consideritdone/landslidecore/proto/tendermint/blockchain"
 	"github.com/consideritdone/landslidecore/types"
+	"github.com/gogo/protobuf/proto"
 )
 
 const (

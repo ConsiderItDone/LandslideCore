@@ -7,9 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/pkg/errors"
-
 	"github.com/consideritdone/landslidecore/libs/log"
+	"github.com/pkg/errors"
 )
 
 func TestTracingLogger(t *testing.T) {

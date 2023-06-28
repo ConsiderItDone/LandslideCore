@@ -4,13 +4,12 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
 	"github.com/consideritdone/landslidecore/crypto"
 	tmrand "github.com/consideritdone/landslidecore/libs/rand"
 	tmproto "github.com/consideritdone/landslidecore/proto/tendermint/types"
 	tmtime "github.com/consideritdone/landslidecore/types/time"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestVoteSet_AddVote_Good(t *testing.T) {

@@ -102,19 +102,17 @@ const (
 	fieldPrimeWordOne = 0x3ffffbf
 )
 
-var (
-	// fieldQBytes is the value Q = (P+1)/4 for the secp256k1 prime P. This
-	// value is used to efficiently compute the square root of values in the
-	// field via exponentiation. The value of Q in hex is:
-	//
-	//   Q = 3fffffffffffffffffffffffffffffffffffffffffffffffffffffffbfffff0c
-	fieldQBytes = []byte{
-		0x3f, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-		0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-		0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-		0xff, 0xff, 0xff, 0xff, 0xbf, 0xff, 0xff, 0x0c,
-	}
-)
+// fieldQBytes is the value Q = (P+1)/4 for the secp256k1 prime P. This
+// value is used to efficiently compute the square root of values in the
+// field via exponentiation. The value of Q in hex is:
+//
+//	Q = 3fffffffffffffffffffffffffffffffffffffffffffffffffffffffbfffff0c
+var fieldQBytes = []byte{
+	0x3f, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+	0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+	0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+	0xff, 0xff, 0xff, 0xff, 0xbf, 0xff, 0xff, 0x0c,
+}
 
 // fieldVal implements optimized fixed-precision arithmetic over the
 // secp256k1 finite field.  This means all arithmetic is performed modulo
@@ -125,27 +123,30 @@ var (
 // the arithmetic needed for elliptic curve operations.
 //
 // The following depicts the internal representation:
-// 	 -----------------------------------------------------------------
-// 	|        n[9]       |        n[8]       | ... |        n[0]       |
-// 	| 32 bits available | 32 bits available | ... | 32 bits available |
-// 	| 22 bits for value | 26 bits for value | ... | 26 bits for value |
-// 	| 10 bits overflow  |  6 bits overflow  | ... |  6 bits overflow  |
-// 	| Mult: 2^(26*9)    | Mult: 2^(26*8)    | ... | Mult: 2^(26*0)    |
-// 	 -----------------------------------------------------------------
+//
+//	 -----------------------------------------------------------------
+//	|        n[9]       |        n[8]       | ... |        n[0]       |
+//	| 32 bits available | 32 bits available | ... | 32 bits available |
+//	| 22 bits for value | 26 bits for value | ... | 26 bits for value |
+//	| 10 bits overflow  |  6 bits overflow  | ... |  6 bits overflow  |
+//	| Mult: 2^(26*9)    | Mult: 2^(26*8)    | ... | Mult: 2^(26*0)    |
+//	 -----------------------------------------------------------------
 //
 // For example, consider the number 2^49 + 1.  It would be represented as:
-// 	n[0] = 1
-// 	n[1] = 2^23
-// 	n[2..9] = 0
+//
+//	n[0] = 1
+//	n[1] = 2^23
+//	n[2..9] = 0
 //
 // The full 256-bit value is then calculated by looping i from 9..0 and
 // doing sum(n[i] * 2^(26i)) like so:
-// 	n[9] * 2^(26*9) = 0    * 2^234 = 0
-// 	n[8] * 2^(26*8) = 0    * 2^208 = 0
-// 	...
-// 	n[1] * 2^(26*1) = 2^23 * 2^26  = 2^49
-// 	n[0] * 2^(26*0) = 1    * 2^0   = 1
-// 	Sum: 0 + 0 + ... + 2^49 + 1 = 2^49 + 1
+//
+//	n[9] * 2^(26*9) = 0    * 2^234 = 0
+//	n[8] * 2^(26*8) = 0    * 2^208 = 0
+//	...
+//	n[1] * 2^(26*1) = 2^23 * 2^26  = 2^49
+//	n[0] * 2^(26*0) = 1    * 2^0   = 1
+//	Sum: 0 + 0 + ... + 2^49 + 1 = 2^49 + 1
 type fieldVal struct {
 	n [10]uint32
 }
@@ -568,7 +569,7 @@ func (f *fieldVal) Add(val *fieldVal) *fieldVal {
 //
 // The field value is returned to support chaining.  This enables syntax like:
 // f3.Add2(f, f2).AddInt(1) so that f3 = f + f2 + 1.
-func (f *fieldVal) Add2(val *fieldVal, val2 *fieldVal) *fieldVal {
+func (f *fieldVal) Add2(val, val2 *fieldVal) *fieldVal {
 	// Since the field representation intentionally provides overflow bits,
 	// it's ok to use carryless addition as the carry bit is safely part of
 	// each word and will be normalized out.  This could obviously be done
@@ -636,7 +637,7 @@ func (f *fieldVal) Mul(val *fieldVal) *fieldVal {
 //
 // The field value is returned to support chaining.  This enables syntax like:
 // f3.Mul2(f, f2).AddInt(1) so that f3 = (f * f2) + 1.
-func (f *fieldVal) Mul2(val *fieldVal, val2 *fieldVal) *fieldVal {
+func (f *fieldVal) Mul2(val, val2 *fieldVal) *fieldVal {
 	// This could be done with a couple of for loops and an array to store
 	// the intermediate terms, but this unrolled version is significantly
 	// faster.

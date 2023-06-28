@@ -3,10 +3,9 @@ package commands
 import (
 	"fmt"
 
-	"github.com/spf13/cobra"
-
 	tmjson "github.com/consideritdone/landslidecore/libs/json"
 	"github.com/consideritdone/landslidecore/privval"
+	"github.com/spf13/cobra"
 )
 
 // GenValidatorCmd allows the generation of a keypair for a

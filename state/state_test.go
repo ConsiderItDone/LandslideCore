@@ -8,11 +8,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
-	dbm "github.com/tendermint/tm-db"
-
 	abci "github.com/consideritdone/landslidecore/abci/types"
 	cfg "github.com/consideritdone/landslidecore/config"
 	"github.com/consideritdone/landslidecore/crypto/ed25519"
@@ -22,6 +17,9 @@ import (
 	tmproto "github.com/consideritdone/landslidecore/proto/tendermint/types"
 	sm "github.com/consideritdone/landslidecore/state"
 	"github.com/consideritdone/landslidecore/types"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	dbm "github.com/tendermint/tm-db"
 )
 
 // setupTestCase does setup common to all test cases.
@@ -146,7 +144,8 @@ func TestABCIResponsesSaveLoad2(t *testing.T) {
 			},
 			[]*abci.ResponseDeliverTx{
 				{Code: 32, Data: []byte("Hello")},
-			}},
+			},
+		},
 		2: {
 			[]*abci.ResponseDeliverTx{
 				{Code: 383},
@@ -164,7 +163,8 @@ func TestABCIResponsesSaveLoad2(t *testing.T) {
 					{Type: "type1", Attributes: []abci.EventAttribute{{Key: []byte("a"), Value: []byte("1")}}},
 					{Type: "type2", Attributes: []abci.EventAttribute{{Key: []byte("build"), Value: []byte("stuff")}}},
 				}},
-			}},
+			},
+		},
 		3: {
 			nil,
 			nil,
@@ -304,7 +304,6 @@ func TestOneValidatorChangesSaveLoad(t *testing.T) {
 }
 
 func TestProposerFrequency(t *testing.T) {
-
 	// some explicit test cases
 	testCases := []struct {
 		powers []int64
@@ -934,7 +933,7 @@ func TestManyValidatorChangesSaveLoad(t *testing.T) {
 	require.NoError(t, err)
 
 	_, valOld := state.Validators.GetByIndex(0)
-	var pubkeyOld = valOld.PubKey
+	pubkeyOld := valOld.PubKey
 	pubkey := ed25519.GenPrivKey().PubKey()
 
 	// Swap the first validator with a new one (validator set size stays the same).

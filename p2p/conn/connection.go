@@ -12,8 +12,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
-
 	flow "github.com/consideritdone/landslidecore/libs/flowrate"
 	"github.com/consideritdone/landslidecore/libs/log"
 	tmmath "github.com/consideritdone/landslidecore/libs/math"
@@ -22,6 +20,7 @@ import (
 	tmsync "github.com/consideritdone/landslidecore/libs/sync"
 	"github.com/consideritdone/landslidecore/libs/timer"
 	tmp2p "github.com/consideritdone/landslidecore/proto/tendermint/p2p"
+	"github.com/gogo/protobuf/proto"
 )
 
 const (
@@ -47,8 +46,10 @@ const (
 	defaultPongTimeout         = 45 * time.Second
 )
 
-type receiveCbFunc func(chID byte, msgBytes []byte)
-type errorCbFunc func(interface{})
+type (
+	receiveCbFunc func(chID byte, msgBytes []byte)
+	errorCbFunc   func(interface{})
+)
 
 /*
 Each peer has one `MConnection` (multiplex connection) instance.
@@ -190,8 +191,8 @@ func NewMConnectionWithConfig(
 	}
 
 	// Create channels
-	var channelsIdx = map[byte]*Channel{}
-	var channels = []*Channel{}
+	channelsIdx := map[byte]*Channel{}
+	channels := []*Channel{}
 
 	for _, desc := range chDescs {
 		channel := newChannel(mconn, *desc)
@@ -855,7 +856,7 @@ func (ch *Channel) writePacketMsgTo(w io.Writer) (n int, err error) {
 // Not goroutine-safe
 func (ch *Channel) recvPacketMsg(packet tmp2p.PacketMsg) ([]byte, error) {
 	ch.Logger.Debug("Read PacketMsg", "conn", ch.conn, "packet", packet)
-	var recvCap, recvReceived = ch.desc.RecvMessageCapacity, len(ch.recving) + len(packet.Data)
+	recvCap, recvReceived := ch.desc.RecvMessageCapacity, len(ch.recving)+len(packet.Data)
 	if recvCap < recvReceived {
 		return nil, fmt.Errorf("received message exceeds available capacity: %v < %v", recvCap, recvReceived)
 	}

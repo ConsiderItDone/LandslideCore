@@ -11,9 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
 	abci "github.com/consideritdone/landslidecore/abci/types"
 	tmjson "github.com/consideritdone/landslidecore/libs/json"
 	"github.com/consideritdone/landslidecore/libs/log"
@@ -26,11 +23,11 @@ import (
 	rpcclient "github.com/consideritdone/landslidecore/rpc/jsonrpc/client"
 	rpctest "github.com/consideritdone/landslidecore/rpc/test"
 	"github.com/consideritdone/landslidecore/types"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-var (
-	ctx = context.Background()
-)
+var ctx = context.Background()
 
 func getHTTPClient() *rpchttp.HTTP {
 	rpcAddr := rpctest.GetConfig().RPC.ListenAddress

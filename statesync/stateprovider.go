@@ -6,8 +6,6 @@ import (
 	"strings"
 	"time"
 
-	dbm "github.com/tendermint/tm-db"
-
 	"github.com/consideritdone/landslidecore/libs/log"
 	tmsync "github.com/consideritdone/landslidecore/libs/sync"
 	"github.com/consideritdone/landslidecore/light"
@@ -20,6 +18,7 @@ import (
 	sm "github.com/consideritdone/landslidecore/state"
 	"github.com/consideritdone/landslidecore/types"
 	"github.com/consideritdone/landslidecore/version"
+	dbm "github.com/tendermint/tm-db"
 )
 
 //go:generate mockery --case underscore --name StateProvider

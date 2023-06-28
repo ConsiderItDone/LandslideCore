@@ -5,9 +5,8 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/consideritdone/landslidecore/crypto"
-
 	schnorrkel "github.com/ChainSafe/go-schnorrkel"
+	"github.com/consideritdone/landslidecore/crypto"
 )
 
 // PrivKeySize is the number of bytes in an Sr25519 private key.

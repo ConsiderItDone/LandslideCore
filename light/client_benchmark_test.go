@@ -5,13 +5,12 @@ import (
 	"testing"
 	"time"
 
-	dbm "github.com/tendermint/tm-db"
-
 	"github.com/consideritdone/landslidecore/libs/log"
 	"github.com/consideritdone/landslidecore/light"
 	"github.com/consideritdone/landslidecore/light/provider"
 	mockp "github.com/consideritdone/landslidecore/light/provider/mock"
 	dbs "github.com/consideritdone/landslidecore/light/store/db"
+	dbm "github.com/tendermint/tm-db"
 )
 
 // NOTE: block is produced every minute. Make sure the verification time

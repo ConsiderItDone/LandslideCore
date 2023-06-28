@@ -5,13 +5,12 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/stretchr/testify/require"
-	db "github.com/tendermint/tm-db"
-
 	abci "github.com/consideritdone/landslidecore/abci/types"
 	"github.com/consideritdone/landslidecore/libs/pubsub/query"
 	blockidxkv "github.com/consideritdone/landslidecore/state/indexer/block/kv"
 	"github.com/consideritdone/landslidecore/types"
+	"github.com/stretchr/testify/require"
+	db "github.com/tendermint/tm-db"
 )
 
 func TestBlockIndexer(t *testing.T) {

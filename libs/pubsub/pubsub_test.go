@@ -7,13 +7,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
 	"github.com/consideritdone/landslidecore/libs/log"
-
 	"github.com/consideritdone/landslidecore/libs/pubsub"
 	"github.com/consideritdone/landslidecore/libs/pubsub/query"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -482,8 +480,10 @@ func benchmarkNClientsOneQuery(n int, b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		err = s.PublishWithEvents(ctx, "Gamora", map[string][]string{"abci.Account.Owner": {"Ivan"},
-			"abci.Invoices.Number": {"1"}})
+		err = s.PublishWithEvents(ctx, "Gamora", map[string][]string{
+			"abci.Account.Owner":   {"Ivan"},
+			"abci.Invoices.Number": {"1"},
+		})
 		require.NoError(b, err)
 	}
 }

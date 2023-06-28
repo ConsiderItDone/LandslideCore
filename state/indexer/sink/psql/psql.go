@@ -9,11 +9,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
-
 	abci "github.com/consideritdone/landslidecore/abci/types"
 	"github.com/consideritdone/landslidecore/libs/pubsub/query"
 	"github.com/consideritdone/landslidecore/types"
+	"github.com/gogo/protobuf/proto"
 )
 
 const (
@@ -222,7 +221,6 @@ INSERT INTO `+tableTxResults+` (block_id, index, created_at, tx_hash, tx_result)
 				return fmt.Errorf("indexing transaction events: %w", err)
 			}
 			return nil
-
 		}); err != nil {
 			return err
 		}

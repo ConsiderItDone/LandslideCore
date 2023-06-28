@@ -3,10 +3,9 @@ package coregrpc
 import (
 	"net"
 
+	tmnet "github.com/consideritdone/landslidecore/libs/net"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
-
-	tmnet "github.com/consideritdone/landslidecore/libs/net"
 )
 
 // Config is an gRPC server configuration.

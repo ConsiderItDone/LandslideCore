@@ -5,10 +5,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/consideritdone/landslidecore/libs/rand"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/consideritdone/landslidecore/libs/rand"
 )
 
 // TestAddListenerForEventFireOnce sets up an EventSwitch, subscribes a single
@@ -476,7 +475,8 @@ func sumReceivedNumbers(numbers, doneSum chan uint64) {
 // sent on `doneChan` for assertion that all events have been sent, and enabling
 // the test to assert all events have also been received.
 func fireEvents(evsw Fireable, event string, doneChan chan uint64,
-	offset uint64) {
+	offset uint64,
+) {
 	var sentSum uint64
 	for i := offset; i <= offset+uint64(999); i++ {
 		sentSum += i

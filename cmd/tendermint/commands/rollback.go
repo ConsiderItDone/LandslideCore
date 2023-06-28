@@ -3,13 +3,11 @@ package commands
 import (
 	"fmt"
 
-	"github.com/spf13/cobra"
-
-	dbm "github.com/tendermint/tm-db"
-
 	cfg "github.com/consideritdone/landslidecore/config"
 	"github.com/consideritdone/landslidecore/state"
 	"github.com/consideritdone/landslidecore/store"
+	"github.com/spf13/cobra"
+	dbm "github.com/tendermint/tm-db"
 )
 
 var RollbackStateCmd = &cobra.Command{

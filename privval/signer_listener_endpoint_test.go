@@ -5,14 +5,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
 	"github.com/consideritdone/landslidecore/crypto/ed25519"
 	"github.com/consideritdone/landslidecore/libs/log"
 	tmnet "github.com/consideritdone/landslidecore/libs/net"
 	tmrand "github.com/consideritdone/landslidecore/libs/rand"
 	"github.com/consideritdone/landslidecore/types"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 var (
@@ -188,7 +187,6 @@ func getMockEndpoints(
 	addr string,
 	socketDialer SocketDialer,
 ) (*SignerListenerEndpoint, *SignerDialerEndpoint) {
-
 	var (
 		logger           = log.TestingLogger()
 		endpointIsOpenCh = make(chan struct{})

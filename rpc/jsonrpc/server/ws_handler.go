@@ -10,11 +10,10 @@ import (
 	"runtime/debug"
 	"time"
 
-	"github.com/gorilla/websocket"
-
 	"github.com/consideritdone/landslidecore/libs/log"
 	"github.com/consideritdone/landslidecore/libs/service"
 	types "github.com/consideritdone/landslidecore/rpc/jsonrpc/types"
+	"github.com/gorilla/websocket"
 )
 
 // WebSocket handler

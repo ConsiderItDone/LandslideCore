@@ -5,12 +5,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
-
-	dbm "github.com/tendermint/tm-db"
-
 	"github.com/consideritdone/landslidecore/evidence"
 	"github.com/consideritdone/landslidecore/evidence/mocks"
 	"github.com/consideritdone/landslidecore/libs/log"
@@ -21,10 +15,13 @@ import (
 	"github.com/consideritdone/landslidecore/store"
 	"github.com/consideritdone/landslidecore/types"
 	"github.com/consideritdone/landslidecore/version"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
+	dbm "github.com/tendermint/tm-db"
 )
 
 func TestMain(m *testing.M) {
-
 	code := m.Run()
 	os.Exit(code)
 }
@@ -91,7 +88,6 @@ func TestEvidencePoolBasic(t *testing.T) {
 	assert.NoError(t, pool.AddEvidence(ev))
 	evs, _ = pool.PendingEvidence(defaultEvidenceMaxBytes)
 	assert.Equal(t, 1, len(evs))
-
 }
 
 // Tests inbound evidence for the right time and height
@@ -125,8 +121,10 @@ func TestAddExpiredEvidence(t *testing.T) {
 		{height, defaultEvidenceTime, false, "valid evidence"},
 		{expiredHeight, defaultEvidenceTime, false, "valid evidence (despite old height)"},
 		{height - 1, expiredEvidenceTime, false, "valid evidence (despite old time)"},
-		{expiredHeight - 1, expiredEvidenceTime, true,
-			"evidence from height 1 (created at: 2019-01-01 00:00:00 +0000 UTC) is too old"},
+		{
+			expiredHeight - 1, expiredEvidenceTime, true,
+			"evidence from height 1 (created at: 2019-01-01 00:00:00 +0000 UTC) is too old",
+		},
 		{height, defaultEvidenceTime.Add(1 * time.Minute), true, "evidence time and block time is different"},
 	}
 
@@ -343,7 +341,6 @@ func TestRecoverPendingEvidence(t *testing.T) {
 	assert.Equal(t, 1, len(evList))
 	next := newPool.EvidenceFront()
 	assert.Equal(t, goodEvidence, next.Value.(types.Evidence))
-
 }
 
 func initializeStateFromValidatorSet(valSet *types.ValidatorSet, height int64) sm.Store {
@@ -383,7 +380,6 @@ func initializeStateFromValidatorSet(valSet *types.ValidatorSet, height int64) s
 }
 
 func initializeValidatorState(privVal types.PrivValidator, height int64) sm.Store {
-
 	pubKey, _ := privVal.GetPubKey()
 	validator := &types.Validator{Address: pubKey.Address(), VotingPower: 10, PubKey: pubKey}
 

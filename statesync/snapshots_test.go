@@ -3,11 +3,10 @@ package statesync
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
 	"github.com/consideritdone/landslidecore/p2p"
 	p2pmocks "github.com/consideritdone/landslidecore/p2p/mocks"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestSnapshot_Key(t *testing.T) {
