@@ -8,11 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/fortytw2/leaktest"
-	"github.com/go-kit/log/term"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
 	"github.com/consideritdone/landslidecore/abci/example/kvstore"
 	abci "github.com/consideritdone/landslidecore/abci/types"
 	cfg "github.com/consideritdone/landslidecore/config"
@@ -23,6 +18,10 @@ import (
 	memproto "github.com/consideritdone/landslidecore/proto/tendermint/mempool"
 	"github.com/consideritdone/landslidecore/proxy"
 	"github.com/consideritdone/landslidecore/types"
+	"github.com/fortytw2/leaktest"
+	"github.com/go-kit/log/term"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -313,7 +312,6 @@ func makeAndConnectReactors(config *cfg.Config, n int) []*Reactor {
 	p2p.MakeConnectedSwitches(config.P2P, n, func(i int, s *p2p.Switch) *p2p.Switch {
 		s.AddReactor("MEMPOOL", reactors[i])
 		return s
-
 	}, p2p.Connect2Switches)
 	return reactors
 }

@@ -9,11 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
-	dbm "github.com/tendermint/tm-db"
-
 	"github.com/consideritdone/landslidecore/abci/example/kvstore"
 	cfg "github.com/consideritdone/landslidecore/config"
 	"github.com/consideritdone/landslidecore/crypto/ed25519"
@@ -30,6 +25,9 @@ import (
 	"github.com/consideritdone/landslidecore/store"
 	"github.com/consideritdone/landslidecore/types"
 	tmtime "github.com/consideritdone/landslidecore/types/time"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	dbm "github.com/tendermint/tm-db"
 )
 
 func TestNodeStartStop(t *testing.T) {

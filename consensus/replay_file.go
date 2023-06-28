@@ -10,8 +10,6 @@ import (
 	"strconv"
 	"strings"
 
-	dbm "github.com/tendermint/tm-db"
-
 	cfg "github.com/consideritdone/landslidecore/config"
 	"github.com/consideritdone/landslidecore/libs/log"
 	tmos "github.com/consideritdone/landslidecore/libs/os"
@@ -19,6 +17,7 @@ import (
 	sm "github.com/consideritdone/landslidecore/state"
 	"github.com/consideritdone/landslidecore/store"
 	"github.com/consideritdone/landslidecore/types"
+	dbm "github.com/tendermint/tm-db"
 )
 
 const (
@@ -40,7 +39,6 @@ func RunReplayFile(config cfg.BaseConfig, csConfig *cfg.ConsensusConfig, console
 
 // Replay msgs in file or start the console
 func (cs *State) ReplayFile(file string, console bool) error {
-
 	if cs.IsRunning() {
 		return errors.New("cs is already running, cannot replay")
 	}
@@ -64,7 +62,7 @@ func (cs *State) ReplayFile(file string, console bool) error {
 	}()
 
 	// just open the file for reading, no need to use wal
-	fp, err := os.OpenFile(file, os.O_RDONLY, 0600)
+	fp, err := os.OpenFile(file, os.O_RDONLY, 0o600)
 	if err != nil {
 		return err
 	}
@@ -137,7 +135,7 @@ func (pb *playback) replayReset(count int, newStepSub types.Subscription) error 
 	if err := pb.fp.Close(); err != nil {
 		return err
 	}
-	fp, err := os.OpenFile(pb.fileName, os.O_RDONLY, 0600)
+	fp, err := os.OpenFile(pb.fileName, os.O_RDONLY, 0o600)
 	if err != nil {
 		return err
 	}

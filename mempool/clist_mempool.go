@@ -146,7 +146,7 @@ func (mem *CListMempool) InitWAL() error {
 		walFile = walDir + "/wal"
 	)
 
-	const perm = 0700
+	const perm = 0o700
 	if err := tmos.EnsureDir(walDir, perm); err != nil {
 		return err
 	}

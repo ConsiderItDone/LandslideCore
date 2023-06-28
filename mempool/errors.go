@@ -5,10 +5,8 @@ import (
 	"fmt"
 )
 
-var (
-	// ErrTxInCache is returned to the client if we saw tx earlier
-	ErrTxInCache = errors.New("tx already exists in cache")
-)
+// ErrTxInCache is returned to the client if we saw tx earlier
+var ErrTxInCache = errors.New("tx already exists in cache")
 
 // ErrTxTooLarge means the tx is too big to be sent in a message to other peers
 type ErrTxTooLarge struct {

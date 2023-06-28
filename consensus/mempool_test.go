@@ -7,16 +7,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
-	dbm "github.com/tendermint/tm-db"
-
 	"github.com/consideritdone/landslidecore/abci/example/code"
 	abci "github.com/consideritdone/landslidecore/abci/types"
 	mempl "github.com/consideritdone/landslidecore/mempool"
 	sm "github.com/consideritdone/landslidecore/state"
 	"github.com/consideritdone/landslidecore/types"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	dbm "github.com/tendermint/tm-db"
 )
 
 // for testing
@@ -224,7 +222,8 @@ func (app *CounterApplication) DeliverTx(req abci.RequestDeliverTx) abci.Respons
 	if txValue != uint64(app.txCount) {
 		return abci.ResponseDeliverTx{
 			Code: code.CodeTypeBadNonce,
-			Log:  fmt.Sprintf("Invalid nonce. Expected %v, got %v", app.txCount, txValue)}
+			Log:  fmt.Sprintf("Invalid nonce. Expected %v, got %v", app.txCount, txValue),
+		}
 	}
 	app.txCount++
 	return abci.ResponseDeliverTx{Code: code.CodeTypeOK}
@@ -235,7 +234,8 @@ func (app *CounterApplication) CheckTx(req abci.RequestCheckTx) abci.ResponseChe
 	if txValue != uint64(app.mempoolTxCount) {
 		return abci.ResponseCheckTx{
 			Code: code.CodeTypeBadNonce,
-			Log:  fmt.Sprintf("Invalid nonce. Expected %v, got %v", app.mempoolTxCount, txValue)}
+			Log:  fmt.Sprintf("Invalid nonce. Expected %v, got %v", app.mempoolTxCount, txValue),
+		}
 	}
 	app.mempoolTxCount++
 	return abci.ResponseCheckTx{Code: code.CodeTypeOK}
