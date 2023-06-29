@@ -133,10 +133,16 @@ type VM struct {
 	indexerService *txindex.IndexerService
 
 	clock mockable.Clock
+
+	appCreator func(ids.ID) (abciTypes.Application, error)
 }
 
 func NewVM(app abciTypes.Application) *VM {
-	return &VM{app: app}
+	return &VM{app: app, appCreator: nil}
+}
+
+func NewVMWithAppCreator(creator func(chainID ids.ID) (abciTypes.Application, error)) *VM {
+	return &VM{app: nil, appCreator: creator}
 }
 
 func (vm *VM) Initialize(
@@ -150,6 +156,14 @@ func (vm *VM) Initialize(
 	fxs []*common.Fx,
 	appSender common.AppSender,
 ) error {
+	if vm.appCreator != nil {
+		app, err := vm.appCreator(chainCtx.ChainID)
+		if err != nil {
+			return err
+		}
+		vm.app = app
+	}
+
 	vm.ctx = chainCtx
 	vm.tmLogger = log.NewTMLogger(vm.ctx.Log)
 	vm.dbManager = dbManager
