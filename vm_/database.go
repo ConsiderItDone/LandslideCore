@@ -6,7 +6,7 @@ import (
 )
 
 var (
-	_ dbm.DB = (*Database)(nil)
+	_ dbm.DB = &Database{}
 )
 
 type (
@@ -23,20 +23,6 @@ type (
 		database.Batch
 	}
 )
-
-func NewDB(db database.Database) *Database {
-	return &Database{
-		Database: db,
-	}
-}
-
-func (db Database) Close() error {
-	return db.Database.Close()
-}
-
-func (db Database) Has(key []byte) (bool, error) {
-	return db.Database.Has(key)
-}
 
 func (db Database) Get(key []byte) ([]byte, error) {
 	res, err := db.Database.Get(key)
@@ -55,10 +41,6 @@ func (db Database) Set(key []byte, value []byte) error {
 
 func (db Database) SetSync(key []byte, value []byte) error {
 	return db.Database.Put(key, value)
-}
-
-func (db Database) Delete(key []byte) error {
-	return db.Database.Delete(key)
 }
 
 func (db Database) DeleteSync(key []byte) error {

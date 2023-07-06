@@ -85,8 +85,8 @@ type (
 	}
 
 	TxArgs struct {
-		Hash  tmbytes.HexBytes `json:"hash"`
-		Prove bool             `json:"prove"`
+		Hash  []byte `json:"hash"`
+		Prove bool   `json:"prove"`
 	}
 
 	TxSearchArgs struct {
@@ -170,7 +170,7 @@ func NewService(vm *VM) Service {
 }
 
 func (s *LocalService) ABCIInfo(_ *http.Request, _ *struct{}, reply *ctypes.ResultABCIInfo) error {
-	resInfo, err := s.vm.app.Query().InfoSync(proxy.RequestInfo)
+	resInfo, err := s.vm.proxyApp.Query().InfoSync(proxy.RequestInfo)
 	if err != nil {
 		return err
 	}
@@ -187,7 +187,7 @@ func (s *LocalService) ABCIQueryWithOptions(
 	args *ABCIQueryWithOptionsArgs,
 	reply *ctypes.ResultABCIQuery,
 ) error {
-	resQuery, err := s.vm.app.Query().QuerySync(abci.RequestQuery{
+	resQuery, err := s.vm.proxyApp.Query().QuerySync(abci.RequestQuery{
 		Path:   args.Path,
 		Data:   args.Data,
 		Height: args.Opts.Height,
@@ -215,13 +215,13 @@ func (s *LocalService) BroadcastTxCommit(
 	deliverTxSub, err := s.vm.eventBus.Subscribe(subCtx, subscriber, q)
 	if err != nil {
 		err = fmt.Errorf("failed to subscribe to tx: %w", err)
-		s.vm.log.Error("Error on broadcast_tx_commit", "err", err)
+		s.vm.tmLogger.Error("Error on broadcast_tx_commit", "err", err)
 		return err
 	}
 
 	defer func() {
 		if err := s.vm.eventBus.Unsubscribe(context.Background(), subscriber, q); err != nil {
-			s.vm.log.Error("Error unsubscribing from eventBus", "err", err)
+			s.vm.tmLogger.Error("Error unsubscribing from eventBus", "err", err)
 		}
 	}()
 
@@ -231,7 +231,7 @@ func (s *LocalService) BroadcastTxCommit(
 		checkTxResCh <- res
 	}, mempl.TxInfo{})
 	if err != nil {
-		s.vm.log.Error("Error on broadcastTxCommit", "err", err)
+		s.vm.tmLogger.Error("Error on broadcastTxCommit", "err", err)
 		return fmt.Errorf("error on broadcastTxCommit: %v", err)
 	}
 	checkTxResMsg := <-checkTxResCh
@@ -264,12 +264,12 @@ func (s *LocalService) BroadcastTxCommit(
 			reason = deliverTxSub.Err().Error()
 		}
 		err = fmt.Errorf("deliverTxSub was cancelled (reason: %s)", reason)
-		s.vm.log.Error("Error on broadcastTxCommit", "err", err)
+		s.vm.tmLogger.Error("Error on broadcastTxCommit", "err", err)
 		return err
 	// TODO: use config for timeout
 	case <-time.After(10 * time.Second):
 		err = errors.New("timed out waiting for tx to be included in a block")
-		s.vm.log.Error("Error on broadcastTxCommit", "err", err)
+		s.vm.tmLogger.Error("Error on broadcastTxCommit", "err", err)
 		return err
 	}
 }
@@ -290,7 +290,7 @@ func (s *LocalService) BroadcastTxAsync(
 func (s *LocalService) BroadcastTxSync(_ *http.Request, args *BroadcastTxArgs, reply *ctypes.ResultBroadcastTx) error {
 	resCh := make(chan *abci.Response, 1)
 	err := s.vm.mempool.CheckTx(args.Tx, func(res *abci.Response) {
-		s.vm.log.With("module", "service").Debug("handled response from checkTx")
+		s.vm.tmLogger.With("module", "service").Debug("handled response from checkTx")
 		resCh <- res
 	}, mempl.TxInfo{})
 	if err != nil {
@@ -404,12 +404,10 @@ func (s *LocalService) Validators(_ *http.Request, args *ValidatorsArgs, reply *
 }
 
 func (s *LocalService) Tx(_ *http.Request, args *TxArgs, reply *ctypes.ResultTx) error {
-	s.vm.log.Debug("query tx", "hash", args.Hash)
 	r, err := s.vm.txIndexer.Get(args.Hash)
 	if err != nil {
 		return err
 	}
-	s.vm.log.Debug("query tx", "r", args.Hash)
 
 	if r == nil {
 		return fmt.Errorf("tx (%X) not found", args.Hash)
@@ -586,7 +584,7 @@ func (s *LocalService) BlockchainInfo(
 	if err != nil {
 		return err
 	}
-	s.vm.log.Debug("BlockchainInfoHandler", "maxHeight", args.MaxHeight, "minHeight", args.MinHeight)
+	s.vm.tmLogger.Debug("BlockchainInfoHandler", "maxHeight", args.MaxHeight, "minHeight", args.MinHeight)
 
 	var blockMetas []*types.BlockMeta
 	for height := args.MaxHeight; height >= args.MinHeight; height-- {
@@ -600,32 +598,32 @@ func (s *LocalService) BlockchainInfo(
 }
 
 func (s *LocalService) Genesis(_ *http.Request, _ *struct{}, reply *ctypes.ResultGenesis) error {
-	//if len(s.vm.genChunks) > 1 {
-	//	return errors.New("genesis response is large, please use the genesis_chunked API instead")
-	//}
-	//
-	//reply.Genesis = s.vm.genesis
+	if len(s.vm.genChunks) > 1 {
+		return errors.New("genesis response is large, please use the genesis_chunked API instead")
+	}
+
+	reply.Genesis = s.vm.genesis
 	return nil
 }
 
 func (s *LocalService) GenesisChunked(_ *http.Request, args *GenesisChunkedArgs, reply *ctypes.ResultGenesisChunk) error {
-	//if s.vm.genChunks == nil {
-	//	return fmt.Errorf("service configuration error, genesis chunks are not initialized")
-	//}
-	//
-	//if len(s.vm.genChunks) == 0 {
-	//	return fmt.Errorf("service configuration error, there are no chunks")
-	//}
-	//
-	//id := int(args.Chunk)
-	//
-	//if id > len(s.vm.genChunks)-1 {
-	//	return fmt.Errorf("there are %d chunks, %d is invalid", len(s.vm.genChunks)-1, id)
-	//}
-	//
-	//reply.TotalChunks = len(s.vm.genChunks)
-	//reply.ChunkNumber = id
-	//reply.Data = s.vm.genChunks[id]
+	if s.vm.genChunks == nil {
+		return fmt.Errorf("service configuration error, genesis chunks are not initialized")
+	}
+
+	if len(s.vm.genChunks) == 0 {
+		return fmt.Errorf("service configuration error, there are no chunks")
+	}
+
+	id := int(args.Chunk)
+
+	if id > len(s.vm.genChunks)-1 {
+		return fmt.Errorf("there are %d chunks, %d is invalid", len(s.vm.genChunks)-1, id)
+	}
+
+	reply.TotalChunks = len(s.vm.genChunks)
+	reply.ChunkNumber = id
+	reply.Data = s.vm.genChunks[id]
 	return nil
 }
 
@@ -661,8 +659,8 @@ func (s *LocalService) Status(_ *http.Request, _ *struct{}, reply *ctypes.Result
 	}
 
 	reply.NodeInfo = p2p.DefaultNodeInfo{
-		DefaultNodeID: p2p.ID(s.vm.chainCtx.NodeID.String()),
-		Network:       fmt.Sprintf("%d", s.vm.chainCtx.NetworkID),
+		DefaultNodeID: p2p.ID(s.vm.ctx.NodeID.String()),
+		Network:       fmt.Sprintf("%d", s.vm.ctx.NetworkID),
 	}
 	reply.SyncInfo = ctypes.SyncInfo{
 		LatestBlockHash:     latestBlockHash,
@@ -694,7 +692,7 @@ func (s *LocalService) ConsensusState(_ *http.Request, _ *struct{}, reply *ctype
 
 func (s *LocalService) ConsensusParams(_ *http.Request, args *ConsensusParamsArgs, reply *ctypes.ResultConsensusParams) error {
 	reply.BlockHeight = s.vm.blockStore.Height()
-	//reply.ConsensusParams = *s.vm.genesis.ConsensusParams
+	reply.ConsensusParams = *s.vm.genesis.ConsensusParams
 	return nil
 }
 
@@ -720,7 +718,7 @@ func (s *LocalService) NumUnconfirmedTxs(_ *http.Request, _ *struct{}, reply *ct
 }
 
 func (s *LocalService) CheckTx(_ *http.Request, args *CheckTxArgs, reply *ctypes.ResultCheckTx) error {
-	res, err := s.vm.app.Mempool().CheckTxSync(abci.RequestCheckTx{Tx: args.Tx})
+	res, err := s.vm.proxyApp.Mempool().CheckTxSync(abci.RequestCheckTx{Tx: args.Tx})
 	if err != nil {
 		return err
 	}

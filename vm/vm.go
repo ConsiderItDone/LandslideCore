@@ -2,14 +2,14 @@ package vm
 
 import (
 	"context"
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"net/http"
 	"time"
 
-	"github.com/ava-labs/avalanchego/api/metrics"
-	"github.com/ava-labs/avalanchego/database"
+	"github.com/gorilla/rpc/v2"
+
+	"github.com/ava-labs/avalanchego/api/health"
 	"github.com/ava-labs/avalanchego/database/manager"
 	"github.com/ava-labs/avalanchego/database/prefixdb"
 	"github.com/ava-labs/avalanchego/ids"
@@ -18,42 +18,29 @@ import (
 	"github.com/ava-labs/avalanchego/snow/consensus/snowman"
 	"github.com/ava-labs/avalanchego/snow/engine/common"
 	"github.com/ava-labs/avalanchego/snow/engine/snowman/block"
+	"github.com/ava-labs/avalanchego/snow/validators"
+	"github.com/ava-labs/avalanchego/utils"
 	"github.com/ava-labs/avalanchego/utils/json"
-	"github.com/ava-labs/avalanchego/utils/timer/mockable"
 	"github.com/ava-labs/avalanchego/version"
-	"github.com/ava-labs/avalanchego/vms/components/chain"
-	"github.com/gorilla/rpc/v2"
-	"github.com/prometheus/client_golang/prometheus"
-	dbm "github.com/tendermint/tm-db"
 
 	abciTypes "github.com/consideritdone/landslidecore/abci/types"
 	"github.com/consideritdone/landslidecore/config"
-	cs "github.com/consideritdone/landslidecore/consensus"
-	tmjson "github.com/consideritdone/landslidecore/libs/json"
+	"github.com/consideritdone/landslidecore/consensus"
 	"github.com/consideritdone/landslidecore/libs/log"
+	"github.com/consideritdone/landslidecore/mempool"
 	mempl "github.com/consideritdone/landslidecore/mempool"
 	"github.com/consideritdone/landslidecore/node"
 	tmproto "github.com/consideritdone/landslidecore/proto/tendermint/types"
 	"github.com/consideritdone/landslidecore/proxy"
 	rpccore "github.com/consideritdone/landslidecore/rpc/core"
 	rpcserver "github.com/consideritdone/landslidecore/rpc/jsonrpc/server"
-	sm "github.com/consideritdone/landslidecore/state"
+	"github.com/consideritdone/landslidecore/state"
 	"github.com/consideritdone/landslidecore/state/indexer"
 	blockidxkv "github.com/consideritdone/landslidecore/state/indexer/block/kv"
 	"github.com/consideritdone/landslidecore/state/txindex"
 	txidxkv "github.com/consideritdone/landslidecore/state/txindex/kv"
 	"github.com/consideritdone/landslidecore/store"
 	"github.com/consideritdone/landslidecore/types"
-)
-
-var (
-	_ block.ChainVM = &VM{}
-
-	Version = &version.Semantic{
-		Major: 0,
-		Minor: 1,
-		Patch: 1,
-	}
 )
 
 const (
@@ -63,90 +50,240 @@ const (
 	missingCacheSize    = 50
 	unverifiedCacheSize = 50
 
-	// genesisChunkSize is the maximum size, in bytes, of each
-	// chunk in the genesis structure for the chunked API
 	genesisChunkSize = 16 * 1024 * 1024 // 16
 )
 
 var (
-	chainStateMetricsPrefix = "chain_state"
+	Version = version.Semantic{
+		Major: 0,
+		Minor: 1,
+		Patch: 2,
+	}
+	_ common.NetworkAppHandler    = (*VM)(nil)
+	_ common.CrossChainAppHandler = (*VM)(nil)
+	_ common.AppHandler           = (*VM)(nil)
+	_ health.Checker              = (*VM)(nil)
+	_ validators.Connector        = (*VM)(nil)
+	_ common.VM                   = (*VM)(nil)
+	_ block.Getter                = (*VM)(nil)
+	_ block.Parser                = (*VM)(nil)
+	_ block.ChainVM               = (*VM)(nil)
 
-	lastAcceptedKey      = []byte("last_accepted_key")
-	blockStoreDBPrefix   = []byte("blockstore")
-	stateDBPrefix        = []byte("state")
-	txIndexerDBPrefix    = []byte("tx_index")
-	blockIndexerDBPrefix = []byte("block_events")
+	dbPrefixBlockStore   = []byte("block-store")
+	dbPrefixStateStore   = []byte("state-store")
+	dbPrefixTxIndexer    = []byte("tx-indexer")
+	dbPrefixBlockIndexer = []byte("block-indexer")
 
 	proposerAddress = []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 )
 
-var (
-	errInvalidBlock = errors.New("invalid block")
-	errNoPendingTxs = errors.New("there is no txs to include to block")
+type (
+	AppCreator func(ids.ID) (abciTypes.Application, error)
+
+	VM struct {
+		appCreator AppCreator
+		app        proxy.AppConns
+
+		log      log.Logger
+		chainCtx *snow.Context
+		toEngine chan<- common.Message
+
+		verifiedBlocks map[ids.ID]*Block
+		blockStore     *store.BlockStore
+		stateStore     state.Store
+		state          state.State
+		genesis        *types.GenesisDoc
+
+		mempool  *mempool.CListMempool
+		eventBus *types.EventBus
+
+		txIndexer      txindex.TxIndexer
+		blockIndexer   indexer.BlockIndexer
+		indexerService *txindex.IndexerService
+
+		bootstrapped utils.Atomic[bool]
+		preferred    ids.ID
+	}
 )
 
-type VM struct {
-	ctx       *snow.Context
-	dbManager manager.Manager
-
-	toEngine chan<- common.Message
-
-	// *chain.State helps to implement the VM interface by wrapping blocks
-	// with an efficient caching layer.
-	*chain.State
-
-	tmLogger log.Logger
-
-	blockStoreDB dbm.DB
-	blockStore   *store.BlockStore
-
-	stateDB    dbm.DB
-	stateStore sm.Store
-	tmState    *sm.State
-
-	mempool mempl.Mempool
-
-	// Tendermint Application
-	app abciTypes.Application
-
-	// Tendermint proxy app
-	proxyApp proxy.AppConns
-
-	// EventBus is a common bus for all events going through the system.
-	eventBus *types.EventBus
-
-	// [acceptedBlockDB] is the database to store the last accepted
-	// block.
-	acceptedBlockDB database.Database
-
-	genesis *types.GenesisDoc
-	// cache of chunked genesis data.
-	genChunks []string
-
-	// Metrics
-	multiGatherer metrics.MultiGatherer
-
-	txIndexer      txindex.TxIndexer
-	txIndexerDB    dbm.DB
-	blockIndexer   indexer.BlockIndexer
-	blockIndexerDB dbm.DB
-	indexerService *txindex.IndexerService
-
-	clock mockable.Clock
-
-	appCreator func(ids.ID) (abciTypes.Application, error)
+func New(appCreator AppCreator) *VM {
+	return &VM{
+		appCreator: appCreator,
+		app:        nil,
+	}
 }
 
-func NewVM(app abciTypes.Application) *VM {
-	return &VM{app: app, appCreator: nil}
+// Notify this engine of a request for data from [nodeID].
+//
+// The meaning of [request], and what should be sent in response to it, is
+// application (VM) specific.
+//
+// It is not guaranteed that:
+// * [request] is well-formed/valid.
+//
+// This node should typically send an AppResponse to [nodeID] in response to
+// a valid message using the same request ID before the deadline. However,
+// the VM may arbitrarily choose to not send a response to this request.
+func (vm *VM) AppRequest(ctx context.Context, nodeID ids.NodeID, requestID uint32, deadline time.Time, request []byte) error {
+	panic("implement me")
 }
 
-func NewVMWithAppCreator(creator func(chainID ids.ID) (abciTypes.Application, error)) *VM {
-	return &VM{app: nil, appCreator: creator}
+// Notify this engine that an AppRequest message it sent to [nodeID] with
+// request ID [requestID] failed.
+//
+// This may be because the request timed out or because the message couldn't
+// be sent to [nodeID].
+//
+// It is guaranteed that:
+// * This engine sent a request to [nodeID] with ID [requestID].
+// * AppRequestFailed([nodeID], [requestID]) has not already been called.
+// * AppResponse([nodeID], [requestID]) has not already been called.
+func (vm *VM) AppRequestFailed(ctx context.Context, nodeID ids.NodeID, requestID uint32) error {
+	panic("implement me")
 }
 
+// Notify this engine of a response to the AppRequest message it sent to
+// [nodeID] with request ID [requestID].
+//
+// The meaning of [response] is application (VM) specifc.
+//
+// It is guaranteed that:
+// * This engine sent a request to [nodeID] with ID [requestID].
+// * AppRequestFailed([nodeID], [requestID]) has not already been called.
+// * AppResponse([nodeID], [requestID]) has not already been called.
+//
+// It is not guaranteed that:
+// * [response] contains the expected response
+// * [response] is well-formed/valid.
+//
+// If [response] is invalid or not the expected response, the VM chooses how
+// to react. For example, the VM may send another AppRequest, or it may give
+// up trying to get the requested information.
+func (vm *VM) AppResponse(ctx context.Context, nodeID ids.NodeID, requestID uint32, response []byte) error {
+	panic("implement me")
+}
+
+// Notify this engine of a gossip message from [nodeID].
+//
+// The meaning of [msg] is application (VM) specific, and the VM defines how
+// to react to this message.
+//
+// This message is not expected in response to any event, and it does not
+// need to be responded to.
+//
+// A node may gossip the same message multiple times. That is,
+// AppGossip([nodeID], [msg]) may be called multiple times.
+func (vm *VM) AppGossip(ctx context.Context, nodeID ids.NodeID, msg []byte) error {
+	panic("implement me")
+}
+
+// CrossChainAppRequest Notify this engine of a request for data from
+// [chainID].
+//
+// The meaning of [request], and what should be sent in response to it, is
+// application (VM) specific.
+//
+// Guarantees surrounding the request are specific to the implementation of
+// the requesting VM. For example, the request may or may not be guaranteed
+// to be well-formed/valid depending on the implementation of the requesting
+// VM.
+//
+// This node should typically send a CrossChainAppResponse to [chainID] in
+// response to a valid message using the same request ID before the
+// deadline. However, the VM may arbitrarily choose to not send a response
+// to this request.
+func (vm *VM) CrossChainAppRequest(ctx context.Context, chainID ids.ID, requestID uint32, deadline time.Time, request []byte) error {
+	panic("implement me")
+}
+
+// CrossChainAppRequestFailed notifies this engine that a
+// CrossChainAppRequest message it sent to [chainID] with request ID
+// [requestID] failed.
+//
+// This may be because the request timed out or because the message couldn't
+// be sent to [chainID].
+//
+// It is guaranteed that:
+// * This engine sent a request to [chainID] with ID [requestID].
+// * CrossChainAppRequestFailed([chainID], [requestID]) has not already been
+// called.
+// * CrossChainAppResponse([chainID], [requestID]) has not already been
+// called.
+func (vm *VM) CrossChainAppRequestFailed(ctx context.Context, chainID ids.ID, requestID uint32) error {
+	panic("implement me")
+}
+
+// CrossChainAppResponse notifies this engine of a response to the
+// CrossChainAppRequest message it sent to [chainID] with request ID
+// [requestID].
+//
+// The meaning of [response] is application (VM) specific.
+//
+// It is guaranteed that:
+// * This engine sent a request to [chainID] with ID [requestID].
+// * CrossChainAppRequestFailed([chainID], [requestID]) has not already been
+// called.
+// * CrossChainAppResponse([chainID], [requestID]) has not already been
+// called.
+//
+// Guarantees surrounding the response are specific to the implementation of
+// the responding VM. For example, the response may or may not be guaranteed
+// to be well-formed/valid depending on the implementation of the requesting
+// VM.
+//
+// If [response] is invalid or not the expected response, the VM chooses how
+// to react. For example, the VM may send another CrossChainAppRequest, or
+// it may give up trying to get the requested information.
+func (vm *VM) CrossChainAppResponse(ctx context.Context, chainID ids.ID, requestID uint32, response []byte) error {
+	panic("implement me")
+}
+
+// HealthCheck returns health check results and, if not healthy, a non-nil
+// error
+//
+// It is expected that the results are json marshallable.
+func (vm *VM) HealthCheck(context.Context) (interface{}, error) {
+	return nil, nil
+}
+
+// Connector represents a handler that is called when a connection is marked as connected
+func (vm *VM) Connected(ctx context.Context, nodeID ids.NodeID, nodeVersion *version.Application) error {
+	vm.log.Info("connected", "nodeID", nodeID.String(), "nodeVersion", nodeVersion.String())
+	return nil
+}
+
+// Connector represents a handler that is called when a connection is marked as disconnected
+func (vm *VM) Disconnected(ctx context.Context, nodeID ids.NodeID) error {
+	vm.log.Info("disconnected", "nodeID", nodeID.String())
+	return nil
+}
+
+// Initialize this VM.
+// [chainCtx]: Metadata about this VM.
+//
+//	[chainCtx.networkID]: The ID of the network this VM's chain is
+//	                      running on.
+//	[chainCtx.chainID]: The unique ID of the chain this VM is running on.
+//	[chainCtx.Log]: Used to log messages
+//	[chainCtx.NodeID]: The unique staker ID of this node.
+//	[chainCtx.Lock]: A Read/Write lock shared by this VM and the
+//	                 consensus engine that manages this VM. The write
+//	                 lock is held whenever code in the consensus engine
+//	                 calls the VM.
+//
+// [dbManager]: The manager of the database this VM will persist data to.
+// [genesisBytes]: The byte-encoding of the genesis information of this
+//
+//	VM. The VM uses it to initialize its state. For
+//	example, if this VM were an account-based payments
+//	system, `genesisBytes` would probably contain a genesis
+//	transaction that gives coins to some accounts, and this
+//	transaction would be in the genesis block.
+//
+// [toEngine]: The channel used to send messages to the consensus engine.
+// [fxs]: Feature extensions that attach to this VM.
 func (vm *VM) Initialize(
-	_ context.Context,
+	ctx context.Context,
 	chainCtx *snow.Context,
 	dbManager manager.Manager,
 	genesisBytes []byte,
@@ -156,487 +293,165 @@ func (vm *VM) Initialize(
 	fxs []*common.Fx,
 	appSender common.AppSender,
 ) error {
-	if vm.appCreator != nil {
-		app, err := vm.appCreator(chainCtx.ChainID)
-		if err != nil {
-			return err
-		}
-		vm.app = app
-	}
-
-	vm.ctx = chainCtx
-	vm.tmLogger = log.NewTMLogger(vm.ctx.Log)
-	vm.dbManager = dbManager
-
+	vm.chainCtx = chainCtx
 	vm.toEngine = toEngine
+	vm.log = log.NewTMLogger(vm.chainCtx.Log).With("module", "vm")
+	vm.verifiedBlocks = make(map[ids.ID]*Block)
 
-	baseDB := dbManager.Current().Database
+	db := dbManager.Current().Database
 
-	vm.blockStoreDB = Database{prefixdb.NewNested(blockStoreDBPrefix, baseDB)}
-	vm.blockStore = store.NewBlockStore(vm.blockStoreDB)
+	dbBlockStore := NewDB(prefixdb.NewNested(dbPrefixBlockStore, db))
+	vm.blockStore = store.NewBlockStore(dbBlockStore)
 
-	vm.stateDB = Database{prefixdb.NewNested(stateDBPrefix, baseDB)}
-	vm.stateStore = sm.NewStore(vm.stateDB)
+	dbStateStore := NewDB(prefixdb.NewNested(dbPrefixStateStore, db))
+	vm.stateStore = state.NewStore(dbStateStore)
 
-	if err := vm.initGenesis(genesisBytes); err != nil {
+	app, err := vm.appCreator(chainCtx.ChainID)
+	if err != nil {
 		return err
 	}
 
-	if err := vm.initGenesisChunks(); err != nil {
+	vm.state, vm.genesis, err = node.LoadStateFromDBOrGenesisDocProvider(
+		dbStateStore,
+		NewLocalGenesisDocProvider(genesisBytes),
+	)
+	if err != nil {
+		return nil
+	}
+
+	vm.app, err = node.CreateAndStartProxyAppConns(proxy.NewLocalClientCreator(app), vm.log)
+	if err != nil {
 		return err
 	}
 
-	state, err := vm.stateStore.LoadFromDBOrGenesisDoc(vm.genesis)
+	vm.eventBus, err = node.CreateAndStartEventBus(vm.log)
 	if err != nil {
-		return fmt.Errorf("failed to load tmState from genesis: %w ", err)
-	}
-	vm.tmState = &state
-
-	// genesis only
-	if vm.tmState.LastBlockHeight == 0 {
-		// TODO use decoded/encoded genesis bytes
-		block, partSet := vm.tmState.MakeBlock(1, []types.Tx{genesisBytes}, nil, nil, nil)
-		vm.tmLogger.Info("init block", "b", block, "part set", partSet)
+		return err
 	}
 
-	//vm.genesisHash = vm.ethConfig.Genesis.ToBlock(nil).Hash() // must create genesis hash before [vm.readLastAccepted]
+	dbTxIndexer := NewDB(prefixdb.NewNested(dbPrefixTxIndexer, db))
+	vm.txIndexer = txidxkv.NewTxIndex(dbTxIndexer)
 
-	// Create the proxyApp and establish connections to the ABCI app (consensus, mempool, query).
-	proxyApp, err := node.CreateAndStartProxyAppConns(proxy.NewLocalClientCreator(vm.app), vm.tmLogger)
-	if err != nil {
-		return fmt.Errorf("failed to create and start proxy app: %w ", err)
-	}
-	vm.proxyApp = proxyApp
+	dbBlockIndexer := NewDB(prefixdb.NewNested(dbPrefixBlockIndexer, db))
+	vm.blockIndexer = blockidxkv.New(dbBlockIndexer)
 
-	// Create EventBus
-	eventBus, err := node.CreateAndStartEventBus(vm.tmLogger)
-	if err != nil {
-		return fmt.Errorf("failed to create and start event bus: %w ", err)
-	}
-	vm.eventBus = eventBus
-
-	vm.txIndexerDB = Database{prefixdb.NewNested(txIndexerDBPrefix, baseDB)}
-	vm.txIndexer = txidxkv.NewTxIndex(vm.txIndexerDB)
-	vm.blockIndexerDB = Database{prefixdb.NewNested(blockIndexerDBPrefix, baseDB)}
-	vm.blockIndexer = blockidxkv.New(vm.blockIndexerDB)
-	vm.indexerService = txindex.NewIndexerService(vm.txIndexer, vm.blockIndexer, eventBus)
-	vm.indexerService.SetLogger(vm.tmLogger.With("module", "txindex"))
-
+	vm.indexerService = txindex.NewIndexerService(vm.txIndexer, vm.blockIndexer, vm.eventBus)
+	vm.indexerService.SetLogger(vm.log.With("module", "indexer"))
 	if err := vm.indexerService.Start(); err != nil {
 		return err
 	}
 
-	if err := vm.doHandshake(vm.genesis, vm.tmLogger.With("module", "consensus")); err != nil {
-		return err
-	}
-
-	state, err = vm.stateStore.Load()
-	if err != nil {
-		return fmt.Errorf("failed to load tmState: %w ", err)
-	}
-	vm.tmState = &state
-
-	genesisBlock, err := vm.buildGenesisBlock(genesisBytes)
-	if err != nil {
-		return fmt.Errorf("failed to build genesis block: %w ", err)
-	}
-
-	vm.mempool = vm.createMempool()
-
-	if err := vm.initializeMetrics(); err != nil {
-		return err
-	}
-
-	if err := vm.initChainState(genesisBlock); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// builds genesis block if required
-func (vm *VM) buildGenesisBlock(genesisData []byte) (*types.Block, error) {
-	if vm.tmState.LastBlockHeight != 0 {
-		return nil, nil
-	}
-	txs := types.Txs{types.Tx(genesisData)}
-	if len(txs) == 0 {
-		return nil, errNoPendingTxs
-	}
-	height := vm.tmState.LastBlockHeight + 1
-
-	commit := makeCommitMock(height, time.Now())
-	genesisBlock, _ := vm.tmState.MakeBlock(height, txs, commit, nil, proposerAddress)
-	return genesisBlock, nil
-}
-
-// Initializes Genesis if required
-func (vm *VM) initGenesis(genesisData []byte) error {
-	// load genesis from database
-	genesis, err := node.LoadGenesisDoc(vm.stateDB)
-	// genesis not found in database
-	if err != nil {
-		if err == node.ErrNoGenesisDoc {
-			// get it from json
-			genesis, err = types.GenesisDocFromJSON(genesisData)
-			if err != nil {
-				return fmt.Errorf("failed to decode genesis bytes: %w ", err)
-			}
-			// save to database
-			err = node.SaveGenesisDoc(vm.stateDB, genesis)
-			if err != nil {
-				return fmt.Errorf("failed to save genesis data: %w ", err)
-			}
-		} else {
-			return err
-		}
-	}
-
-	vm.genesis = genesis
-	return nil
-}
-
-// InitGenesisChunks configures the environment
-// and should be called on service startup.
-func (vm *VM) initGenesisChunks() error {
-	if vm.genesis == nil {
-		return fmt.Errorf("empty genesis")
-	}
-
-	data, err := tmjson.Marshal(vm.genesis)
-	if err != nil {
-		return err
-	}
-
-	for i := 0; i < len(data); i += genesisChunkSize {
-		end := i + genesisChunkSize
-
-		if end > len(data) {
-			end = len(data)
-		}
-
-		vm.genChunks = append(vm.genChunks, base64.StdEncoding.EncodeToString(data[i:end]))
-	}
-
-	return nil
-}
-
-func (vm *VM) createMempool() *mempl.CListMempool {
-	cfg := config.DefaultMempoolConfig()
-	mempool := mempl.NewCListMempool(
-		cfg,
-		vm.proxyApp.Mempool(),
-		vm.tmState.LastBlockHeight,
-		vm,
-		mempl.WithMetrics(mempl.NopMetrics()), // TODO: use prometheus metrics based on config
-		mempl.WithPreCheck(sm.TxPreCheck(*vm.tmState)),
-		mempl.WithPostCheck(sm.TxPostCheck(*vm.tmState)),
+	handshaker := consensus.NewHandshaker(
+		vm.stateStore,
+		vm.state,
+		vm.blockStore,
+		vm.genesis,
 	)
-	mempoolLogger := vm.tmLogger.With("module", "mempool")
-	mempool.SetLogger(mempoolLogger)
+	handshaker.SetLogger(vm.log.With("module", "consensus"))
+	handshaker.SetEventBus(vm.eventBus)
+	if err := handshaker.Handshake(vm.app); err != nil {
+		return fmt.Errorf("error during handshake: %v", err)
+	}
 
-	return mempool
+	vm.state, err = vm.stateStore.Load()
+	if err != nil {
+		return nil
+	}
+
+	vm.mempool = mempl.NewCListMempool(
+		config.DefaultMempoolConfig(),
+		vm.app.Mempool(),
+		vm.state.LastBlockHeight,
+		vm,
+		mempool.WithMetrics(mempool.NopMetrics()),
+		mempool.WithPreCheck(state.TxPreCheck(vm.state)),
+		mempool.WithPostCheck(state.TxPostCheck(vm.state)),
+	)
+	vm.mempool.SetLogger(vm.log.With("module", "mempool"))
+	vm.mempool.EnableTxsAvailable()
+
+	if vm.state.LastBlockHeight == 0 {
+		block, _ := vm.state.MakeBlock(1, types.Txs{types.Tx(genesisBytes)}, makeCommitMock(1, time.Now()), nil, proposerAddress)
+		blck := NewBlock(vm, block, choices.Processing)
+		blck.Accept(ctx)
+	}
+
+	vm.log.Info("vm initialization completed")
+	return nil
 }
 
-// NotifyBlockReady tells the consensus engine that a new block
-// is ready to be created
 func (vm *VM) NotifyBlockReady() {
 	select {
 	case vm.toEngine <- common.PendingTxs:
-		vm.tmLogger.Debug("Notify consensys engine")
+		vm.log.Debug("notify consensys engine")
 	default:
-		vm.tmLogger.Error("Failed to push PendingTxs notification to the consensus engine.")
+		vm.log.Error("failed to push PendingTxs notification to the consensus engine.")
 	}
 }
 
-func (vm *VM) doHandshake(genesis *types.GenesisDoc, consensusLogger log.Logger) error {
-	handshaker := cs.NewHandshaker(vm.stateStore, *vm.tmState, vm.blockStore, genesis)
-	handshaker.SetLogger(consensusLogger)
-	handshaker.SetEventBus(vm.eventBus)
-	if err := handshaker.Handshake(vm.proxyApp); err != nil {
-		return fmt.Errorf("error during handshake: %v", err)
-	}
-	return nil
-}
-
-// readLastAccepted reads the last accepted hash from [acceptedBlockDB] and returns the
-// last accepted block hash and height by reading directly from [vm.chaindb] instead of relying
-// on [chain].
-// Note: assumes chaindb, ethConfig, and genesisHash have been initialized.
-//func (vm *VM) readLastAccepted() (tmbytes.HexBytes, uint64, error) {
-//	// Attempt to load last accepted block to determine if it is necessary to
-//	// initialize state with the genesis block.
-//	lastAcceptedBytes, lastAcceptedErr := vm.acceptedBlockDB.Get(lastAcceptedKey)
-//	switch {
-//	case lastAcceptedErr == database.ErrNotFound:
-//		// If there is nothing in the database, return the genesis block hash and height
-//		return vm.genesisHash, 0, nil
-//	case lastAcceptedErr != nil:
-//		return common.Hash{}, 0, fmt.Errorf("failed to get last accepted block ID due to: %w", lastAcceptedErr)
-//	case len(lastAcceptedBytes) != common.HashLength:
-//		return common.Hash{}, 0, fmt.Errorf("last accepted bytes should have been length %d, but found %d", common.HashLength, len(lastAcceptedBytes))
-//	default:
-//		lastAcceptedHash := common.BytesToHash(lastAcceptedBytes)
-//		height := rawdb.ReadHeaderNumber(vm.chaindb, lastAcceptedHash)
-//		if height == nil {
-//			return common.Hash{}, 0, fmt.Errorf("failed to retrieve header number of last accepted block: %s", lastAcceptedHash)
-//		}
-//		return lastAcceptedHash, *height, nil
-//	}
-//}
-
-func (vm *VM) initChainState(lastAcceptedBlock *types.Block) error {
-	block, err := vm.newBlock(lastAcceptedBlock)
-	if err != nil {
-		return fmt.Errorf("failed to create block wrapper for the last accepted block: %w", err)
-	}
-	block.status = choices.Accepted
-
-	config := &chain.Config{
-		DecidedCacheSize:    decidedCacheSize,
-		MissingCacheSize:    missingCacheSize,
-		UnverifiedCacheSize: unverifiedCacheSize,
-		//GetBlockIDAtHeight:  vm.GetBlockIDAtHeight,
-		GetBlock:          vm.getBlock,
-		UnmarshalBlock:    vm.parseBlock,
-		BuildBlock:        vm.buildBlock,
-		LastAcceptedBlock: block,
-	}
-
-	// Register chain state metrics
-	chainStateRegisterer := prometheus.NewRegistry()
-	state, err := chain.NewMeteredState(chainStateRegisterer, config)
-	if err != nil {
-		return fmt.Errorf("could not create metered state: %w", err)
-	}
-	vm.State = state
-
-	return vm.multiGatherer.Register(chainStateMetricsPrefix, chainStateRegisterer)
-}
-
-func (vm *VM) initializeMetrics() error {
-	vm.multiGatherer = metrics.NewMultiGatherer()
-
-	if err := vm.ctx.Metrics.Register(vm.multiGatherer); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// parseBlock parses [b] into a block to be wrapped by ChainState.
-func (vm *VM) parseBlock(_ context.Context, b []byte) (snowman.Block, error) {
-	protoBlock := new(tmproto.Block)
-	err := protoBlock.Unmarshal(b)
-	if err != nil {
-		return nil, err
-	}
-
-	tmBlock, err := types.BlockFromProto(protoBlock)
-	if err != nil {
-		return nil, err
-	}
-
-	// Note: the status of block is set by ChainState
-	block, err := vm.newBlock(tmBlock)
-	if err != nil {
-		return nil, err
-	}
-
-	return block, nil
-}
-
-// getBlock attempts to retrieve block [id] from the VM to be wrapped
-// by ChainState.
-func (vm *VM) getBlock(_ context.Context, id ids.ID) (snowman.Block, error) {
-	var hash []byte
-	copy(hash, id[:])
-	tmBlock := vm.blockStore.LoadBlockByHash(hash)
-	// If [tmBlock] is nil, return [database.ErrNotFound] here
-	// so that the miss is considered cacheable.
-	if tmBlock == nil {
-		return nil, database.ErrNotFound
-	}
-	// Note: the status of block is set by ChainState
-	return vm.newBlock(tmBlock)
-}
-
-func (vm *VM) applyBlock(block *Block) error {
-	vm.mempool.Lock()
-	defer vm.mempool.Unlock()
-
-	state, err := vm.stateStore.Load()
-	if err != nil {
-		return err
-	}
-
-	if err := validateBlock(state, block.tmBlock); err != nil {
-		return err
-	}
-
-	abciResponses, err := execBlockOnProxyApp(
-		vm.tmLogger,
-		vm.proxyApp.Consensus(),
-		block.tmBlock, vm.stateStore,
-		state.InitialHeight,
-	)
-	if err != nil {
-		return err
-	}
-
-	// Save the results before we commit.
-	if err := vm.stateStore.SaveABCIResponses(block.tmBlock.Height, abciResponses); err != nil {
-		return err
-	}
-
-	blockID := types.BlockID{
-		Hash:          block.tmBlock.Hash(),
-		PartSetHeader: block.tmBlock.MakePartSet(types.BlockPartSizeBytes).Header(),
-	}
-
-	// Update the state with the block and responses.
-	state, err = updateState(state, blockID, &block.tmBlock.Header, abciResponses)
-	if err != nil {
-		return err
-	}
-
-	// while mempool is Locked, flush to ensure all async requests have completed
-	// in the ABCI app before Commit.
-	if err := vm.mempool.FlushAppConn(); err != nil {
-		vm.tmLogger.Error("client error during mempool.FlushAppConn", "err", err)
-		return err
-	}
-
-	// Commit block, get hash back
-	res, err := vm.proxyApp.Consensus().CommitSync()
-	if err != nil {
-		vm.tmLogger.Error("client error during proxyAppConn.CommitSync", "err", err)
-		return err
-	}
-
-	// ResponseCommit has no error code - just data
-	vm.tmLogger.Info(
-		"committed state",
-		"height", block.Height,
-		"num_txs", len(block.tmBlock.Txs),
-		"app_hash", fmt.Sprintf("%X", res.Data),
-	)
-
-	deliverTxResponses := make([]*abciTypes.ResponseDeliverTx, len(block.tmBlock.Txs))
-	for i := range block.tmBlock.Txs {
-		deliverTxResponses[i] = &abciTypes.ResponseDeliverTx{Code: abciTypes.CodeTypeOK}
-	}
-
-	// Update mempool.
-	if err := vm.mempool.Update(
-		block.tmBlock.Height,
-		block.tmBlock.Txs,
-		deliverTxResponses,
-		TxPreCheck(state),
-		TxPostCheck(state),
-	); err != nil {
-		return err
-	}
-
-	vm.tmState.LastBlockHeight = block.tmBlock.Height
-	if err := vm.stateStore.Save(state); err != nil {
-		return err
-	}
-	vm.blockStore.SaveBlock(block.tmBlock, block.tmBlock.MakePartSet(types.BlockPartSizeBytes), block.tmBlock.LastCommit)
-
-	fireEvents(vm.tmLogger, vm.eventBus, block.tmBlock, abciResponses)
-	return nil
-}
-
-// buildBlock builds a block to be wrapped by ChainState
-func (vm *VM) buildBlock(_ context.Context) (snowman.Block, error) {
-	txs := vm.mempool.ReapMaxBytesMaxGas(-1, -1)
-	if len(txs) == 0 {
-		return nil, errNoPendingTxs
-	}
-	height := vm.tmState.LastBlockHeight + 1
-
-	commit := makeCommitMock(height, time.Now())
-	block, _ := vm.tmState.MakeBlock(height, txs, commit, nil, proposerAddress)
-
-	// Note: the status of block is set by ChainState
-	blk, err := vm.newBlock(block)
-	blk.SetStatus(choices.Processing)
-	if err != nil {
-		return nil, err
-	}
-	vm.tmLogger.Debug(fmt.Sprintf("Built block %s", blk.ID()))
-
-	return blk, nil
-}
-
-func (vm *VM) AppGossip(_ context.Context, nodeID ids.NodeID, msg []byte) error {
-	return nil
-}
-
+// SetState communicates to VM its next state it starts
 func (vm *VM) SetState(ctx context.Context, state snow.State) error {
+	vm.log.Debug("set state", "state", state.String())
+	switch state {
+	case snow.Bootstrapping:
+		vm.bootstrapped.Set(false)
+	case snow.NormalOp:
+		vm.bootstrapped.Set(true)
+	default:
+		return snow.ErrUnknownState
+	}
 	return nil
 }
 
-func (vm *VM) Shutdown(ctx context.Context) error {
-	// first stop the non-reactor services
-	if err := vm.eventBus.Stop(); err != nil {
-		return fmt.Errorf("Error closing eventBus: %w ", err)
-	}
-	if err := vm.indexerService.Stop(); err != nil {
-		return fmt.Errorf("Error closing indexerService: %w ", err)
-	}
-	//TODO: investigate wal configuration
-	// stop mempool WAL
-	//if vm.config.Mempool.WalEnabled() {
-	//	n.mempool.CloseWAL()
-	//}
-	//if n.prometheusSrv != nil {
-	//	if err := n.prometheusSrv.Shutdown(context.Background()); err != nil {
-	//		// Error from closing listeners, or context timeout:
-	//		n.Logger.Error("Prometheus HTTP server Shutdown", "err", err)
-	//	}
-	//}
-	if err := vm.blockStore.Close(); err != nil {
-		return fmt.Errorf("Error closing blockStore: %w ", err)
-	}
-	if err := vm.stateStore.Close(); err != nil {
-		return fmt.Errorf("Error closing stateStore: %w ", err)
-	}
-	return nil
-	//timestampVM and deprecated landslide
-	//if vm.state == nil {
-	//	return nil
-	//}
-	//
-	//return vm.state.Close() // close versionDB
-
-	//coreth
-	//if vm.ctx == nil {
-	//	return nil
-	//}
-	//vm.Network.Shutdown()
-	//if err := vm.StateSyncClient.Shutdown(); err != nil {
-	//	log.Error("error stopping state syncer", "err", err)
-	//}
-	//close(vm.shutdownChan)
-	//vm.eth.Stop()
-	//vm.shutdownWg.Wait()
-	//return nil
+// Shutdown is called when the node is shutting down.
+func (vm *VM) Shutdown(context.Context) error {
+	vm.log.Debug("call shutdown")
+	panic("implement me")
 }
 
-func (vm *VM) Version(ctx context.Context) (string, error) {
+// Version returns the version of the VM.
+func (vm *VM) Version(context.Context) (string, error) {
 	return Version.String(), nil
 }
 
-func (vm *VM) CreateStaticHandlers(ctx context.Context) (map[string]*common.HTTPHandler, error) {
-	//TODO implement me
+// Creates the HTTP handlers for custom VM network calls.
+//
+// This exposes handlers that the outside world can use to communicate with
+// a static reference to the VM. Each handler has the path:
+// [Address of node]/ext/VM/[VM ID]/[extension]
+//
+// Returns a mapping from [extension]s to HTTP handlers.
+//
+// Each extension can specify how locking is managed for convenience.
+//
+// For example, it might make sense to have an extension for creating
+// genesis bytes this VM can interpret.
+//
+// Note: If this method is called, no other method will be called on this VM.
+// Each registered VM will have a single instance created to handle static
+// APIs. This instance will be handled separately from instances created to
+// service an instance of a chain.
+func (vm *VM) CreateStaticHandlers(context.Context) (map[string]*common.HTTPHandler, error) {
+	// ToDo: need to add implementation
 	return nil, nil
 }
 
-func (vm *VM) CreateHandlers(_ context.Context) (map[string]*common.HTTPHandler, error) {
+// Creates the HTTP handlers for custom chain network calls.
+//
+// This exposes handlers that the outside world can use to communicate with
+// the chain. Each handler has the path:
+// [Address of node]/ext/bc/[chain ID]/[extension]
+//
+// Returns a mapping from [extension]s to HTTP handlers.
+//
+// Each extension can specify how locking is managed for convenience.
+//
+// For example, if this VM implements an account-based payments system,
+// it have an extension called `accounts`, where clients could get
+// information about their accounts.
+func (vm *VM) CreateHandlers(context.Context) (map[string]*common.HTTPHandler, error) {
 	mux := http.NewServeMux()
-	rpcLogger := vm.tmLogger.With("module", "rpc-server")
+	rpcLogger := vm.log.With("module", "rpc-server")
 	rpcserver.RegisterRPCFuncs(mux, rpccore.Routes, rpcLogger)
 
 	server := rpc.NewServer()
@@ -654,47 +469,180 @@ func (vm *VM) CreateHandlers(_ context.Context) (map[string]*common.HTTPHandler,
 	}, nil
 }
 
-func (vm *VM) ProxyApp() proxy.AppConns {
-	return vm.proxyApp
+// Attempt to load a block.
+//
+// If the block does not exist, database.ErrNotFound should be returned.
+//
+// It is expected that blocks that have been successfully verified should be
+// returned correctly. It is also expected that blocks that have been
+// accepted by the consensus engine should be able to be fetched. It is not
+// required for blocks that have been rejected by the consensus engine to be
+// able to be fetched.
+func (vm *VM) GetBlock(ctx context.Context, blkID ids.ID) (snowman.Block, error) {
+	if b, ok := vm.verifiedBlocks[blkID]; ok {
+		return b, nil
+	}
+	b := vm.blockStore.LoadBlockByHash(blkID[:])
+	vm.log.Debug("get block", "blkID", blkID.String(), "block", b)
+	return NewBlock(vm, b, choices.Accepted), nil
 }
 
+// Attempt to create a block from a stream of bytes.
+//
+// The block should be represented by the full byte array, without extra
+// bytes.
+//
+// It is expected for all historical blocks to be parseable.
+func (vm *VM) ParseBlock(ctx context.Context, blockBytes []byte) (snowman.Block, error) {
+	vm.log.Debug("parse block")
+
+	protoBlock := new(tmproto.Block)
+	if err := protoBlock.Unmarshal(blockBytes); err != nil {
+		return nil, err
+	}
+	vm.log.Debug("parse block", "protoBlock", protoBlock.Header.Height)
+
+	block, err := types.BlockFromProto(protoBlock)
+	if err != nil {
+		return nil, err
+	}
+	vm.log.Debug("parse block", "block", block.Hash())
+
+	blk := NewBlock(vm, block, choices.Processing)
+	vm.log.Debug("parse block", "height", blk.Height(), "id", blk.ID())
+	return blk, nil
+}
+
+// Attempt to create a new block from data contained in the VM.
+//
+// If the VM doesn't want to issue a new block, an error should be
+// returned.
+func (vm *VM) BuildBlock(context.Context) (snowman.Block, error) {
+	vm.log.Debug("build block")
+	txs := vm.mempool.ReapMaxBytesMaxGas(-1, -1)
+	if len(txs) == 0 {
+		return nil, fmt.Errorf("no txs")
+	}
+
+	height := vm.state.LastBlockHeight + 1
+	commit := makeCommitMock(height, time.Now())
+	block, _ := vm.state.MakeBlock(height, txs, commit, nil, proposerAddress)
+
+	prev := vm.blockStore.LoadBlockByHash(vm.preferred[:])
+	block.LastBlockID = types.BlockID{
+		Hash:          prev.Hash(),
+		PartSetHeader: prev.LastBlockID.PartSetHeader,
+	}
+
+	blk := NewBlock(vm, block, choices.Processing)
+	vm.verifiedBlocks[blk.ID()] = blk
+
+	vm.log.Debug("build block", "height", blk.Height(), "id", blk.ID())
+	return blk, nil
+}
+
+// Notify the VM of the currently preferred block.
+//
+// This should always be a block that has no children known to consensus.
 func (vm *VM) SetPreference(ctx context.Context, blkID ids.ID) error {
-	//TODO implement me
+	vm.log.Debug("set preference", "blkID", blkID.String())
+	vm.preferred = blkID
 	return nil
 }
 
-func (vm *VM) AppRequest(_ context.Context, nodeID ids.NodeID, requestID uint32, time time.Time, request []byte) error {
+// LastAccepted returns the ID of the last accepted block.
+//
+// If no blocks have been accepted by consensus yet, it is assumed there is
+// a definitionally accepted block, the Genesis block, that will be
+// returned.
+func (vm *VM) LastAccepted(context.Context) (ids.ID, error) {
+	height := vm.blockStore.Height()
+	block := vm.blockStore.LoadBlock(height)
+	if block == nil {
+		vm.log.Error("block store return empty block", "height", height)
+		return ids.Empty, errors.New("block not found")
+	}
+	return ids.ID(block.Hash()), nil
+}
+
+func (vm *VM) applyBlock(block *Block) error {
+	vm.mempool.Lock()
+	defer vm.mempool.Unlock()
+
+	state, err := vm.stateStore.Load()
+	if err != nil {
+		return err
+	}
+
+	if err := validateBlock(state, block.Block); err != nil {
+		return err
+	}
+
+	abciResponses, err := execBlockOnProxyApp(vm.log, vm.app.Consensus(), block.Block, vm.stateStore, state.InitialHeight)
+	if err != nil {
+		return err
+	}
+
+	// Save the results before we commit.
+	if err := vm.stateStore.SaveABCIResponses(block.Block.Height, abciResponses); err != nil {
+		return err
+	}
+
+	blockID := types.BlockID{
+		Hash:          block.Block.Hash(),
+		PartSetHeader: block.Block.MakePartSet(types.BlockPartSizeBytes).Header(),
+	}
+
+	// Update the state with the block and responses.
+	state, err = updateState(state, blockID, &block.Block.Header, abciResponses)
+	if err != nil {
+		return err
+	}
+
+	// while mempool is Locked, flush to ensure all async requests have completed
+	// in the ABCI app before Commit.
+	if err := vm.mempool.FlushAppConn(); err != nil {
+		vm.log.Error("client error during mempool.FlushAppConn", "err", err)
+		return err
+	}
+
+	// Commit block, get hash back
+	res, err := vm.app.Consensus().CommitSync()
+	if err != nil {
+		vm.log.Error("client error during proxyAppConn.CommitSync", "err", err)
+		return err
+	}
+
+	// ResponseCommit has no error code - just data
+	vm.log.Info(
+		"committed state",
+		"height", block.Height,
+		"num_txs", len(block.Block.Txs),
+		"app_hash", fmt.Sprintf("%X", res.Data),
+	)
+
+	deliverTxResponses := make([]*abciTypes.ResponseDeliverTx, len(block.Block.Txs))
+	for i := range block.Block.Txs {
+		deliverTxResponses[i] = &abciTypes.ResponseDeliverTx{Code: abciTypes.CodeTypeOK}
+	}
+
+	// Update mempool.
+	if err := vm.mempool.Update(
+		block.Block.Height,
+		block.Block.Txs,
+		deliverTxResponses,
+		TxPreCheck(state),
+		TxPostCheck(state),
+	); err != nil {
+		return err
+	}
+
+	vm.state.LastBlockHeight = block.Block.Height
+	if err := vm.stateStore.Save(state); err != nil {
+		return err
+	}
+	vm.blockStore.SaveBlock(block.Block, block.Block.MakePartSet(types.BlockPartSizeBytes), block.Block.LastCommit)
+
+	fireEvents(vm.log, vm.eventBus, block.Block, abciResponses)
 	return nil
 }
-
-// This VM doesn't (currently) have any app-specific messages
-func (vm *VM) AppResponse(_ context.Context, nodeID ids.NodeID, requestID uint32, response []byte) error {
-	return nil
-}
-
-// This VM doesn't (currently) have any app-specific messages
-func (vm *VM) AppRequestFailed(_ context.Context, nodeID ids.NodeID, requestID uint32) error {
-	return nil
-}
-
-func (vm *VM) CrossChainAppRequest(_ context.Context, _ ids.ID, _ uint32, deadline time.Time, request []byte) error {
-	return nil
-}
-
-func (vm *VM) CrossChainAppRequestFailed(_ context.Context, _ ids.ID, _ uint32) error {
-	return nil
-}
-
-func (vm *VM) CrossChainAppResponse(_ context.Context, _ ids.ID, _ uint32, response []byte) error {
-	return nil
-}
-
-func (vm *VM) Connected(_ context.Context, id ids.NodeID, nodeVersion *version.Application) error {
-	return nil // noop
-}
-
-func (vm *VM) Disconnected(_ context.Context, id ids.NodeID) error {
-	return nil // noop
-}
-
-func (vm *VM) HealthCheck(ctx context.Context) (interface{}, error) { return nil, nil }
