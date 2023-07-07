@@ -10,6 +10,7 @@ import (
 	"github.com/gorilla/rpc/v2"
 
 	"github.com/ava-labs/avalanchego/api/health"
+	"github.com/ava-labs/avalanchego/api/metrics"
 	"github.com/ava-labs/avalanchego/database/manager"
 	"github.com/ava-labs/avalanchego/database/prefixdb"
 	"github.com/ava-labs/avalanchego/ids"
@@ -75,6 +76,9 @@ var (
 	dbPrefixBlockIndexer = []byte("block-indexer")
 
 	proposerAddress = []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+
+	errInvalidBlock = errors.New("invalid block")
+	errNoPendingTxs = errors.New("there is no txs to include to block")
 )
 
 type (
@@ -88,11 +92,10 @@ type (
 		chainCtx *snow.Context
 		toEngine chan<- common.Message
 
-		verifiedBlocks map[ids.ID]*Block
-		blockStore     *store.BlockStore
-		stateStore     state.Store
-		state          state.State
-		genesis        *types.GenesisDoc
+		blockStore *store.BlockStore
+		stateStore state.Store
+		state      state.State
+		genesis    *types.GenesisDoc
 
 		mempool  *mempool.CListMempool
 		eventBus *types.EventBus
@@ -100,11 +103,19 @@ type (
 		txIndexer      txindex.TxIndexer
 		blockIndexer   indexer.BlockIndexer
 		indexerService *txindex.IndexerService
+		multiGatherer  metrics.MultiGatherer
 
-		bootstrapped utils.Atomic[bool]
-		preferred    ids.ID
+		bootstrapped   utils.Atomic[bool]
+		verifiedBlocks map[ids.ID]*Block
+		preferred      ids.ID
 	}
 )
+
+func LocalAppCreator(app abciTypes.Application) AppCreator {
+	return func(ids.ID) (abciTypes.Application, error) {
+		return app, nil
+	}
+}
 
 func New(appCreator AppCreator) *VM {
 	return &VM{
@@ -370,15 +381,50 @@ func (vm *VM) Initialize(
 	vm.mempool.SetLogger(vm.log.With("module", "mempool"))
 	vm.mempool.EnableTxsAvailable()
 
+	vm.multiGatherer = metrics.NewMultiGatherer()
+	if err := vm.chainCtx.Metrics.Register(vm.multiGatherer); err != nil {
+		return err
+	}
+
 	if vm.state.LastBlockHeight == 0 {
 		block, _ := vm.state.MakeBlock(1, types.Txs{types.Tx(genesisBytes)}, makeCommitMock(1, time.Now()), nil, proposerAddress)
-		blck := NewBlock(vm, block, choices.Processing)
-		blck.Accept(ctx)
+		if err := NewBlock(vm, block, choices.Processing).Accept(ctx); err != nil {
+			return err
+		}
 	}
 
 	vm.log.Info("vm initialization completed")
 	return nil
 }
+
+// func (vm *VM) initChainState(lastAcceptedBlock *types.Block) error {
+// 	block, err := vm.newBlock(lastAcceptedBlock)
+// 	if err != nil {
+// 		return fmt.Errorf("failed to create block wrapper for the last accepted block: %w", err)
+// 	}
+// 	block.status = choices.Accepted
+//
+// 	config := &chain.Config{
+// 		DecidedCacheSize:    decidedCacheSize,
+// 		MissingCacheSize:    missingCacheSize,
+// 		UnverifiedCacheSize: unverifiedCacheSize,
+// 		//GetBlockIDAtHeight:  vm.GetBlockIDAtHeight,
+// 		GetBlock:          vm.getBlock,
+// 		UnmarshalBlock:    vm.parseBlock,
+// 		BuildBlock:        vm.buildBlock,
+// 		LastAcceptedBlock: block,
+// 	}
+//
+// 	// Register chain state metrics
+// 	chainStateRegisterer := prometheus.NewRegistry()
+// 	state, err := chain.NewMeteredState(chainStateRegisterer, config)
+// 	if err != nil {
+// 		return fmt.Errorf("could not create metered state: %w", err)
+// 	}
+// 	vm.State = state
+//
+// 	return vm.multiGatherer.Register(chainStateMetricsPrefix, chainStateRegisterer)
+// }
 
 func (vm *VM) NotifyBlockReady() {
 	select {
@@ -405,8 +451,30 @@ func (vm *VM) SetState(ctx context.Context, state snow.State) error {
 
 // Shutdown is called when the node is shutting down.
 func (vm *VM) Shutdown(context.Context) error {
-	vm.log.Debug("call shutdown")
-	panic("implement me")
+	vm.log.Debug("shutdown start")
+
+	if err := vm.indexerService.Stop(); err != nil {
+		return fmt.Errorf("error closing indexerService: %w ", err)
+	}
+
+	if err := vm.eventBus.Stop(); err != nil {
+		return fmt.Errorf("error closing eventBus: %w ", err)
+	}
+
+	if err := vm.app.Stop(); err != nil {
+		return fmt.Errorf("error closing app: %w ", err)
+	}
+
+	if err := vm.stateStore.Close(); err != nil {
+		return fmt.Errorf("error closing stateStore: %w ", err)
+	}
+
+	if err := vm.blockStore.Close(); err != nil {
+		return fmt.Errorf("Error closing blockStore: %w ", err)
+	}
+
+	vm.log.Debug("shutdown completed")
+	return nil
 }
 
 // Version returns the version of the VM.
@@ -479,11 +547,11 @@ func (vm *VM) CreateHandlers(context.Context) (map[string]*common.HTTPHandler, e
 // required for blocks that have been rejected by the consensus engine to be
 // able to be fetched.
 func (vm *VM) GetBlock(ctx context.Context, blkID ids.ID) (snowman.Block, error) {
+	vm.log.Debug("get block", "blkID", blkID.String())
 	if b, ok := vm.verifiedBlocks[blkID]; ok {
 		return b, nil
 	}
 	b := vm.blockStore.LoadBlockByHash(blkID[:])
-	vm.log.Debug("get block", "blkID", blkID.String(), "block", b)
 	return NewBlock(vm, b, choices.Accepted), nil
 }
 
@@ -498,19 +566,19 @@ func (vm *VM) ParseBlock(ctx context.Context, blockBytes []byte) (snowman.Block,
 
 	protoBlock := new(tmproto.Block)
 	if err := protoBlock.Unmarshal(blockBytes); err != nil {
+		vm.log.Error("can't parse block", "err", err)
 		return nil, err
 	}
-	vm.log.Debug("parse block", "protoBlock", protoBlock.Header.Height)
 
 	block, err := types.BlockFromProto(protoBlock)
 	if err != nil {
+		vm.log.Error("can't create block from proto", "err", err)
 		return nil, err
 	}
-	vm.log.Debug("parse block", "block", block.Hash())
 
-	blk := NewBlock(vm, block, choices.Processing)
-	vm.log.Debug("parse block", "height", blk.Height(), "id", blk.ID())
-	return blk, nil
+	vm.log.Debug("parsed block", "id", ids.ID(block.Hash()))
+
+	return NewBlock(vm, block, choices.Processing), nil
 }
 
 // Attempt to create a new block from data contained in the VM.
@@ -521,14 +589,14 @@ func (vm *VM) BuildBlock(context.Context) (snowman.Block, error) {
 	vm.log.Debug("build block")
 	txs := vm.mempool.ReapMaxBytesMaxGas(-1, -1)
 	if len(txs) == 0 {
-		return nil, fmt.Errorf("no txs")
+		return nil, errNoPendingTxs
 	}
 
 	height := vm.state.LastBlockHeight + 1
 	commit := makeCommitMock(height, time.Now())
 	block, _ := vm.state.MakeBlock(height, txs, commit, nil, proposerAddress)
 
-	prev := vm.blockStore.LoadBlockByHash(vm.preferred[:])
+	prev := vm.blockStore.LoadBlock(height - 1)
 	block.LastBlockID = types.BlockID{
 		Hash:          prev.Hash(),
 		PartSetHeader: prev.LastBlockID.PartSetHeader,
@@ -556,13 +624,7 @@ func (vm *VM) SetPreference(ctx context.Context, blkID ids.ID) error {
 // a definitionally accepted block, the Genesis block, that will be
 // returned.
 func (vm *VM) LastAccepted(context.Context) (ids.ID, error) {
-	height := vm.blockStore.Height()
-	block := vm.blockStore.LoadBlock(height)
-	if block == nil {
-		vm.log.Error("block store return empty block", "height", height)
-		return ids.Empty, errors.New("block not found")
-	}
-	return ids.ID(block.Hash()), nil
+	return ids.ID(vm.state.LastBlockID.Hash), nil
 }
 
 func (vm *VM) applyBlock(block *Block) error {
@@ -638,6 +700,8 @@ func (vm *VM) applyBlock(block *Block) error {
 	}
 
 	vm.state.LastBlockHeight = block.Block.Height
+	vm.state.LastBlockID = blockID
+	vm.state.LastBlockTime = block.Time
 	if err := vm.stateStore.Save(state); err != nil {
 		return err
 	}

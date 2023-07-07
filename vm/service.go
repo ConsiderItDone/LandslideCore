@@ -600,11 +600,7 @@ func (s *LocalService) BlockchainInfo(
 }
 
 func (s *LocalService) Genesis(_ *http.Request, _ *struct{}, reply *ctypes.ResultGenesis) error {
-	//if len(s.vm.genChunks) > 1 {
-	//	return errors.New("genesis response is large, please use the genesis_chunked API instead")
-	//}
-	//
-	//reply.Genesis = s.vm.genesis
+	reply.Genesis = s.vm.genesis
 	return nil
 }
 
@@ -694,7 +690,7 @@ func (s *LocalService) ConsensusState(_ *http.Request, _ *struct{}, reply *ctype
 
 func (s *LocalService) ConsensusParams(_ *http.Request, args *ConsensusParamsArgs, reply *ctypes.ResultConsensusParams) error {
 	reply.BlockHeight = s.vm.blockStore.Height()
-	//reply.ConsensusParams = *s.vm.genesis.ConsensusParams
+	reply.ConsensusParams = *s.vm.genesis.ConsensusParams
 	return nil
 }
 
