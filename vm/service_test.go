@@ -3,6 +3,7 @@ package vm
 import (
 	"context"
 	"encoding/base64"
+	"fmt"
 	tmjson "github.com/consideritdone/landslidecore/libs/json"
 	rpctypes "github.com/consideritdone/landslidecore/rpc/jsonrpc/types"
 	"github.com/consideritdone/landslidecore/types"
@@ -329,7 +330,7 @@ func TestSignService(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, atypes.CodeTypeOK, txReply.Code)
 		//TODO: why it is not able to find tx?
-		reply, err := service.TxSearch(&rpctypes.Context{}, "tx.height>=0", false, nil, nil, "desc")
+		reply, err := service.TxSearch(&rpctypes.Context{}, fmt.Sprintf("tx.hash='%s'", txReply.Hash.String()), false, nil, nil, "desc")
 		assert.NoError(t, err)
 		assert.True(t, len(reply.Txs) > 0)
 	})
