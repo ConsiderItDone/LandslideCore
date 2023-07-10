@@ -4,21 +4,27 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/http"
+	tmpubsub "github.com/consideritdone/landslidecore/libs/pubsub"
+	"github.com/consideritdone/landslidecore/proxy"
+	rpctypes "github.com/consideritdone/landslidecore/rpc/jsonrpc/types"
+	blockidxnull "github.com/consideritdone/landslidecore/state/indexer/block/null"
+	"github.com/consideritdone/landslidecore/state/txindex/null"
 	"sort"
 	"time"
 
 	abci "github.com/consideritdone/landslidecore/abci/types"
+	"github.com/consideritdone/landslidecore/libs/bytes"
 	tmbytes "github.com/consideritdone/landslidecore/libs/bytes"
 	tmmath "github.com/consideritdone/landslidecore/libs/math"
 	tmquery "github.com/consideritdone/landslidecore/libs/pubsub/query"
 	mempl "github.com/consideritdone/landslidecore/mempool"
 	"github.com/consideritdone/landslidecore/p2p"
-	"github.com/consideritdone/landslidecore/proxy"
 	"github.com/consideritdone/landslidecore/rpc/core"
 	ctypes "github.com/consideritdone/landslidecore/rpc/core/types"
 	"github.com/consideritdone/landslidecore/types"
 )
+
+const SubscribeTimeout = 5 * time.Second
 
 type (
 	LocalService struct {
@@ -27,196 +33,220 @@ type (
 
 	Service interface {
 		ABCIService
-		HistoryService
-		NetworkService
-		SignService
-		StatusService
-		MempoolService
-	}
-
-	ABCIQueryArgs struct {
-		Path string           `json:"path"`
-		Data tmbytes.HexBytes `json:"data"`
-	}
-
-	ABCIQueryOptions struct {
-		Height int64 `json:"height"`
-		Prove  bool  `json:"prove"`
-	}
-
-	ABCIQueryWithOptionsArgs struct {
-		Path string           `json:"path"`
-		Data tmbytes.HexBytes `json:"data"`
-		Opts ABCIQueryOptions `json:"opts"`
-	}
-
-	BroadcastTxArgs struct {
-		Tx types.Tx `json:"tx"`
+		EventsService
+		HistoryClient
+		NetworkClient
+		SignClient
+		StatusClient
+		MempoolClient
 	}
 
 	ABCIService interface {
 		// Reading from abci app
-		ABCIInfo(_ *http.Request, _ *struct{}, reply *ctypes.ResultABCIInfo) error
-		ABCIQuery(_ *http.Request, args *ABCIQueryArgs, reply *ctypes.ResultABCIQuery) error
-		ABCIQueryWithOptions(_ *http.Request, args *ABCIQueryWithOptionsArgs, reply *ctypes.ResultABCIQuery) error
+		ABCIInfo(ctx *rpctypes.Context) (*ctypes.ResultABCIInfo, error)
+		ABCIQuery(ctx *rpctypes.Context, path string, data bytes.HexBytes, height int64, prove bool) (*ctypes.ResultABCIQuery, error)
 
 		// Writing to abci app
-		BroadcastTxCommit(_ *http.Request, args *BroadcastTxArgs, reply *ctypes.ResultBroadcastTxCommit) error
-		BroadcastTxAsync(_ *http.Request, args *BroadcastTxArgs, reply *ctypes.ResultBroadcastTx) error
-		BroadcastTxSync(_ *http.Request, args *BroadcastTxArgs, reply *ctypes.ResultBroadcastTx) error
+		BroadcastTxCommit(*rpctypes.Context, types.Tx) (*ctypes.ResultBroadcastTxCommit, error)
+		BroadcastTxAsync(*rpctypes.Context, types.Tx) (*ctypes.ResultBroadcastTx, error)
+		BroadcastTxSync(*rpctypes.Context, types.Tx) (*ctypes.ResultBroadcastTx, error)
 	}
 
-	BlockHeightArgs struct {
-		Height *int64 `json:"height"`
+	EventsService interface {
+		Subscribe(ctx *rpctypes.Context, query string) (*ctypes.ResultSubscribe, error)
+		Unsubscribe(ctx *rpctypes.Context, query string) (*ctypes.ResultUnsubscribe, error)
+		UnsubscribeAll(ctx *rpctypes.Context) (*ctypes.ResultUnsubscribe, error)
 	}
 
-	BlockHashArgs struct {
-		Hash []byte `json:"hash"`
+	HistoryClient interface {
+		Genesis(ctx *rpctypes.Context) (*ctypes.ResultGenesis, error)
+		GenesisChunked(*rpctypes.Context, uint) (*ctypes.ResultGenesisChunk, error)
+		BlockchainInfo(ctx *rpctypes.Context, minHeight, maxHeight int64) (*ctypes.ResultBlockchainInfo, error)
 	}
 
-	CommitArgs struct {
-		Height *int64 `json:"height"`
+	MempoolClient interface {
+		UnconfirmedTxs(ctx *rpctypes.Context, limit *int) (*ctypes.ResultUnconfirmedTxs, error)
+		NumUnconfirmedTxs(ctx *rpctypes.Context) (*ctypes.ResultUnconfirmedTxs, error)
+		CheckTx(*rpctypes.Context, types.Tx) (*ctypes.ResultCheckTx, error)
 	}
 
-	ValidatorsArgs struct {
-		Height  *int64 `json:"height"`
-		Page    *int   `json:"page"`
-		PerPage *int   `json:"perPage"`
+	NetworkClient interface {
+		NetInfo(ctx *rpctypes.Context) (*ctypes.ResultNetInfo, error)
+		DumpConsensusState(ctx *rpctypes.Context) (*ctypes.ResultDumpConsensusState, error)
+		ConsensusState(ctx *rpctypes.Context) (*ctypes.ResultConsensusState, error)
+		ConsensusParams(ctx *rpctypes.Context, height *int64) (*ctypes.ResultConsensusParams, error)
+		Health(ctx *rpctypes.Context) (*ctypes.ResultHealth, error)
 	}
 
-	TxArgs struct {
-		Hash  []byte `json:"hash"`
-		Prove bool   `json:"prove"`
+	SignClient interface {
+		Block(ctx *rpctypes.Context, height *int64) (*ctypes.ResultBlock, error)
+		BlockByHash(ctx *rpctypes.Context, hash []byte) (*ctypes.ResultBlock, error)
+		BlockResults(ctx *rpctypes.Context, height *int64) (*ctypes.ResultBlockResults, error)
+		Commit(ctx *rpctypes.Context, height *int64) (*ctypes.ResultCommit, error)
+		Validators(ctx *rpctypes.Context, height *int64, page, perPage *int) (*ctypes.ResultValidators, error)
+		Tx(ctx *rpctypes.Context, hash []byte, prove bool) (*ctypes.ResultTx, error)
+
+		TxSearch(ctx *rpctypes.Context, query string, prove bool,
+			page, perPage *int, orderBy string) (*ctypes.ResultTxSearch, error)
+
+		BlockSearch(ctx *rpctypes.Context, query string,
+			page, perPage *int, orderBy string) (*ctypes.ResultBlockSearch, error)
 	}
 
-	TxSearchArgs struct {
-		Query   string `json:"query"`
-		Prove   bool   `json:"prove"`
-		Page    *int   `json:"page"`
-		PerPage *int   `json:"perPage"`
-		OrderBy string `json:"orderBy"`
-	}
-
-	BlockSearchArgs struct {
-		Query   string `json:"query"`
-		Page    *int   `json:"page"`
-		PerPage *int   `json:"perPage"`
-		OrderBy string `json:"orderBy"`
-	}
-
-	SignService interface {
-		Block(_ *http.Request, args *BlockHeightArgs, reply *ctypes.ResultBlock) error
-		BlockByHash(_ *http.Request, args *BlockHashArgs, reply *ctypes.ResultBlock) error
-		BlockResults(_ *http.Request, args *BlockHeightArgs, reply *ctypes.ResultBlockResults) error
-		Commit(_ *http.Request, args *CommitArgs, reply *ctypes.ResultCommit) error
-		Validators(_ *http.Request, args *ValidatorsArgs, reply *ctypes.ResultValidators) error
-		Tx(_ *http.Request, args *TxArgs, reply *ctypes.ResultTx) error
-		TxSearch(_ *http.Request, args *TxSearchArgs, reply *ctypes.ResultTxSearch) error
-		BlockSearch(_ *http.Request, args *BlockSearchArgs, reply *ctypes.ResultBlockSearch) error
-	}
-
-	BlockchainInfoArgs struct {
-		MinHeight int64 `json:"minHeight"`
-		MaxHeight int64 `json:"maxHeight"`
-	}
-
-	GenesisChunkedArgs struct {
-		Chunk uint `json:"chunk"`
-	}
-
-	HistoryService interface {
-		BlockchainInfo(_ *http.Request, args *BlockchainInfoArgs, reply *ctypes.ResultBlockchainInfo) error
-		Genesis(_ *http.Request, _ *struct{}, reply *ctypes.ResultGenesis) error
-		GenesisChunked(_ *http.Request, args *GenesisChunkedArgs, reply *ctypes.ResultGenesisChunk) error
-	}
-
-	StatusService interface {
-		Status(_ *http.Request, _ *struct{}, reply *ctypes.ResultStatus) error
-	}
-
-	ConsensusParamsArgs struct {
-		Height *int64 `json:"height"`
-	}
-
-	NetworkService interface {
-		NetInfo(_ *http.Request, _ *struct{}, reply *ctypes.ResultNetInfo) error
-		DumpConsensusState(_ *http.Request, _ *struct{}, reply *ctypes.ResultDumpConsensusState) error
-		ConsensusState(_ *http.Request, _ *struct{}, reply *ctypes.ResultConsensusState) error
-		ConsensusParams(_ *http.Request, args *ConsensusParamsArgs, reply *ctypes.ResultConsensusParams) error
-		Health(_ *http.Request, _ *struct{}, reply *ctypes.ResultHealth) error
-	}
-
-	UnconfirmedTxsArgs struct {
-		Limit *int `json:"limit"`
-	}
-
-	CheckTxArgs struct {
-		Tx []byte `json:"tx"`
-	}
-
-	MempoolService interface {
-		UnconfirmedTxs(_ *http.Request, args *UnconfirmedTxsArgs, reply *ctypes.ResultUnconfirmedTxs) error
-		NumUnconfirmedTxs(_ *http.Request, _ *struct{}, reply *ctypes.ResultUnconfirmedTxs) error
-		CheckTx(_ *http.Request, args *CheckTxArgs, reply *ctypes.ResultCheckTx) error
+	StatusClient interface {
+		Status(*rpctypes.Context) (*ctypes.ResultStatus, error)
 	}
 )
 
-var (
-	DefaultABCIQueryOptions = ABCIQueryOptions{Height: 0, Prove: false}
-)
+func (s *LocalService) Subscribe(ctx *rpctypes.Context, query string) (*ctypes.ResultSubscribe, error) {
+	addr := ctx.RemoteAddr()
+
+	if s.vm.eventBus.NumClients() >= s.vm.rpcConfig.MaxSubscriptionClients {
+		return nil, fmt.Errorf("max_subscription_clients %d reached", s.vm.rpcConfig.MaxSubscriptionClients)
+	} else if s.vm.eventBus.NumClientSubscriptions(addr) >= s.vm.rpcConfig.MaxSubscriptionsPerClient {
+		return nil, fmt.Errorf("max_subscriptions_per_client %d reached", s.vm.rpcConfig.MaxSubscriptionsPerClient)
+	}
+
+	s.vm.tmLogger.Info("Subscribe to query", "remote", addr, "query", query)
+
+	q, err := tmquery.New(query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse query: %w", err)
+	}
+
+	subCtx, cancel := context.WithTimeout(ctx.Context(), SubscribeTimeout)
+	defer cancel()
+
+	sub, err := s.vm.eventBus.Subscribe(subCtx, addr, q, s.vm.rpcConfig.SubscriptionBufferSize)
+	if err != nil {
+		return nil, err
+	}
+
+	closeIfSlow := s.vm.rpcConfig.CloseOnSlowClient
+
+	// TODO: inspired by Ilnur: usage of ctx.JSONReq.ID may cause situation when user or server try to create multiple subscriptions with the same id.
+	// Solution: return error code with the error sescription when this situation happens
+	// Capture the current ID, since it can change in the future.
+	subscriptionID := ctx.JSONReq.ID
+	go func() {
+		for {
+			select {
+			case msg := <-sub.Out():
+				var (
+					resultEvent = &ctypes.ResultEvent{Query: query, Data: msg.Data(), Events: msg.Events()}
+					resp        = rpctypes.NewRPCSuccessResponse(subscriptionID, resultEvent)
+				)
+				writeCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+				defer cancel()
+				if err = ctx.WSConn.WriteRPCResponse(writeCtx, resp); err != nil {
+					s.vm.tmLogger.Info("Can't write response (slow client)",
+						"to", addr, "subscriptionID", subscriptionID, "err", err)
+
+					if closeIfSlow {
+						var (
+							err  = errors.New("subscription was cancelled (reason: slow client)")
+							resp = rpctypes.RPCServerError(subscriptionID, err)
+						)
+						if !ctx.WSConn.TryWriteRPCResponse(resp) {
+							s.vm.tmLogger.Info("Can't write response (slow client)",
+								"to", addr, "subscriptionID", subscriptionID, "err", err)
+						}
+						return
+					}
+				}
+			case <-sub.Cancelled():
+				if sub.Err() != tmpubsub.ErrUnsubscribed {
+					var reason string
+					if sub.Err() == nil {
+						reason = "Tendermint exited"
+					} else {
+						reason = sub.Err().Error()
+					}
+					resp := rpctypes.RPCServerError(subscriptionID, err)
+					if !ctx.WSConn.TryWriteRPCResponse(resp) {
+						s.vm.tmLogger.Info("Can't write response (slow client)",
+							"to", addr, "subscriptionID", subscriptionID, "err",
+							fmt.Errorf("subscription was cancelled (reason: %s)", reason))
+					}
+				}
+				return
+			}
+		}
+	}()
+
+	return &ctypes.ResultSubscribe{}, nil
+}
+
+func (s *LocalService) Unsubscribe(ctx *rpctypes.Context, query string) (*ctypes.ResultUnsubscribe, error) {
+	addr := ctx.RemoteAddr()
+	s.vm.tmLogger.Info("Unsubscribe from query", "remote", addr, "query", query)
+	q, err := tmquery.New(query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse query: %w", err)
+	}
+	err = s.vm.eventBus.Unsubscribe(context.Background(), addr, q)
+	if err != nil {
+		return nil, err
+	}
+	return &ctypes.ResultUnsubscribe{}, nil
+}
+
+func (s *LocalService) UnsubscribeAll(ctx *rpctypes.Context) (*ctypes.ResultUnsubscribe, error) {
+	addr := ctx.RemoteAddr()
+	s.vm.tmLogger.Info("Unsubscribe from all", "remote", addr)
+	err := s.vm.eventBus.UnsubscribeAll(context.Background(), addr)
+	if err != nil {
+		return nil, err
+	}
+	return &ctypes.ResultUnsubscribe{}, nil
+}
 
 func NewService(vm *VM) Service {
 	return &LocalService{vm}
 }
 
-func (s *LocalService) ABCIInfo(_ *http.Request, _ *struct{}, reply *ctypes.ResultABCIInfo) error {
+func (s *LocalService) ABCIInfo(ctx *rpctypes.Context) (*ctypes.ResultABCIInfo, error) {
 	resInfo, err := s.vm.proxyApp.Query().InfoSync(proxy.RequestInfo)
-	if err != nil {
-		return err
+	if err != nil || resInfo == nil {
+		return nil, err
 	}
-	reply.Response = *resInfo
-	return nil
+	return &ctypes.ResultABCIInfo{Response: *resInfo}, nil
 }
 
-func (s *LocalService) ABCIQuery(req *http.Request, args *ABCIQueryArgs, reply *ctypes.ResultABCIQuery) error {
-	return s.ABCIQueryWithOptions(req, &ABCIQueryWithOptionsArgs{args.Path, args.Data, DefaultABCIQueryOptions}, reply)
-}
-
-func (s *LocalService) ABCIQueryWithOptions(
-	_ *http.Request,
-	args *ABCIQueryWithOptionsArgs,
-	reply *ctypes.ResultABCIQuery,
-) error {
+// TODO: attention! Different signatures in RPC interfaces
+func (s *LocalService) ABCIQuery(
+	ctx *rpctypes.Context,
+	path string,
+	data bytes.HexBytes,
+	height int64,
+	prove bool,
+) (*ctypes.ResultABCIQuery, error) {
 	resQuery, err := s.vm.proxyApp.Query().QuerySync(abci.RequestQuery{
-		Path:   args.Path,
-		Data:   args.Data,
-		Height: args.Opts.Height,
-		Prove:  args.Opts.Prove,
+		Path:   path,
+		Data:   data,
+		Height: height,
+		Prove:  prove,
 	})
-	if err != nil {
-		return err
+	if err != nil || resQuery == nil {
+		return nil, err
 	}
-	reply.Response = *resQuery
-	return nil
+
+	return &ctypes.ResultABCIQuery{Response: *resQuery}, nil
 }
 
-func (s *LocalService) BroadcastTxCommit(
-	_ *http.Request,
-	args *BroadcastTxArgs,
-	reply *ctypes.ResultBroadcastTxCommit,
-) error {
+func (s *LocalService) BroadcastTxCommit(ctx *rpctypes.Context, tx types.Tx) (*ctypes.ResultBroadcastTxCommit, error) {
 	subscriber := ""
 
 	// Subscribe to tx being committed in block.
-	subCtx, cancel := context.WithTimeout(context.Background(), core.SubscribeTimeout)
+	subCtx, cancel := context.WithTimeout(ctx.Context(), core.SubscribeTimeout)
 	defer cancel()
 
-	q := types.EventQueryTxFor(args.Tx)
+	q := types.EventQueryTxFor(tx)
 	deliverTxSub, err := s.vm.eventBus.Subscribe(subCtx, subscriber, q)
 	if err != nil {
 		err = fmt.Errorf("failed to subscribe to tx: %w", err)
 		s.vm.tmLogger.Error("Error on broadcast_tx_commit", "err", err)
-		return err
+		return nil, err
 	}
 
 	defer func() {
@@ -227,35 +257,33 @@ func (s *LocalService) BroadcastTxCommit(
 
 	// Broadcast tx and wait for CheckTx result
 	checkTxResCh := make(chan *abci.Response, 1)
-	err = s.vm.mempool.CheckTx(args.Tx, func(res *abci.Response) {
+	err = s.vm.mempool.CheckTx(tx, func(res *abci.Response) {
 		checkTxResCh <- res
 	}, mempl.TxInfo{})
 	if err != nil {
 		s.vm.tmLogger.Error("Error on broadcastTxCommit", "err", err)
-		return fmt.Errorf("error on broadcastTxCommit: %v", err)
+		return nil, fmt.Errorf("error on broadcastTxCommit: %v", err)
 	}
 	checkTxResMsg := <-checkTxResCh
 	checkTxRes := checkTxResMsg.GetCheckTx()
 	if checkTxRes.Code != abci.CodeTypeOK {
-		*reply = ctypes.ResultBroadcastTxCommit{
+		return &ctypes.ResultBroadcastTxCommit{
 			CheckTx:   *checkTxRes,
 			DeliverTx: abci.ResponseDeliverTx{},
-			Hash:      args.Tx.Hash(),
-		}
-		return nil
+			Hash:      tx.Hash(),
+		}, nil
 	}
 
 	// Wait for the tx to be included in a block or timeout.
 	select {
 	case msg := <-deliverTxSub.Out(): // The tx was included in a block.
 		deliverTxRes := msg.Data().(types.EventDataTx)
-		*reply = ctypes.ResultBroadcastTxCommit{
+		return &ctypes.ResultBroadcastTxCommit{
 			CheckTx:   *checkTxRes,
 			DeliverTx: deliverTxRes.Result,
-			Hash:      args.Tx.Hash(),
+			Hash:      tx.Hash(),
 			Height:    deliverTxRes.Height,
-		}
-		return nil
+		}, nil
 	case <-deliverTxSub.Cancelled():
 		var reason string
 		if deliverTxSub.Err() == nil {
@@ -265,192 +293,193 @@ func (s *LocalService) BroadcastTxCommit(
 		}
 		err = fmt.Errorf("deliverTxSub was cancelled (reason: %s)", reason)
 		s.vm.tmLogger.Error("Error on broadcastTxCommit", "err", err)
-		return err
+		return &ctypes.ResultBroadcastTxCommit{
+			CheckTx:   *checkTxRes,
+			DeliverTx: abci.ResponseDeliverTx{},
+			Hash:      tx.Hash(),
+		}, err
 	// TODO: use config for timeout
 	case <-time.After(10 * time.Second):
 		err = errors.New("timed out waiting for tx to be included in a block")
 		s.vm.tmLogger.Error("Error on broadcastTxCommit", "err", err)
-		return err
+		return &ctypes.ResultBroadcastTxCommit{
+			CheckTx:   *checkTxRes,
+			DeliverTx: abci.ResponseDeliverTx{},
+			Hash:      tx.Hash(),
+		}, err
 	}
 }
 
-func (s *LocalService) BroadcastTxAsync(
-	_ *http.Request,
-	args *BroadcastTxArgs,
-	reply *ctypes.ResultBroadcastTx,
-) error {
-	err := s.vm.mempool.CheckTx(args.Tx, nil, mempl.TxInfo{})
+func (s *LocalService) BroadcastTxAsync(ctx *rpctypes.Context, tx types.Tx) (*ctypes.ResultBroadcastTx, error) {
+	err := s.vm.mempool.CheckTx(tx, nil, mempl.TxInfo{})
 	if err != nil {
-		return err
+		return nil, err
 	}
-	reply.Hash = args.Tx.Hash()
-	return nil
+	return &ctypes.ResultBroadcastTx{Hash: tx.Hash()}, nil
 }
 
-func (s *LocalService) BroadcastTxSync(_ *http.Request, args *BroadcastTxArgs, reply *ctypes.ResultBroadcastTx) error {
+func (s *LocalService) BroadcastTxSync(ctx *rpctypes.Context, tx types.Tx) (*ctypes.ResultBroadcastTx, error) {
 	resCh := make(chan *abci.Response, 1)
-	err := s.vm.mempool.CheckTx(args.Tx, func(res *abci.Response) {
+	err := s.vm.mempool.CheckTx(tx, func(res *abci.Response) {
 		s.vm.tmLogger.With("module", "service").Debug("handled response from checkTx")
 		resCh <- res
 	}, mempl.TxInfo{})
 	if err != nil {
-		return err
+		return nil, err
 	}
 	res := <-resCh
 	r := res.GetCheckTx()
-
-	reply.Code = r.Code
-	reply.Data = r.Data
-	reply.Log = r.Log
-	reply.Codespace = r.Codespace
-	reply.Hash = args.Tx.Hash()
-
-	return nil
+	return &ctypes.ResultBroadcastTx{
+		Code:      r.Code,
+		Data:      r.Data,
+		Log:       r.Log,
+		Codespace: r.Codespace,
+		Hash:      tx.Hash(),
+	}, nil
 }
 
-func (s *LocalService) Block(_ *http.Request, args *BlockHeightArgs, reply *ctypes.ResultBlock) error {
-	height, err := getHeight(s.vm.blockStore, args.Height)
+func (s *LocalService) Block(ctx *rpctypes.Context, heightPtr *int64) (*ctypes.ResultBlock, error) {
+	height, err := getHeight(s.vm.blockStore, heightPtr)
 	if err != nil {
-		return err
+		return nil, err
 	}
+
 	block := s.vm.blockStore.LoadBlock(height)
 	blockMeta := s.vm.blockStore.LoadBlockMeta(height)
-
-	if blockMeta != nil {
-		reply.BlockID = blockMeta.BlockID
+	if blockMeta == nil {
+		return &ctypes.ResultBlock{BlockID: types.BlockID{}, Block: block}, nil
 	}
-	reply.Block = block
-	return nil
+	return &ctypes.ResultBlock{BlockID: blockMeta.BlockID, Block: block}, nil
 }
 
-func (s *LocalService) BlockByHash(_ *http.Request, args *BlockHashArgs, reply *ctypes.ResultBlock) error {
-	block := s.vm.blockStore.LoadBlockByHash(args.Hash)
+func (s *LocalService) BlockByHash(ctx *rpctypes.Context, hash []byte) (*ctypes.ResultBlock, error) {
+	block := s.vm.blockStore.LoadBlockByHash(hash)
 	if block == nil {
-		reply.BlockID = types.BlockID{}
-		reply.Block = nil
-		return nil
+		return &ctypes.ResultBlock{BlockID: types.BlockID{}, Block: nil}, nil
 	}
+	// If block is not nil, then blockMeta can't be nil.
 	blockMeta := s.vm.blockStore.LoadBlockMeta(block.Height)
-	reply.BlockID = blockMeta.BlockID
-	reply.Block = block
-	return nil
+	return &ctypes.ResultBlock{BlockID: blockMeta.BlockID, Block: block}, nil
 }
 
-func (s *LocalService) BlockResults(_ *http.Request, args *BlockHeightArgs, reply *ctypes.ResultBlockResults) error {
-	height, err := getHeight(s.vm.blockStore, args.Height)
+func (s *LocalService) BlockResults(ctx *rpctypes.Context, heightPtr *int64) (*ctypes.ResultBlockResults, error) {
+	height, err := getHeight(s.vm.blockStore, heightPtr)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	results, err := s.vm.stateStore.LoadABCIResponses(height)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	reply.Height = height
-	reply.TxsResults = results.DeliverTxs
-	reply.BeginBlockEvents = results.BeginBlock.Events
-	reply.EndBlockEvents = results.EndBlock.Events
-	reply.ValidatorUpdates = results.EndBlock.ValidatorUpdates
-	reply.ConsensusParamUpdates = results.EndBlock.ConsensusParamUpdates
-	return nil
+	return &ctypes.ResultBlockResults{
+		Height:                height,
+		TxsResults:            results.DeliverTxs,
+		BeginBlockEvents:      results.BeginBlock.Events,
+		EndBlockEvents:        results.EndBlock.Events,
+		ValidatorUpdates:      results.EndBlock.ValidatorUpdates,
+		ConsensusParamUpdates: results.EndBlock.ConsensusParamUpdates,
+	}, nil
 }
 
-func (s *LocalService) Commit(_ *http.Request, args *CommitArgs, reply *ctypes.ResultCommit) error {
-	height, err := getHeight(s.vm.blockStore, args.Height)
+func (s *LocalService) Commit(ctx *rpctypes.Context, heightPtr *int64) (*ctypes.ResultCommit, error) {
+	height, err := getHeight(s.vm.blockStore, heightPtr)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	blockMeta := s.vm.blockStore.LoadBlockMeta(height)
 	if blockMeta == nil {
-		return nil
+		return nil, nil
 	}
-
 	header := blockMeta.Header
-	commit := s.vm.blockStore.LoadBlockCommit(height)
-	res := ctypes.NewResultCommit(&header, commit, !(height == s.vm.blockStore.Height()))
 
-	reply.SignedHeader = res.SignedHeader
-	reply.CanonicalCommit = res.CanonicalCommit
-	return nil
+	// Return the canonical commit (comes from the block at height+1)
+	commit := s.vm.blockStore.LoadBlockCommit(height)
+	return ctypes.NewResultCommit(&header, commit, true), nil
 }
 
-func (s *LocalService) Validators(_ *http.Request, args *ValidatorsArgs, reply *ctypes.ResultValidators) error {
-	height, err := getHeight(s.vm.blockStore, args.Height)
+func (s *LocalService) Validators(ctx *rpctypes.Context, heightPtr *int64, pagePtr, perPagePtr *int) (*ctypes.ResultValidators, error) {
+	height, err := getHeight(s.vm.blockStore, heightPtr)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	validators, err := s.vm.stateStore.LoadValidators(height)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	totalCount := len(validators.Validators)
-	perPage := validatePerPage(args.PerPage)
-	page, err := validatePage(args.Page, perPage, totalCount)
+	perPage := validatePerPage(perPagePtr)
+	page, err := validatePage(pagePtr, perPage, totalCount)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	skipCount := validateSkipCount(page, perPage)
 
-	reply.BlockHeight = height
-	reply.Validators = validators.Validators[skipCount : skipCount+tmmath.MinInt(perPage, totalCount-skipCount)]
-	reply.Count = len(reply.Validators)
-	reply.Total = totalCount
-	return nil
+	v := validators.Validators[skipCount : skipCount+tmmath.MinInt(perPage, totalCount-skipCount)]
+
+	return &ctypes.ResultValidators{
+		BlockHeight: height,
+		Validators:  v,
+		Count:       len(v),
+		Total:       totalCount}, nil
 }
 
-func (s *LocalService) Tx(_ *http.Request, args *TxArgs, reply *ctypes.ResultTx) error {
-	r, err := s.vm.txIndexer.Get(args.Hash)
+func (s *LocalService) Tx(ctx *rpctypes.Context, hash []byte, prove bool) (*ctypes.ResultTx, error) {
+	if _, ok := s.vm.txIndexer.(*null.TxIndex); ok {
+		return nil, fmt.Errorf("transaction indexing is disabled")
+	}
+
+	r, err := s.vm.txIndexer.Get(hash)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if r == nil {
-		return fmt.Errorf("tx (%X) not found", args.Hash)
+		return nil, fmt.Errorf("tx (%X) not found", hash)
 	}
 
 	height := r.Height
 	index := r.Index
 
 	var proof types.TxProof
-	if args.Prove {
+	if prove {
 		block := s.vm.blockStore.LoadBlock(height)
 		proof = block.Data.Txs.Proof(int(index)) // XXX: overflow on 32-bit machines
 	}
 
-	reply.Hash = args.Hash
-	reply.Height = height
-	reply.Index = index
-	reply.TxResult = r.Result
-	reply.Tx = r.Tx
-	reply.Proof = proof
-	return nil
+	return &ctypes.ResultTx{
+		Hash:     hash,
+		Height:   height,
+		Index:    index,
+		TxResult: r.Result,
+		Tx:       r.Tx,
+		Proof:    proof,
+	}, nil
 }
 
-func (s *LocalService) TxSearch(req *http.Request, args *TxSearchArgs, reply *ctypes.ResultTxSearch) error {
-	q, err := tmquery.New(args.Query)
+func (s *LocalService) TxSearch(ctx *rpctypes.Context, query string, prove bool, pagePtr, perPagePtr *int,
+	orderBy string) (*ctypes.ResultTxSearch, error) {
+	// if index is disabled, return error
+	if _, ok := s.vm.txIndexer.(*null.TxIndex); ok {
+		return nil, errors.New("transaction indexing is disabled")
+	}
+	q, err := tmquery.New(query)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	var ctx context.Context
-	if req != nil {
-		ctx = req.Context()
-	} else {
-		ctx = context.Background()
-	}
-
-	results, err := s.vm.txIndexer.Search(ctx, q)
+	results, err := s.vm.txIndexer.Search(ctx.Context(), q)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// sort results (must be done before pagination)
-	switch args.OrderBy {
+	switch orderBy {
 	case "desc":
 		sort.Slice(results, func(i, j int) bool {
 			if results[i].Height == results[j].Height {
@@ -466,16 +495,16 @@ func (s *LocalService) TxSearch(req *http.Request, args *TxSearchArgs, reply *ct
 			return results[i].Height < results[j].Height
 		})
 	default:
-		return errors.New("expected order_by to be either `asc` or `desc` or empty")
+		return nil, errors.New("expected order_by to be either `asc` or `desc` or empty")
 	}
 
 	// paginate results
 	totalCount := len(results)
-	perPage := validatePerPage(args.PerPage)
+	perPage := validatePerPage(perPagePtr)
 
-	page, err := validatePage(args.Page, perPage, totalCount)
+	page, err := validatePage(pagePtr, perPage, totalCount)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	skipCount := validateSkipCount(page, perPage)
@@ -486,7 +515,7 @@ func (s *LocalService) TxSearch(req *http.Request, args *TxSearchArgs, reply *ct
 		r := results[i]
 
 		var proof types.TxProof
-		if args.Prove {
+		if prove {
 			block := s.vm.blockStore.LoadBlock(r.Height)
 			proof = block.Data.Txs.Proof(int(r.Index)) // XXX: overflow on 32-bit machines
 		}
@@ -501,31 +530,35 @@ func (s *LocalService) TxSearch(req *http.Request, args *TxSearchArgs, reply *ct
 		})
 	}
 
-	reply.Txs = apiResults
-	reply.TotalCount = totalCount
-	return nil
+	return &ctypes.ResultTxSearch{Txs: apiResults, TotalCount: totalCount}, nil
 }
 
-func (s *LocalService) BlockSearch(req *http.Request, args *BlockSearchArgs, reply *ctypes.ResultBlockSearch) error {
-	q, err := tmquery.New(args.Query)
-	if err != nil {
-		return err
+// BlockSearch searches for a paginated set of blocks matching BeginBlock and
+// EndBlock event search criteria.
+func (s *LocalService) BlockSearch(
+	ctx *rpctypes.Context,
+	query string,
+	pagePtr, perPagePtr *int,
+	orderBy string,
+) (*ctypes.ResultBlockSearch, error) {
+
+	// skip if block indexing is disabled
+	if _, ok := s.vm.blockIndexer.(*blockidxnull.BlockerIndexer); ok {
+		return nil, errors.New("block indexing is disabled")
 	}
 
-	var ctx context.Context
-	if req != nil {
-		ctx = req.Context()
-	} else {
-		ctx = context.Background()
+	q, err := tmquery.New(query)
+	if err != nil {
+		return nil, err
 	}
 
-	results, err := s.vm.blockIndexer.Search(ctx, q)
+	results, err := s.vm.blockIndexer.Search(ctx.Context(), q)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// sort results (must be done before pagination)
-	switch args.OrderBy {
+	switch orderBy {
 	case "desc", "":
 		sort.Slice(results, func(i, j int) bool { return results[i] > results[j] })
 
@@ -533,16 +566,16 @@ func (s *LocalService) BlockSearch(req *http.Request, args *BlockSearchArgs, rep
 		sort.Slice(results, func(i, j int) bool { return results[i] < results[j] })
 
 	default:
-		return errors.New("expected order_by to be either `asc` or `desc` or empty")
+		return nil, errors.New("expected order_by to be either `asc` or `desc` or empty")
 	}
 
 	// paginate results
 	totalCount := len(results)
-	perPage := validatePerPage(args.PerPage)
+	perPage := validatePerPage(perPagePtr)
 
-	page, err := validatePage(args.Page, perPage, totalCount)
+	page, err := validatePage(pagePtr, perPage, totalCount)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	skipCount := validateSkipCount(page, perPage)
@@ -562,72 +595,66 @@ func (s *LocalService) BlockSearch(req *http.Request, args *BlockSearchArgs, rep
 		}
 	}
 
-	reply.Blocks = apiResults
-	reply.TotalCount = totalCount
-	return nil
+	return &ctypes.ResultBlockSearch{Blocks: apiResults, TotalCount: totalCount}, nil
 }
 
-func (s *LocalService) BlockchainInfo(
-	_ *http.Request,
-	args *BlockchainInfoArgs,
-	reply *ctypes.ResultBlockchainInfo,
-) error {
+func (s *LocalService) BlockchainInfo(ctx *rpctypes.Context, minHeight, maxHeight int64) (*ctypes.ResultBlockchainInfo, error) {
 	// maximum 20 block metas
 	const limit int64 = 20
 	var err error
-	args.MinHeight, args.MaxHeight, err = filterMinMax(
+	minHeight, maxHeight, err = filterMinMax(
 		s.vm.blockStore.Base(),
 		s.vm.blockStore.Height(),
-		args.MinHeight,
-		args.MaxHeight,
+		minHeight,
+		maxHeight,
 		limit)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	s.vm.tmLogger.Debug("BlockchainInfoHandler", "maxHeight", args.MaxHeight, "minHeight", args.MinHeight)
+	s.vm.tmLogger.Debug("BlockchainInfoHandler", "maxHeight", maxHeight, "minHeight", minHeight)
 
 	var blockMetas []*types.BlockMeta
-	for height := args.MaxHeight; height >= args.MinHeight; height-- {
+	for height := maxHeight; height >= minHeight; height-- {
 		blockMeta := s.vm.blockStore.LoadBlockMeta(height)
 		blockMetas = append(blockMetas, blockMeta)
 	}
 
-	reply.LastHeight = s.vm.blockStore.Height()
-	reply.BlockMetas = blockMetas
-	return nil
+	return &ctypes.ResultBlockchainInfo{
+		LastHeight: s.vm.blockStore.Height(),
+		BlockMetas: blockMetas}, nil
 }
 
-func (s *LocalService) Genesis(_ *http.Request, _ *struct{}, reply *ctypes.ResultGenesis) error {
+func (s *LocalService) Genesis(ctx *rpctypes.Context) (*ctypes.ResultGenesis, error) {
 	if len(s.vm.genChunks) > 1 {
-		return errors.New("genesis response is large, please use the genesis_chunked API instead")
+		return nil, errors.New("genesis response is large, please use the genesis_chunked API instead")
 	}
 
-	reply.Genesis = s.vm.genesis
-	return nil
+	return &ctypes.ResultGenesis{Genesis: s.vm.genesis}, nil
 }
 
-func (s *LocalService) GenesisChunked(_ *http.Request, args *GenesisChunkedArgs, reply *ctypes.ResultGenesisChunk) error {
+func (s *LocalService) GenesisChunked(ctx *rpctypes.Context, chunk uint) (*ctypes.ResultGenesisChunk, error) {
 	if s.vm.genChunks == nil {
-		return fmt.Errorf("service configuration error, genesis chunks are not initialized")
+		return nil, fmt.Errorf("service configuration error, genesis chunks are not initialized")
 	}
 
 	if len(s.vm.genChunks) == 0 {
-		return fmt.Errorf("service configuration error, there are no chunks")
+		return nil, fmt.Errorf("service configuration error, there are no chunks")
 	}
 
-	id := int(args.Chunk)
+	id := int(chunk)
 
 	if id > len(s.vm.genChunks)-1 {
-		return fmt.Errorf("there are %d chunks, %d is invalid", len(s.vm.genChunks)-1, id)
+		return nil, fmt.Errorf("there are %d chunks, %d is invalid", len(s.vm.genChunks)-1, id)
 	}
 
-	reply.TotalChunks = len(s.vm.genChunks)
-	reply.ChunkNumber = id
-	reply.Data = s.vm.genChunks[id]
-	return nil
+	return &ctypes.ResultGenesisChunk{
+		TotalChunks: len(s.vm.genChunks),
+		ChunkNumber: id,
+		Data:        s.vm.genChunks[id],
+	}, nil
 }
 
-func (s *LocalService) Status(_ *http.Request, _ *struct{}, reply *ctypes.ResultStatus) error {
+func (s *LocalService) Status(ctx *rpctypes.Context) (*ctypes.ResultStatus, error) {
 	var (
 		earliestBlockHeight   int64
 		earliestBlockHash     tmbytes.HexBytes
@@ -658,70 +685,79 @@ func (s *LocalService) Status(_ *http.Request, _ *struct{}, reply *ctypes.Result
 		}
 	}
 
-	reply.NodeInfo = p2p.DefaultNodeInfo{
-		DefaultNodeID: p2p.ID(s.vm.ctx.NodeID.String()),
-		Network:       fmt.Sprintf("%d", s.vm.ctx.NetworkID),
+	result := &ctypes.ResultStatus{
+		NodeInfo: p2p.DefaultNodeInfo{
+			DefaultNodeID: p2p.ID(s.vm.ctx.NodeID.String()),
+			Network:       fmt.Sprintf("%d", s.vm.ctx.NetworkID),
+		},
+		SyncInfo: ctypes.SyncInfo{
+			LatestBlockHash:     latestBlockHash,
+			LatestAppHash:       latestAppHash,
+			LatestBlockHeight:   latestHeight,
+			LatestBlockTime:     time.Unix(0, latestBlockTimeNano),
+			EarliestBlockHash:   earliestBlockHash,
+			EarliestAppHash:     earliestAppHash,
+			EarliestBlockHeight: earliestBlockHeight,
+			EarliestBlockTime:   time.Unix(0, earliestBlockTimeNano),
+			CatchingUp:          false,
+		},
+		ValidatorInfo: ctypes.ValidatorInfo{
+			Address:     proposerPubKey.Address(),
+			PubKey:      proposerPubKey,
+			VotingPower: 0,
+		},
 	}
-	reply.SyncInfo = ctypes.SyncInfo{
-		LatestBlockHash:     latestBlockHash,
-		LatestAppHash:       latestAppHash,
-		LatestBlockHeight:   latestHeight,
-		LatestBlockTime:     time.Unix(0, latestBlockTimeNano),
-		EarliestBlockHash:   earliestBlockHash,
-		EarliestAppHash:     earliestAppHash,
-		EarliestBlockHeight: earliestBlockHeight,
-		EarliestBlockTime:   time.Unix(0, earliestBlockTimeNano),
-	}
-	return nil
+
+	return result, nil
 }
 
-// ToDo: no peers, because it's vm
-func (s *LocalService) NetInfo(_ *http.Request, _ *struct{}, reply *ctypes.ResultNetInfo) error {
-	return nil
+// ToDo: no peers, no network from tendermint side
+func (s *LocalService) NetInfo(ctx *rpctypes.Context) (*ctypes.ResultNetInfo, error) {
+	return &ctypes.ResultNetInfo{}, nil
 }
 
 // ToDo: we doesn't have consensusState
-func (s *LocalService) DumpConsensusState(_ *http.Request, _ *struct{}, reply *ctypes.ResultDumpConsensusState) error {
-	return nil
+func (s *LocalService) DumpConsensusState(ctx *rpctypes.Context) (*ctypes.ResultDumpConsensusState, error) {
+	return &ctypes.ResultDumpConsensusState{}, nil
 }
 
 // ToDo: we doesn't have consensusState
-func (s *LocalService) ConsensusState(_ *http.Request, _ *struct{}, reply *ctypes.ResultConsensusState) error {
-	return nil
+func (s *LocalService) ConsensusState(ctx *rpctypes.Context) (*ctypes.ResultConsensusState, error) {
+	return &ctypes.ResultConsensusState{}, nil
 }
 
-func (s *LocalService) ConsensusParams(_ *http.Request, args *ConsensusParamsArgs, reply *ctypes.ResultConsensusParams) error {
-	reply.BlockHeight = s.vm.blockStore.Height()
-	reply.ConsensusParams = *s.vm.genesis.ConsensusParams
-	return nil
+func (s *LocalService) ConsensusParams(ctx *rpctypes.Context, heightPtr *int64) (*ctypes.ResultConsensusParams, error) {
+	return &ctypes.ResultConsensusParams{
+		BlockHeight:     s.vm.blockStore.Height(),
+		ConsensusParams: *s.vm.genesis.ConsensusParams,
+	}, nil
 }
 
-func (s *LocalService) Health(_ *http.Request, _ *struct{}, reply *ctypes.ResultHealth) error {
-	*reply = ctypes.ResultHealth{}
-	return nil
+func (s *LocalService) Health(ctx *rpctypes.Context) (*ctypes.ResultHealth, error) {
+	return &ctypes.ResultHealth{}, nil
 }
 
-func (s *LocalService) UnconfirmedTxs(_ *http.Request, args *UnconfirmedTxsArgs, reply *ctypes.ResultUnconfirmedTxs) error {
-	limit := validatePerPage(args.Limit)
+func (s *LocalService) UnconfirmedTxs(ctx *rpctypes.Context, limitPtr *int) (*ctypes.ResultUnconfirmedTxs, error) {
+	limit := validatePerPage(limitPtr)
 	txs := s.vm.mempool.ReapMaxTxs(limit)
-	reply.Count = len(txs)
-	reply.Total = s.vm.mempool.Size()
-	reply.Txs = txs
-	return nil
+	return &ctypes.ResultUnconfirmedTxs{
+		Count: len(txs),
+		Total: s.vm.mempool.Size(),
+		Txs:   txs,
+	}, nil
 }
 
-func (s *LocalService) NumUnconfirmedTxs(_ *http.Request, _ *struct{}, reply *ctypes.ResultUnconfirmedTxs) error {
-	reply.Count = s.vm.mempool.Size()
-	reply.Total = s.vm.mempool.Size()
-	reply.TotalBytes = s.vm.mempool.TxsBytes()
-	return nil
+func (s *LocalService) NumUnconfirmedTxs(ctx *rpctypes.Context) (*ctypes.ResultUnconfirmedTxs, error) {
+	return &ctypes.ResultUnconfirmedTxs{
+		Count:      s.vm.mempool.Size(),
+		Total:      s.vm.mempool.Size(),
+		TotalBytes: s.vm.mempool.TxsBytes()}, nil
 }
 
-func (s *LocalService) CheckTx(_ *http.Request, args *CheckTxArgs, reply *ctypes.ResultCheckTx) error {
-	res, err := s.vm.proxyApp.Mempool().CheckTxSync(abci.RequestCheckTx{Tx: args.Tx})
+func (s *LocalService) CheckTx(ctx *rpctypes.Context, tx types.Tx) (*ctypes.ResultCheckTx, error) {
+	res, err := s.vm.proxyApp.Mempool().CheckTxSync(abci.RequestCheckTx{Tx: tx})
 	if err != nil {
-		return err
+		return nil, err
 	}
-	reply.ResponseCheckTx = *res
-	return nil
+	return &ctypes.ResultCheckTx{ResponseCheckTx: *res}, nil
 }

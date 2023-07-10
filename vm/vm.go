@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"github.com/consideritdone/landslidecore/crypto/secp256k1"
 	"net/http"
 	"time"
 
@@ -18,16 +19,15 @@ import (
 	"github.com/ava-labs/avalanchego/snow/consensus/snowman"
 	"github.com/ava-labs/avalanchego/snow/engine/common"
 	"github.com/ava-labs/avalanchego/snow/engine/snowman/block"
-	"github.com/ava-labs/avalanchego/utils/json"
 	"github.com/ava-labs/avalanchego/utils/timer/mockable"
 	"github.com/ava-labs/avalanchego/version"
 	"github.com/ava-labs/avalanchego/vms/components/chain"
-	"github.com/gorilla/rpc/v2"
 	"github.com/prometheus/client_golang/prometheus"
 	dbm "github.com/tendermint/tm-db"
 
 	abciTypes "github.com/consideritdone/landslidecore/abci/types"
 	"github.com/consideritdone/landslidecore/config"
+	cfg "github.com/consideritdone/landslidecore/config"
 	cs "github.com/consideritdone/landslidecore/consensus"
 	tmjson "github.com/consideritdone/landslidecore/libs/json"
 	"github.com/consideritdone/landslidecore/libs/log"
@@ -35,7 +35,6 @@ import (
 	"github.com/consideritdone/landslidecore/node"
 	tmproto "github.com/consideritdone/landslidecore/proto/tendermint/types"
 	"github.com/consideritdone/landslidecore/proxy"
-	rpccore "github.com/consideritdone/landslidecore/rpc/core"
 	rpcserver "github.com/consideritdone/landslidecore/rpc/jsonrpc/server"
 	sm "github.com/consideritdone/landslidecore/state"
 	"github.com/consideritdone/landslidecore/state/indexer"
@@ -78,6 +77,7 @@ var (
 	blockIndexerDBPrefix = []byte("block_events")
 
 	proposerAddress = []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+	proposerPubKey  = secp256k1.PubKey{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 )
 
 var (
@@ -131,6 +131,8 @@ type VM struct {
 	blockIndexer   indexer.BlockIndexer
 	blockIndexerDB dbm.DB
 	indexerService *txindex.IndexerService
+
+	rpcConfig *cfg.RPCConfig
 
 	clock mockable.Clock
 }
@@ -200,6 +202,8 @@ func (vm *VM) Initialize(
 		return fmt.Errorf("failed to create and start event bus: %w ", err)
 	}
 	vm.eventBus = eventBus
+
+	vm.rpcConfig = config.DefaultRPCConfig()
 
 	vm.txIndexerDB = Database{prefixdb.NewNested(txIndexerDBPrefix, baseDB)}
 	vm.txIndexer = txidxkv.NewTxIndex(vm.txIndexerDB)
@@ -620,22 +624,59 @@ func (vm *VM) CreateStaticHandlers(ctx context.Context) (map[string]*common.HTTP
 	return nil, nil
 }
 
+// Routes is a map of available routes.
+func (vm *VM) RPCRoutes() map[string]*rpcserver.RPCFunc {
+	vmTMService := NewService(vm)
+	return map[string]*rpcserver.RPCFunc{
+		// subscribe/unsubscribe are reserved for websocket events.
+		"subscribe":       rpcserver.NewWSRPCFunc(vmTMService.Subscribe, "query"),
+		"unsubscribe":     rpcserver.NewWSRPCFunc(vmTMService.Unsubscribe, "query"),
+		"unsubscribe_all": rpcserver.NewWSRPCFunc(vmTMService.UnsubscribeAll, ""),
+
+		// info API
+		"health":               rpcserver.NewRPCFunc(vmTMService.Health, ""),
+		"status":               rpcserver.NewRPCFunc(vmTMService.Status, ""),
+		"net_info":             rpcserver.NewRPCFunc(vmTMService.NetInfo, ""),
+		"blockchain":           rpcserver.NewRPCFunc(vmTMService.BlockchainInfo, "minHeight,maxHeight"),
+		"genesis":              rpcserver.NewRPCFunc(vmTMService.Genesis, ""),
+		"genesis_chunked":      rpcserver.NewRPCFunc(vmTMService.GenesisChunked, "chunk"),
+		"block":                rpcserver.NewRPCFunc(vmTMService.Block, "height"),
+		"block_by_hash":        rpcserver.NewRPCFunc(vmTMService.BlockByHash, "hash"),
+		"block_results":        rpcserver.NewRPCFunc(vmTMService.BlockResults, "height"),
+		"commit":               rpcserver.NewRPCFunc(vmTMService.Commit, "height"),
+		"check_tx":             rpcserver.NewRPCFunc(vmTMService.CheckTx, "tx"),
+		"tx":                   rpcserver.NewRPCFunc(vmTMService.Tx, "hash,prove"),
+		"tx_search":            rpcserver.NewRPCFunc(vmTMService.TxSearch, "query,prove,page,per_page,order_by"),
+		"block_search":         rpcserver.NewRPCFunc(vmTMService.BlockSearch, "query,page,per_page,order_by"),
+		"validators":           rpcserver.NewRPCFunc(vmTMService.Validators, "height,page,per_page"),
+		"dump_consensus_state": rpcserver.NewRPCFunc(vmTMService.DumpConsensusState, ""),
+		"consensus_state":      rpcserver.NewRPCFunc(vmTMService.ConsensusState, ""),
+		"consensus_params":     rpcserver.NewRPCFunc(vmTMService.ConsensusParams, "height"),
+		"unconfirmed_txs":      rpcserver.NewRPCFunc(vmTMService.UnconfirmedTxs, "limit"),
+		"num_unconfirmed_txs":  rpcserver.NewRPCFunc(vmTMService.NumUnconfirmedTxs, ""),
+
+		// tx broadcast API
+		"broadcast_tx_commit": rpcserver.NewRPCFunc(vmTMService.BroadcastTxCommit, "tx"),
+		"broadcast_tx_sync":   rpcserver.NewRPCFunc(vmTMService.BroadcastTxSync, "tx"),
+		"broadcast_tx_async":  rpcserver.NewRPCFunc(vmTMService.BroadcastTxAsync, "tx"),
+
+		// abci API
+		"abci_query": rpcserver.NewRPCFunc(vmTMService.ABCIQuery, "path,data,height,prove"),
+		"abci_info":  rpcserver.NewRPCFunc(vmTMService.ABCIInfo, ""),
+	}
+}
+
 func (vm *VM) CreateHandlers(_ context.Context) (map[string]*common.HTTPHandler, error) {
 	mux := http.NewServeMux()
-	rpcLogger := vm.tmLogger.With("module", "rpc-server")
-	rpcserver.RegisterRPCFuncs(mux, rpccore.Routes, rpcLogger)
 
-	server := rpc.NewServer()
-	server.RegisterCodec(json.NewCodec(), "application/json")
-	server.RegisterCodec(json.NewCodec(), "application/json;charset=UTF-8")
-	if err := server.RegisterService(NewService(vm), Name); err != nil {
-		return nil, err
-	}
+	// 1) Register regular routes.
+	routes := vm.RPCRoutes()
+	mux.HandleFunc("/", rpcserver.MakeJSONRPCHandler(routes, vm.tmLogger))
 
 	return map[string]*common.HTTPHandler{
 		"/rpc": {
 			LockOptions: common.WriteLock,
-			Handler:     server,
+			Handler:     mux,
 		},
 	}, nil
 }
