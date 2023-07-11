@@ -206,24 +206,6 @@ func ABCIResponsesResultsHash(ar *tmstate.ABCIResponses) []byte {
 	return types.NewResults(ar.DeliverTxs).Hash()
 }
 
-func updateState(
-	st state.State,
-	blockID types.BlockID,
-	header *types.Header,
-	abciResponses *tmstate.ABCIResponses,
-) (state.State, error) {
-	return state.State{
-		Version:         st.Version,
-		ChainID:         st.ChainID,
-		InitialHeight:   st.InitialHeight,
-		LastBlockHeight: header.Height,
-		LastBlockID:     blockID,
-		LastBlockTime:   header.Time,
-		LastResultsHash: ABCIResponsesResultsHash(abciResponses),
-		AppHash:         nil,
-	}, nil
-}
-
 // TxPreCheck returns a function to filter transactions before processing.
 // The function limits the size of a transaction to the block's maximum data size.
 func TxPreCheck(state state.State) mempl.PreCheckFunc {

@@ -21,7 +21,7 @@ func TestABCIService(t *testing.T) {
 		assert.NoError(t, service.ABCIInfo(nil, nil, reply))
 		assert.Equal(t, uint64(1), reply.Response.AppVersion)
 		assert.Equal(t, int64(1), reply.Response.LastBlockHeight)
-		assert.Equal(t, []uint8([]byte{0x2, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}), reply.Response.LastBlockAppHash)
+		assert.Equal(t, []uint8([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}), reply.Response.LastBlockAppHash)
 		t.Logf("%+v", reply)
 	})
 

@@ -27,10 +27,11 @@ import (
 	abciTypes "github.com/consideritdone/landslidecore/abci/types"
 	"github.com/consideritdone/landslidecore/config"
 	"github.com/consideritdone/landslidecore/consensus"
+	"github.com/consideritdone/landslidecore/crypto/tmhash"
 	"github.com/consideritdone/landslidecore/libs/log"
-	"github.com/consideritdone/landslidecore/mempool"
 	mempl "github.com/consideritdone/landslidecore/mempool"
 	"github.com/consideritdone/landslidecore/node"
+	tmstate "github.com/consideritdone/landslidecore/proto/tendermint/state"
 	tmproto "github.com/consideritdone/landslidecore/proto/tendermint/types"
 	"github.com/consideritdone/landslidecore/proxy"
 	rpccore "github.com/consideritdone/landslidecore/rpc/core"
@@ -97,7 +98,7 @@ type (
 		state      state.State
 		genesis    *types.GenesisDoc
 
-		mempool  *mempool.CListMempool
+		mempool  *mempl.CListMempool
 		eventBus *types.EventBus
 
 		txIndexer      txindex.TxIndexer
@@ -374,9 +375,9 @@ func (vm *VM) Initialize(
 		vm.app.Mempool(),
 		vm.state.LastBlockHeight,
 		vm,
-		mempool.WithMetrics(mempool.NopMetrics()),
-		mempool.WithPreCheck(state.TxPreCheck(vm.state)),
-		mempool.WithPostCheck(state.TxPostCheck(vm.state)),
+		mempl.WithMetrics(mempl.NopMetrics()),
+		mempl.WithPreCheck(state.TxPreCheck(vm.state)),
+		mempl.WithPostCheck(state.TxPostCheck(vm.state)),
 	)
 	vm.mempool.SetLogger(vm.log.With("module", "mempool"))
 	vm.mempool.EnableTxsAvailable()
@@ -388,6 +389,13 @@ func (vm *VM) Initialize(
 
 	if vm.state.LastBlockHeight == 0 {
 		block, _ := vm.state.MakeBlock(1, types.Txs{types.Tx(genesisBytes)}, makeCommitMock(1, time.Now()), nil, proposerAddress)
+		block.LastBlockID = types.BlockID{
+			Hash: tmhash.Sum([]byte{}),
+			PartSetHeader: types.PartSetHeader{
+				Total: 0,
+				Hash:  tmhash.Sum([]byte{}),
+			},
+		}
 		if err := NewBlock(vm, block, choices.Processing).Accept(ctx); err != nil {
 			return err
 		}
@@ -587,25 +595,22 @@ func (vm *VM) ParseBlock(ctx context.Context, blockBytes []byte) (snowman.Block,
 // returned.
 func (vm *VM) BuildBlock(context.Context) (snowman.Block, error) {
 	vm.log.Debug("build block")
+
 	txs := vm.mempool.ReapMaxBytesMaxGas(-1, -1)
 	if len(txs) == 0 {
 		return nil, errNoPendingTxs
 	}
 
-	height := vm.state.LastBlockHeight + 1
-	commit := makeCommitMock(height, time.Now())
-	block, _ := vm.state.MakeBlock(height, txs, commit, nil, proposerAddress)
+	state := vm.state.Copy()
 
-	prev := vm.blockStore.LoadBlock(height - 1)
-	block.LastBlockID = types.BlockID{
-		Hash:          prev.Hash(),
-		PartSetHeader: prev.LastBlockID.PartSetHeader,
-	}
+	commit := makeCommitMock(state.LastBlockHeight+1, time.Now())
+	block, _ := vm.state.MakeBlock(state.LastBlockHeight+1, txs, commit, nil, proposerAddress)
+	block.LastBlockID = state.LastBlockID
 
 	blk := NewBlock(vm, block, choices.Processing)
 	vm.verifiedBlocks[blk.ID()] = blk
 
-	vm.log.Debug("build block", "height", blk.Height(), "id", blk.ID())
+	vm.log.Debug("build block", "id", blk.ID(), "height", blk.Height(), "txs", len(block.Txs))
 	return blk, nil
 }
 
@@ -631,18 +636,28 @@ func (vm *VM) applyBlock(block *Block) error {
 	vm.mempool.Lock()
 	defer vm.mempool.Unlock()
 
-	state, err := vm.stateStore.Load()
+	state := vm.state.Copy()
+
+	err := validateBlock(state, block.Block)
 	if err != nil {
 		return err
 	}
 
-	if err := validateBlock(state, block.Block); err != nil {
-		return err
-	}
-
-	abciResponses, err := execBlockOnProxyApp(vm.log, vm.app.Consensus(), block.Block, vm.stateStore, state.InitialHeight)
-	if err != nil {
-		return err
+	abciResponses := new(tmstate.ABCIResponses)
+	if state.LastBlockHeight > 0 {
+		abciResponses, err = execBlockOnProxyApp(vm.log, vm.app.Consensus(), block.Block, vm.stateStore, state.InitialHeight)
+		if err != nil {
+			return err
+		}
+	} else {
+		abciResponses.DeliverTxs = []*abciTypes.ResponseDeliverTx{
+			&abciTypes.ResponseDeliverTx{
+				Code: abciTypes.CodeTypeOK,
+				Data: block.Txs[0],
+			},
+		}
+		abciResponses.BeginBlock = new(abciTypes.ResponseBeginBlock)
+		abciResponses.EndBlock = new(abciTypes.ResponseEndBlock)
 	}
 
 	// Save the results before we commit.
@@ -653,12 +668,6 @@ func (vm *VM) applyBlock(block *Block) error {
 	blockID := types.BlockID{
 		Hash:          block.Block.Hash(),
 		PartSetHeader: block.Block.MakePartSet(types.BlockPartSizeBytes).Header(),
-	}
-
-	// Update the state with the block and responses.
-	state, err = updateState(state, blockID, &block.Block.Header, abciResponses)
-	if err != nil {
-		return err
 	}
 
 	// while mempool is Locked, flush to ensure all async requests have completed
@@ -674,6 +683,13 @@ func (vm *VM) applyBlock(block *Block) error {
 		vm.log.Error("client error during proxyAppConn.CommitSync", "err", err)
 		return err
 	}
+
+	// Update the state with the block and responses.
+	state.LastBlockHeight = block.Block.Height
+	state.LastBlockID = blockID
+	state.LastBlockTime = block.Time
+	state.LastResultsHash = types.NewResults(abciResponses.DeliverTxs).Hash()
+	state.AppHash = res.Data
 
 	// ResponseCommit has no error code - just data
 	vm.log.Info(
@@ -699,14 +715,12 @@ func (vm *VM) applyBlock(block *Block) error {
 		return err
 	}
 
-	vm.state.LastBlockHeight = block.Block.Height
-	vm.state.LastBlockID = blockID
-	vm.state.LastBlockTime = block.Time
 	if err := vm.stateStore.Save(state); err != nil {
 		return err
 	}
-	vm.blockStore.SaveBlock(block.Block, block.Block.MakePartSet(types.BlockPartSizeBytes), block.Block.LastCommit)
+	vm.state = state
 
+	vm.blockStore.SaveBlock(block.Block, block.Block.MakePartSet(types.BlockPartSizeBytes), block.Block.LastCommit)
 	fireEvents(vm.log, vm.eventBus, block.Block, abciResponses)
 	return nil
 }
