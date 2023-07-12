@@ -15,7 +15,6 @@ import (
 	"github.com/ava-labs/avalanchego/snow/engine/common"
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/avalanchego/version"
-	"github.com/ava-labs/avalanchego/vms/components/chain"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -51,7 +50,7 @@ func newTestVM(app atypes.Application) (*VM, *snow.Context, chan common.Message,
 		Patch: 0,
 	})
 	msgChan := make(chan common.Message, 1)
-	vm := NewVM(app)
+	vm := New(LocalAppCreator(app))
 	snowCtx := snow.DefaultContextTest()
 	snowCtx.Log = logging.NewLogger(
 		fmt.Sprintf("<%s Chain>", blockchainID),
@@ -123,7 +122,7 @@ func TestInitVm(t *testing.T) {
 	err = blk1.Accept(context.Background())
 	assert.NoError(t, err)
 
-	tmBlk1 := blk1.(*chain.BlockWrapper).Block.(*Block).tmBlock
+	tmBlk1 := blk1.(*Block).Block
 
 	t.Logf("Block: %d", blk1.Height())
 	t.Logf("TM Block Tx count: %d", len(tmBlk1.Data.Txs))
@@ -161,7 +160,7 @@ func TestInitVm(t *testing.T) {
 	err = blk2.Accept(context.Background())
 	assert.NoError(t, err)
 
-	tmBlk2 := blk2.(*chain.BlockWrapper).Block.(*Block).tmBlock
+	tmBlk2 := blk2.(*Block).Block
 
 	t.Logf("Block: %d", blk2.Height())
 	t.Logf("TM Block Tx count: %d", len(tmBlk2.Data.Txs))

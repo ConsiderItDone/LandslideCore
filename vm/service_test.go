@@ -2,6 +2,7 @@ package vm
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -19,8 +20,8 @@ func TestABCIService(t *testing.T) {
 		reply := new(ctypes.ResultABCIInfo)
 		assert.NoError(t, service.ABCIInfo(nil, nil, reply))
 		assert.Equal(t, uint64(1), reply.Response.AppVersion)
-		assert.Equal(t, int64(0), reply.Response.LastBlockHeight)
-		assert.Equal(t, []uint8([]byte(nil)), reply.Response.LastBlockAppHash)
+		assert.Equal(t, int64(1), reply.Response.LastBlockHeight)
+		assert.Equal(t, []uint8([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}), reply.Response.LastBlockAppHash)
 		t.Logf("%+v", reply)
 	})
 
@@ -117,7 +118,7 @@ func TestHistoryService(t *testing.T) {
 	t.Run("BlockchainInfo", func(t *testing.T) {
 		reply := new(ctypes.ResultBlockchainInfo)
 		assert.NoError(t, service.BlockchainInfo(nil, &BlockchainInfoArgs{1, 100}, reply))
-		assert.Equal(t, int64(1), reply.LastHeight)
+		assert.Equal(t, int64(2), reply.LastHeight)
 	})
 
 	t.Run("Genesis", func(t *testing.T) {
@@ -148,7 +149,7 @@ func TestNetworkService(t *testing.T) {
 	t.Run("ConsensusParams", func(t *testing.T) {
 		reply := new(ctypes.ResultConsensusParams)
 		assert.NoError(t, service.ConsensusParams(nil, nil, reply))
-		assert.Equal(t, int64(0), reply.BlockHeight)
+		assert.Equal(t, int64(1), reply.BlockHeight)
 
 		txReply := new(ctypes.ResultBroadcastTx)
 		assert.NoError(t, service.BroadcastTxSync(nil, &BroadcastTxArgs{Tx: []byte{0x00}}, txReply))
@@ -160,7 +161,7 @@ func TestNetworkService(t *testing.T) {
 		assert.NoError(t, blk.Accept(context.Background()))
 
 		assert.NoError(t, service.ConsensusParams(nil, nil, reply))
-		assert.Equal(t, int64(1), reply.BlockHeight)
+		assert.Equal(t, int64(2), reply.BlockHeight)
 	})
 
 	t.Run("Health", func(t *testing.T) {
@@ -239,17 +240,17 @@ func TestSignService(t *testing.T) {
 		assert.EqualValues(t, tx, reply.Tx)
 	})
 
-	//t.Run("TxSearch", func(t *testing.T) {
-	//	reply := new(ctypes.ResultTxSearch)
-	//	assert.NoError(t, service.TxSearch(nil, &TxSearchArgs{Query: "tx.height>0"}, reply))
-	//	assert.True(t, len(reply.Txs) > 0)
-	//})
+	t.Run("TxSearch", func(t *testing.T) {
+		reply := new(ctypes.ResultTxSearch)
+		assert.NoError(t, service.TxSearch(nil, &TxSearchArgs{Query: fmt.Sprintf("tx.hash='%s'", txReply.Hash)}, reply))
+		assert.True(t, len(reply.Txs) > 0)
+	})
 
-	//t.Run("BlockSearch", func(t *testing.T) {
-	//	reply := new(ctypes.ResultBlockSearch)
-	//	assert.NoError(t, service.BlockSearch(nil, &BlockSearchArgs{Query: "block.height>0"}, reply))
-	//	assert.True(t, len(reply.Blocks) > 0)
-	//})
+	t.Run("BlockSearch", func(t *testing.T) {
+		reply := new(ctypes.ResultBlockSearch)
+		assert.NoError(t, service.BlockSearch(nil, &BlockSearchArgs{Query: "block.height=2"}, reply))
+		assert.True(t, len(reply.Blocks) > 0)
+	})
 }
 
 func TestStatusService(t *testing.T) {
@@ -270,7 +271,7 @@ func TestStatusService(t *testing.T) {
 	t.Run("Status", func(t *testing.T) {
 		reply1 := new(ctypes.ResultStatus)
 		assert.NoError(t, service.Status(nil, nil, reply1))
-		assert.Equal(t, int64(0), reply1.SyncInfo.LatestBlockHeight)
+		assert.Equal(t, int64(1), reply1.SyncInfo.LatestBlockHeight)
 
 		blk, err := vm.BuildBlock(context.Background())
 		assert.NoError(t, err)
@@ -279,7 +280,7 @@ func TestStatusService(t *testing.T) {
 
 		reply2 := new(ctypes.ResultStatus)
 		assert.NoError(t, service.Status(nil, nil, reply2))
-		assert.Equal(t, int64(1), reply2.SyncInfo.LatestBlockHeight)
+		assert.Equal(t, int64(2), reply2.SyncInfo.LatestBlockHeight)
 	})
 }
 
