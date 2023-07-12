@@ -560,6 +560,9 @@ func (vm *VM) GetBlock(ctx context.Context, blkID ids.ID) (snowman.Block, error)
 		return b, nil
 	}
 	b := vm.blockStore.LoadBlockByHash(blkID[:])
+	if b == nil {
+		return nil, errInvalidBlock
+	}
 	return NewBlock(vm, b, choices.Accepted), nil
 }
 
@@ -593,7 +596,7 @@ func (vm *VM) ParseBlock(ctx context.Context, blockBytes []byte) (snowman.Block,
 //
 // If the VM doesn't want to issue a new block, an error should be
 // returned.
-func (vm *VM) BuildBlock(context.Context) (snowman.Block, error) {
+func (vm *VM) BuildBlock(ctx context.Context) (snowman.Block, error) {
 	vm.log.Debug("build block")
 
 	txs := vm.mempool.ReapMaxBytesMaxGas(-1, -1)
@@ -601,11 +604,23 @@ func (vm *VM) BuildBlock(context.Context) (snowman.Block, error) {
 		return nil, errNoPendingTxs
 	}
 
-	state := vm.state.Copy()
+	var preferredBlock *types.Block
+	if b, ok := vm.verifiedBlocks[vm.preferred]; ok {
+		preferredBlock = b.Block
+	} else {
+		preferredBlock := vm.blockStore.LoadBlockByHash(vm.preferred[:])
+		if preferredBlock == nil {
+			return nil, errInvalidBlock
+		}
+	}
+	preferredHeight := preferredBlock.Height
 
-	commit := makeCommitMock(state.LastBlockHeight+1, time.Now())
-	block, _ := vm.state.MakeBlock(state.LastBlockHeight+1, txs, commit, nil, proposerAddress)
-	block.LastBlockID = state.LastBlockID
+	commit := makeCommitMock(preferredHeight+1, time.Now())
+	block, _ := vm.state.MakeBlock(preferredHeight+1, txs, commit, nil, proposerAddress)
+	block.LastBlockID = types.BlockID{
+		Hash:          preferredBlock.Hash(),
+		PartSetHeader: preferredBlock.MakePartSet(types.BlockPartSizeBytes).Header(),
+	}
 
 	blk := NewBlock(vm, block, choices.Processing)
 	vm.verifiedBlocks[blk.ID()] = blk
