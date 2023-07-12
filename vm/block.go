@@ -32,9 +32,7 @@ func NewBlock(vm *VM, block *types.Block, st choices.Status) *Block {
 // binary representation of this element. An element should return the same
 // IDs upon repeated calls.
 func (block *Block) ID() ids.ID {
-	var id ids.ID
-	copy(id[:], block.Hash())
-	return id
+	return ids.ID(block.Hash())
 }
 
 // Accept this element.
@@ -43,6 +41,7 @@ func (block *Block) ID() ids.ID {
 func (block *Block) Accept(context.Context) error {
 	block.vm.log.Debug("try to accept block", "block", block.ID())
 	block.st = choices.Accepted
+	delete(block.vm.verifiedBlocks, block.ID())
 	return block.vm.applyBlock(block)
 }
 
@@ -70,9 +69,7 @@ func (block *Block) Status() choices.Status {
 
 // Parent returns the ID of this block's parent.
 func (block *Block) Parent() ids.ID {
-	var id ids.ID
-	copy(id[:], block.LastBlockID.Hash.Bytes())
-	return id
+	return ids.ID(block.LastBlockID.Hash)
 }
 
 // Verify that the state transition this block would make if accepted is
@@ -100,7 +97,7 @@ func (block *Block) Bytes() []byte {
 	if err != nil {
 		panic(fmt.Sprintf("can't serialize block: %s", err))
 	}
-	return data
+	return append([]byte{uint8(block.st)}, data...)
 }
 
 // Height returns the height of this block in the chain.

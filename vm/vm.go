@@ -402,37 +402,8 @@ func (vm *VM) Initialize(
 	}
 
 	vm.log.Info("vm initialization completed")
-	return nil
+	return vm.SetPreference(ctx, ids.ID(vm.state.LastBlockID.Hash))
 }
-
-// func (vm *VM) initChainState(lastAcceptedBlock *types.Block) error {
-// 	block, err := vm.newBlock(lastAcceptedBlock)
-// 	if err != nil {
-// 		return fmt.Errorf("failed to create block wrapper for the last accepted block: %w", err)
-// 	}
-// 	block.status = choices.Accepted
-//
-// 	config := &chain.Config{
-// 		DecidedCacheSize:    decidedCacheSize,
-// 		MissingCacheSize:    missingCacheSize,
-// 		UnverifiedCacheSize: unverifiedCacheSize,
-// 		//GetBlockIDAtHeight:  vm.GetBlockIDAtHeight,
-// 		GetBlock:          vm.getBlock,
-// 		UnmarshalBlock:    vm.parseBlock,
-// 		BuildBlock:        vm.buildBlock,
-// 		LastAcceptedBlock: block,
-// 	}
-//
-// 	// Register chain state metrics
-// 	chainStateRegisterer := prometheus.NewRegistry()
-// 	state, err := chain.NewMeteredState(chainStateRegisterer, config)
-// 	if err != nil {
-// 		return fmt.Errorf("could not create metered state: %w", err)
-// 	}
-// 	vm.State = state
-//
-// 	return vm.multiGatherer.Register(chainStateMetricsPrefix, chainStateRegisterer)
-// }
 
 func (vm *VM) NotifyBlockReady() {
 	select {
@@ -557,12 +528,14 @@ func (vm *VM) CreateHandlers(context.Context) (map[string]*common.HTTPHandler, e
 func (vm *VM) GetBlock(ctx context.Context, blkID ids.ID) (snowman.Block, error) {
 	vm.log.Debug("get block", "blkID", blkID.String())
 	if b, ok := vm.verifiedBlocks[blkID]; ok {
+		vm.log.Debug("get block", "status", b.Status())
 		return b, nil
 	}
 	b := vm.blockStore.LoadBlockByHash(blkID[:])
 	if b == nil {
 		return nil, errInvalidBlock
 	}
+	vm.log.Debug("get block", "status", choices.Accepted)
 	return NewBlock(vm, b, choices.Accepted), nil
 }
 
@@ -576,7 +549,7 @@ func (vm *VM) ParseBlock(ctx context.Context, blockBytes []byte) (snowman.Block,
 	vm.log.Debug("parse block")
 
 	protoBlock := new(tmproto.Block)
-	if err := protoBlock.Unmarshal(blockBytes); err != nil {
+	if err := protoBlock.Unmarshal(blockBytes[1:]); err != nil {
 		vm.log.Error("can't parse block", "err", err)
 		return nil, err
 	}
@@ -587,9 +560,13 @@ func (vm *VM) ParseBlock(ctx context.Context, blockBytes []byte) (snowman.Block,
 		return nil, err
 	}
 
-	vm.log.Debug("parsed block", "id", ids.ID(block.Hash()))
+	blk := NewBlock(vm, block, choices.Status(uint32(blockBytes[0])))
+	vm.log.Debug("parsed block", "id", blk.ID(), "status", blk.Status().String())
+	if _, ok := vm.verifiedBlocks[blk.ID()]; !ok {
+		vm.verifiedBlocks[blk.ID()] = blk
+	}
 
-	return NewBlock(vm, block, choices.Processing), nil
+	return blk, nil
 }
 
 // Attempt to create a new block from data contained in the VM.
@@ -604,19 +581,23 @@ func (vm *VM) BuildBlock(ctx context.Context) (snowman.Block, error) {
 		return nil, errNoPendingTxs
 	}
 
+	state := vm.state.Copy()
+
 	var preferredBlock *types.Block
 	if b, ok := vm.verifiedBlocks[vm.preferred]; ok {
+		vm.log.Debug("load preferred block from cache", "id", vm.preferred.String())
 		preferredBlock = b.Block
 	} else {
-		preferredBlock := vm.blockStore.LoadBlockByHash(vm.preferred[:])
+		vm.log.Debug("load preferred block from blockStore", "id", vm.preferred.String())
+		preferredBlock = vm.blockStore.LoadBlockByHash(vm.preferred[:])
 		if preferredBlock == nil {
 			return nil, errInvalidBlock
 		}
 	}
-	preferredHeight := preferredBlock.Height
+	preferredHeight := preferredBlock.Header.Height
 
 	commit := makeCommitMock(preferredHeight+1, time.Now())
-	block, _ := vm.state.MakeBlock(preferredHeight+1, txs, commit, nil, proposerAddress)
+	block, _ := state.MakeBlock(preferredHeight+1, txs, commit, nil, proposerAddress)
 	block.LastBlockID = types.BlockID{
 		Hash:          preferredBlock.Hash(),
 		PartSetHeader: preferredBlock.MakePartSet(types.BlockPartSizeBytes).Header(),
@@ -644,7 +625,10 @@ func (vm *VM) SetPreference(ctx context.Context, blkID ids.ID) error {
 // a definitionally accepted block, the Genesis block, that will be
 // returned.
 func (vm *VM) LastAccepted(context.Context) (ids.ID, error) {
-	return ids.ID(vm.state.LastBlockID.Hash), nil
+	if vm.preferred == ids.Empty {
+		return ids.ID(vm.state.LastBlockID.Hash), nil
+	}
+	return vm.preferred, nil
 }
 
 func (vm *VM) applyBlock(block *Block) error {
