@@ -402,7 +402,7 @@ func (vm *VM) Initialize(
 	}
 
 	vm.log.Info("vm initialization completed")
-	return vm.SetPreference(ctx, ids.ID(vm.state.LastBlockID.Hash))
+	return nil
 }
 
 func (vm *VM) NotifyBlockReady() {
@@ -584,15 +584,19 @@ func (vm *VM) BuildBlock(ctx context.Context) (snowman.Block, error) {
 	state := vm.state.Copy()
 
 	var preferredBlock *types.Block
-	if b, ok := vm.verifiedBlocks[vm.preferred]; ok {
-		vm.log.Debug("load preferred block from cache", "id", vm.preferred.String())
-		preferredBlock = b.Block
-	} else {
-		vm.log.Debug("load preferred block from blockStore", "id", vm.preferred.String())
-		preferredBlock = vm.blockStore.LoadBlockByHash(vm.preferred[:])
-		if preferredBlock == nil {
-			return nil, errInvalidBlock
+	if vm.preferred != ids.Empty {
+		if b, ok := vm.verifiedBlocks[vm.preferred]; ok {
+			vm.log.Debug("load preferred block from cache", "id", vm.preferred.String())
+			preferredBlock = b.Block
+		} else {
+			vm.log.Debug("load preferred block from blockStore", "id", vm.preferred.String())
+			preferredBlock = vm.blockStore.LoadBlockByHash(vm.preferred[:])
+			if preferredBlock == nil {
+				return nil, errInvalidBlock
+			}
 		}
+	} else {
+		preferredBlock = vm.blockStore.LoadBlockByHash(state.LastBlockID.Hash)
 	}
 	preferredHeight := preferredBlock.Header.Height
 
