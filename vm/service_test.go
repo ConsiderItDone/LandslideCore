@@ -326,13 +326,20 @@ func TestSignService(t *testing.T) {
 	})
 
 	t.Run("TxSearch", func(t *testing.T) {
-		txReply, err := service.BroadcastTxAsync(&rpctypes.Context{}, tx2)
+		txReply2, err := service.BroadcastTxAsync(&rpctypes.Context{}, tx2)
+		blk2, err := vm.BuildBlock(context.Background())
 		require.NoError(t, err)
-		assert.Equal(t, atypes.CodeTypeOK, txReply.Code)
+		assert.NotNil(t, blk2)
+		assert.NoError(t, blk2.Accept(context.Background()))
+		assert.Equal(t, atypes.CodeTypeOK, txReply2.Code)
 		//TODO: why it is not able to find tx?
-		reply, err := service.TxSearch(&rpctypes.Context{}, fmt.Sprintf("tx.hash='%s'", txReply.Hash.String()), false, nil, nil, "desc")
+		reply, err := service.TxSearch(&rpctypes.Context{}, fmt.Sprintf("tx.hash='%s'", txReply2.Hash.String()), false, nil, nil, "desc")
 		assert.NoError(t, err)
 		assert.True(t, len(reply.Txs) > 0)
+		// Search by height
+		reply2, err := service.TxSearch(&rpctypes.Context{}, fmt.Sprintf("tx.height=%d", blk2.Height()), false, nil, nil, "desc")
+		assert.NoError(t, err)
+		assert.True(t, len(reply2.Txs) > 0)
 	})
 
 	//TODO: Check logic of test
