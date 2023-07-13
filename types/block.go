@@ -68,16 +68,16 @@ func (b *Block) ValidateBasic() error {
 	if b.LastCommit == nil {
 		return errors.New("nil LastCommit")
 	}
-	//if err := b.LastCommit.ValidateBasic(); err != nil {
-	//	return fmt.Errorf("wrong LastCommit: %v", err)
-	//}
+	if err := b.LastCommit.ValidateBasic(); err != nil {
+		return fmt.Errorf("wrong LastCommit: %v", err)
+	}
 
-	//if !bytes.Equal(b.LastCommitHash, b.LastCommit.Hash()) {
-	//	return fmt.Errorf("wrong Header.LastCommitHash. Expected %v, got %v",
-	//		b.LastCommit.Hash(),
-	//		b.LastCommitHash,
-	//	)
-	//}
+	if !bytes.Equal(b.LastCommitHash, b.LastCommit.Hash()) {
+		return fmt.Errorf("wrong Header.LastCommitHash. Expected %v, got %v",
+			b.LastCommit.Hash(),
+			b.LastCommitHash,
+		)
+	}
 
 	// NOTE: b.Data.Txs may be nil, but b.Data.Hash() still works fine.
 	if !bytes.Equal(b.DataHash, b.Data.Hash()) {
@@ -89,18 +89,18 @@ func (b *Block) ValidateBasic() error {
 	}
 
 	// NOTE: b.Evidence.Evidence may be nil, but we're just looping.
-	//for i, ev := range b.Evidence.Evidence {
-	//	if err := ev.ValidateBasic(); err != nil {
-	//		return fmt.Errorf("invalid evidence (#%d): %v", i, err)
-	//	}
-	//}
+	for i, ev := range b.Evidence.Evidence {
+		if err := ev.ValidateBasic(); err != nil {
+			return fmt.Errorf("invalid evidence (#%d): %v", i, err)
+		}
+	}
 
-	//if !bytes.Equal(b.EvidenceHash, b.Evidence.Hash()) {
-	//	return fmt.Errorf("wrong Header.EvidenceHash. Expected %v, got %v",
-	//		b.EvidenceHash,
-	//		b.Evidence.Hash(),
-	//	)
-	//}
+	if !bytes.Equal(b.EvidenceHash, b.Evidence.Hash()) {
+		return fmt.Errorf("wrong Header.EvidenceHash. Expected %v, got %v",
+			b.EvidenceHash,
+			b.Evidence.Hash(),
+		)
+	}
 
 	return nil
 }
@@ -972,11 +972,11 @@ func CommitFromProto(cp *tmproto.Commit) (*Commit, error) {
 	}
 
 	sigs := make([]CommitSig, len(cp.Signatures))
-	//for i := range cp.Signatures {
-	//	if err := sigs[i].FromProto(cp.Signatures[i]); err != nil {
-	//		return nil, err
-	//	}
-	//}
+	for i := range cp.Signatures {
+		if err := sigs[i].FromProto(cp.Signatures[i]); err != nil {
+			return nil, err
+		}
+	}
 	commit.Signatures = sigs
 
 	commit.Height = cp.Height
