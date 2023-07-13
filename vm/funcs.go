@@ -32,23 +32,24 @@ func NewLocalGenesisDocProvider(data []byte) node.GenesisDocProvider {
 	}
 }
 
-func makeCommitMock(height int64, timestamp time.Time) *types.Commit {
-	var commitSig []types.CommitSig = nil
-	if height != 1 {
-		commitSig = []types.CommitSig{{Timestamp: time.Now()}}
+func makeCommit(height int64, timestamp time.Time) *types.Commit {
+	commitSig := []types.CommitSig(nil)
+	if height > 1 {
+		commitSig = []types.CommitSig{{
+			BlockIDFlag:      types.BlockIDFlagNil,
+			Timestamp:        time.Now(),
+			ValidatorAddress: proposerAddress,
+			Signature:        []byte{0x0},
+		}}
 	}
-	return types.NewCommit(
-		height,
-		0,
-		types.BlockID{
-			Hash: []byte(""),
-			PartSetHeader: types.PartSetHeader{
-				Hash:  []byte(""),
-				Total: 1,
-			},
+	blockID := types.BlockID{
+		Hash: []byte(""),
+		PartSetHeader: types.PartSetHeader{
+			Hash:  []byte(""),
+			Total: 1,
 		},
-		commitSig,
-	)
+	}
+	return types.NewCommit(height, 0, blockID, commitSig)
 }
 
 func validateBlock(state state.State, block *types.Block) error {

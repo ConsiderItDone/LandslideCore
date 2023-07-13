@@ -388,7 +388,7 @@ func (vm *VM) Initialize(
 	}
 
 	if vm.state.LastBlockHeight == 0 {
-		block, _ := vm.state.MakeBlock(1, types.Txs{types.Tx(genesisBytes)}, makeCommitMock(1, time.Now()), nil, proposerAddress)
+		block, _ := vm.state.MakeBlock(1, types.Txs{types.Tx(genesisBytes)}, makeCommit(1, time.Now()), nil, proposerAddress)
 		block.LastBlockID = types.BlockID{
 			Hash: tmhash.Sum([]byte{}),
 			PartSetHeader: types.PartSetHeader{
@@ -600,7 +600,7 @@ func (vm *VM) BuildBlock(ctx context.Context) (snowman.Block, error) {
 	}
 	preferredHeight := preferredBlock.Header.Height
 
-	commit := makeCommitMock(preferredHeight+1, time.Now())
+	commit := makeCommit(preferredHeight+1, time.Now())
 	block, _ := state.MakeBlock(preferredHeight+1, txs, commit, nil, proposerAddress)
 	block.LastBlockID = types.BlockID{
 		Hash:          preferredBlock.Hash(),
