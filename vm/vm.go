@@ -31,7 +31,6 @@ import (
 	"github.com/consideritdone/landslidecore/libs/log"
 	mempl "github.com/consideritdone/landslidecore/mempool"
 	"github.com/consideritdone/landslidecore/node"
-	tmstate "github.com/consideritdone/landslidecore/proto/tendermint/state"
 	tmproto "github.com/consideritdone/landslidecore/proto/tendermint/types"
 	"github.com/consideritdone/landslidecore/proxy"
 	rpccore "github.com/consideritdone/landslidecore/rpc/core"
@@ -388,7 +387,7 @@ func (vm *VM) Initialize(
 	}
 
 	if vm.state.LastBlockHeight == 0 {
-		block, _ := vm.state.MakeBlock(1, types.Txs{types.Tx(genesisBytes)}, makeCommit(1, time.Now()), nil, proposerAddress)
+		block, _ := vm.state.MakeBlock(1, types.Txs{}, makeCommit(1, time.Now()), nil, proposerAddress)
 		block.LastBlockID = types.BlockID{
 			Hash: tmhash.Sum([]byte{}),
 			PartSetHeader: types.PartSetHeader{
@@ -646,21 +645,9 @@ func (vm *VM) applyBlock(block *Block) error {
 		return err
 	}
 
-	abciResponses := new(tmstate.ABCIResponses)
-	if state.LastBlockHeight > 0 {
-		abciResponses, err = execBlockOnProxyApp(vm.log, vm.app.Consensus(), block.Block, vm.stateStore, state.InitialHeight)
-		if err != nil {
-			return err
-		}
-	} else {
-		abciResponses.DeliverTxs = []*abciTypes.ResponseDeliverTx{
-			&abciTypes.ResponseDeliverTx{
-				Code: abciTypes.CodeTypeOK,
-				Data: block.Txs[0],
-			},
-		}
-		abciResponses.BeginBlock = new(abciTypes.ResponseBeginBlock)
-		abciResponses.EndBlock = new(abciTypes.ResponseEndBlock)
+	abciResponses, err := execBlockOnProxyApp(vm.log, vm.app.Consensus(), block.Block, vm.stateStore, state.InitialHeight)
+	if err != nil {
+		return err
 	}
 
 	// Save the results before we commit.
