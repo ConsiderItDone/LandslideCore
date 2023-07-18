@@ -2,12 +2,10 @@ package vm
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
-	"net/http"
 	"time"
-
-	"github.com/gorilla/rpc/v2"
 
 	"github.com/ava-labs/avalanchego/api/health"
 	"github.com/ava-labs/avalanchego/api/metrics"
@@ -21,19 +19,18 @@ import (
 	"github.com/ava-labs/avalanchego/snow/engine/snowman/block"
 	"github.com/ava-labs/avalanchego/snow/validators"
 	"github.com/ava-labs/avalanchego/utils"
-	"github.com/ava-labs/avalanchego/utils/json"
 	"github.com/ava-labs/avalanchego/version"
 
 	abciTypes "github.com/consideritdone/landslidecore/abci/types"
 	"github.com/consideritdone/landslidecore/config"
 	"github.com/consideritdone/landslidecore/consensus"
+	"github.com/consideritdone/landslidecore/crypto/secp256k1"
 	"github.com/consideritdone/landslidecore/crypto/tmhash"
 	"github.com/consideritdone/landslidecore/libs/log"
 	mempl "github.com/consideritdone/landslidecore/mempool"
 	"github.com/consideritdone/landslidecore/node"
 	tmproto "github.com/consideritdone/landslidecore/proto/tendermint/types"
 	"github.com/consideritdone/landslidecore/proxy"
-	rpccore "github.com/consideritdone/landslidecore/rpc/core"
 	rpcserver "github.com/consideritdone/landslidecore/rpc/jsonrpc/server"
 	"github.com/consideritdone/landslidecore/state"
 	"github.com/consideritdone/landslidecore/state/indexer"
@@ -76,6 +73,7 @@ var (
 	dbPrefixBlockIndexer = []byte("block-indexer")
 
 	proposerAddress = []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+	proposerPubKey  = secp256k1.PubKey{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 
 	errInvalidBlock = errors.New("invalid block")
 	errNoPendingTxs = errors.New("there is no txs to include to block")
@@ -88,6 +86,8 @@ type (
 		appCreator AppCreator
 		app        proxy.AppConns
 
+		rpcConfig *config.RPCConfig
+
 		log      log.Logger
 		chainCtx *snow.Context
 		toEngine chan<- common.Message
@@ -96,6 +96,7 @@ type (
 		stateStore state.Store
 		state      state.State
 		genesis    *types.GenesisDoc
+		genChunks  []string
 
 		mempool  *mempl.CListMempool
 		eventBus *types.EventBus
@@ -308,6 +309,7 @@ func (vm *VM) Initialize(
 	vm.toEngine = toEngine
 	vm.log = log.NewTMLogger(vm.chainCtx.Log).With("module", "vm")
 	vm.verifiedBlocks = make(map[ids.ID]*Block)
+	vm.rpcConfig = config.DefaultRPCConfig()
 
 	db := dbManager.Current().Database
 
@@ -328,6 +330,13 @@ func (vm *VM) Initialize(
 	)
 	if err != nil {
 		return nil
+	}
+	for i := 0; i < len(genesisBytes); i += genesisChunkSize {
+		end := i + genesisChunkSize
+		if end > len(genesisBytes) {
+			end = len(genesisBytes)
+		}
+		vm.genChunks = append(vm.genChunks, base64.StdEncoding.EncodeToString(genesisBytes[i:end]))
 	}
 
 	vm.app, err = node.CreateAndStartProxyAppConns(proxy.NewLocalClientCreator(app), vm.log)
@@ -496,21 +505,13 @@ func (vm *VM) CreateStaticHandlers(context.Context) (map[string]*common.HTTPHand
 // it have an extension called `accounts`, where clients could get
 // information about their accounts.
 func (vm *VM) CreateHandlers(context.Context) (map[string]*common.HTTPHandler, error) {
-	mux := http.NewServeMux()
-	rpcLogger := vm.log.With("module", "rpc-server")
-	rpcserver.RegisterRPCFuncs(mux, rpccore.Routes, rpcLogger)
-
-	server := rpc.NewServer()
-	server.RegisterCodec(json.NewCodec(), "application/json")
-	server.RegisterCodec(json.NewCodec(), "application/json;charset=UTF-8")
-	if err := server.RegisterService(NewService(vm), Name); err != nil {
-		return nil, err
-	}
-
 	return map[string]*common.HTTPHandler{
 		"/rpc": {
 			LockOptions: common.WriteLock,
-			Handler:     server,
+			Handler: rpcserver.MakeJSONRPCHandler(
+				NewServiceAsRPCRoutes(vm),
+				vm.log.With("module", "rpc"),
+			),
 		},
 	}, nil
 }

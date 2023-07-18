@@ -20,7 +20,7 @@ func RegisterRPCFuncs(mux *http.ServeMux, funcMap map[string]*RPCFunc, logger lo
 	}
 
 	// JSONRPC endpoints
-	mux.HandleFunc("/", handleInvalidJSONRPCPaths(makeJSONRPCHandler(funcMap, logger)))
+	mux.HandleFunc("/", handleInvalidJSONRPCPaths(MakeJSONRPCHandler(funcMap, logger)))
 }
 
 // Function introspection

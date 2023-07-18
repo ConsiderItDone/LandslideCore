@@ -21,7 +21,6 @@ import (
 	"github.com/consideritdone/landslidecore/abci/example/counter"
 	atypes "github.com/consideritdone/landslidecore/abci/types"
 	tmrand "github.com/consideritdone/landslidecore/libs/rand"
-	ctypes "github.com/consideritdone/landslidecore/rpc/core/types"
 )
 
 var (
@@ -99,11 +98,7 @@ func TestInitVm(t *testing.T) {
 	assert.Nil(t, blk0)
 
 	// submit first tx (0x00)
-	args := &BroadcastTxArgs{
-		Tx: []byte{0x00},
-	}
-	reply := &ctypes.ResultBroadcastTx{}
-	err = service.BroadcastTxSync(nil, args, reply)
+	reply, err := service.BroadcastTxSync(nil, []byte{0x00})
 	assert.NoError(t, err)
 	assert.Equal(t, atypes.CodeTypeOK, reply.Code)
 
@@ -128,20 +123,12 @@ func TestInitVm(t *testing.T) {
 	t.Logf("TM Block Tx count: %d", len(tmBlk1.Data.Txs))
 
 	// submit second tx (0x01)
-	args = &BroadcastTxArgs{
-		Tx: []byte{0x01},
-	}
-	reply = &ctypes.ResultBroadcastTx{}
-	err = service.BroadcastTxSync(nil, args, reply)
+	reply, err = service.BroadcastTxSync(nil, []byte{0x01})
 	assert.NoError(t, err)
 	assert.Equal(t, atypes.CodeTypeOK, reply.Code)
 
 	// submit 3rd tx (0x02)
-	args = &BroadcastTxArgs{
-		Tx: []byte{0x02},
-	}
-	reply = &ctypes.ResultBroadcastTx{}
-	err = service.BroadcastTxSync(nil, args, reply)
+	reply, err = service.BroadcastTxSync(nil, []byte{0x02})
 	assert.NoError(t, err)
 	assert.Equal(t, atypes.CodeTypeOK, reply.Code)
 
