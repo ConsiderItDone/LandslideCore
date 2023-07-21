@@ -6,9 +6,8 @@ package trust
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/ava-labs/avalanchego/database"
 	"time"
-
-	dbm "github.com/tendermint/tm-db"
 
 	"github.com/consideritdone/landslidecore/libs/service"
 	tmsync "github.com/consideritdone/landslidecore/libs/sync"
@@ -29,7 +28,7 @@ type MetricStore struct {
 	mtx tmsync.Mutex
 
 	// The db where peer trust metric history data will be stored
-	db dbm.DB
+	db database.Database
 
 	// This configuration will be used when creating new TrustMetrics
 	config MetricConfig
@@ -38,7 +37,7 @@ type MetricStore struct {
 // NewTrustMetricStore returns a store that saves data to the DB
 // and uses the config when creating new trust metrics.
 // Use Start to to initialize the trust metric store
-func NewTrustMetricStore(db dbm.DB, tmc MetricConfig) *MetricStore {
+func NewTrustMetricStore(db database.Database, tmc MetricConfig) *MetricStore {
 	tms := &MetricStore{
 		peerMetrics: make(map[string]*Metric),
 		db:          db,
@@ -199,7 +198,7 @@ func (tms *MetricStore) saveToDB() {
 		tms.Logger.Error("Failed to encode the TrustHistory", "err", err)
 		return
 	}
-	if err := tms.db.SetSync(trustMetricKey, bytes); err != nil {
+	if err := tms.db.Put(trustMetricKey, bytes); err != nil {
 		tms.Logger.Error("failed to flush data to disk", "error", err)
 	}
 }

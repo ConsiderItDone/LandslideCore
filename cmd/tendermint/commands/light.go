@@ -5,6 +5,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/ava-labs/avalanchego/database"
+	"github.com/ava-labs/avalanchego/database/leveldb"
+	"github.com/ava-labs/avalanchego/utils/logging"
+	"github.com/prometheus/client_golang/prometheus"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -12,8 +16,6 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-
-	dbm "github.com/tendermint/tm-db"
 
 	"github.com/consideritdone/landslidecore/libs/log"
 	tmmath "github.com/consideritdone/landslidecore/libs/math"
@@ -119,7 +121,9 @@ func runProxy(cmd *cobra.Command, args []string) error {
 		witnessesAddrs = strings.Split(witnessAddrsJoined, ",")
 	}
 
-	db, err := dbm.NewGoLevelDB("light-client-db", home)
+	dbName := "light-client-db"
+	dbLogger := logging.NewLogger(dbName)
+	db, err := leveldb.New(home, []byte{}, dbLogger, dbName, prometheus.NewRegistry())
 	if err != nil {
 		return fmt.Errorf("can't create a db: %w", err)
 	}
@@ -231,7 +235,7 @@ func runProxy(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func checkForExistingProviders(db dbm.DB) (string, []string, error) {
+func checkForExistingProviders(db database.Database) (string, []string, error) {
 	primaryBytes, err := db.Get(primaryKey)
 	if err != nil {
 		return "", []string{""}, err
@@ -244,12 +248,12 @@ func checkForExistingProviders(db dbm.DB) (string, []string, error) {
 	return string(primaryBytes), witnessesAddrs, nil
 }
 
-func saveProviders(db dbm.DB, primaryAddr, witnessesAddrs string) error {
-	err := db.Set(primaryKey, []byte(primaryAddr))
+func saveProviders(db database.Database, primaryAddr, witnessesAddrs string) error {
+	err := db.Put(primaryKey, []byte(primaryAddr))
 	if err != nil {
 		return fmt.Errorf("failed to save primary provider: %w", err)
 	}
-	err = db.Set(witnessesKey, []byte(witnessesAddrs))
+	err = db.Put(witnessesKey, []byte(witnessesAddrs))
 	if err != nil {
 		return fmt.Errorf("failed to save witness providers: %w", err)
 	}

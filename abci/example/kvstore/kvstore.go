@@ -5,9 +5,9 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	"github.com/ava-labs/avalanchego/database/memdb"
 
-	dbm "github.com/tendermint/tm-db"
-
+	"github.com/ava-labs/avalanchego/database"
 	"github.com/consideritdone/landslidecore/abci/example/code"
 	"github.com/consideritdone/landslidecore/abci/types"
 	"github.com/consideritdone/landslidecore/version"
@@ -21,16 +21,16 @@ var (
 )
 
 type State struct {
-	db      dbm.DB
+	db      database.Database
 	Size    int64  `json:"size"`
 	Height  int64  `json:"height"`
 	AppHash []byte `json:"app_hash"`
 }
 
-func loadState(db dbm.DB) State {
+func loadState(database database.Database) State {
 	var state State
-	state.db = db
-	stateBytes, err := db.Get(stateKey)
+	state.db = database
+	stateBytes, err := database.Get(stateKey)
 	if err != nil {
 		panic(err)
 	}
@@ -49,7 +49,7 @@ func saveState(state State) {
 	if err != nil {
 		panic(err)
 	}
-	err = state.db.Set(stateKey, stateBytes)
+	err = state.db.Put(stateKey, stateBytes)
 	if err != nil {
 		panic(err)
 	}
@@ -71,7 +71,7 @@ type Application struct {
 }
 
 func NewApplication() *Application {
-	state := loadState(dbm.NewMemDB())
+	state := loadState(memdb.New())
 	return &Application{state: state}
 }
 
@@ -95,7 +95,7 @@ func (app *Application) DeliverTx(req types.RequestDeliverTx) types.ResponseDeli
 		key, value = req.Tx, req.Tx
 	}
 
-	err := app.state.db.Set(prefixKey(key), value)
+	err := app.state.db.Put(prefixKey(key), value)
 	if err != nil {
 		panic(err)
 	}

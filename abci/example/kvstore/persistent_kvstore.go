@@ -4,10 +4,11 @@ import (
 	"bytes"
 	"encoding/base64"
 	"fmt"
+	"github.com/ava-labs/avalanchego/database/leveldb"
+	"github.com/ava-labs/avalanchego/utils/logging"
+	"github.com/prometheus/client_golang/prometheus"
 	"strconv"
 	"strings"
-
-	dbm "github.com/tendermint/tm-db"
 
 	"github.com/consideritdone/landslidecore/abci/example/code"
 	"github.com/consideritdone/landslidecore/abci/types"
@@ -37,7 +38,8 @@ type PersistentKVStoreApplication struct {
 
 func NewPersistentKVStoreApplication(dbDir string) *PersistentKVStoreApplication {
 	name := "kvstore"
-	db, err := dbm.NewGoLevelDB(name, dbDir)
+	logger := logging.NewLogger(name)
+	db, err := leveldb.New(dbDir, []byte{}, logger, name, prometheus.NewRegistry())
 	if err != nil {
 		panic(err)
 	}
@@ -174,11 +176,8 @@ func (app *PersistentKVStoreApplication) ApplySnapshotChunk(
 // update validators
 
 func (app *PersistentKVStoreApplication) Validators() (validators []types.ValidatorUpdate) {
-	itr, err := app.app.state.db.Iterator(nil, nil)
-	if err != nil {
-		panic(err)
-	}
-	for ; itr.Valid(); itr.Next() {
+	itr := app.app.state.db.NewIterator()
+	for ; itr.Error() == nil && len(itr.Key()) > 0; itr.Next() {
 		if isValidatorTx(itr.Key()) {
 			validator := new(types.ValidatorUpdate)
 			err := types.ReadMessage(bytes.NewBuffer(itr.Value()), validator)
@@ -188,7 +187,7 @@ func (app *PersistentKVStoreApplication) Validators() (validators []types.Valida
 			validators = append(validators, *validator)
 		}
 	}
-	if err = itr.Error(); err != nil {
+	if err := itr.Error(); err != nil {
 		panic(err)
 	}
 	return
@@ -273,7 +272,7 @@ func (app *PersistentKVStoreApplication) updateValidator(v types.ValidatorUpdate
 				Code: code.CodeTypeEncodingError,
 				Log:  fmt.Sprintf("Error encoding validator: %v", err)}
 		}
-		if err = app.app.state.db.Set(key, value.Bytes()); err != nil {
+		if err = app.app.state.db.Put(key, value.Bytes()); err != nil {
 			panic(err)
 		}
 		app.valAddrToPubKeyMap[string(pubkey.Address())] = v.PubKey

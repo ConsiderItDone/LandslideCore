@@ -23,7 +23,6 @@ import (
 	"github.com/ava-labs/avalanchego/version"
 	"github.com/ava-labs/avalanchego/vms/components/chain"
 	"github.com/prometheus/client_golang/prometheus"
-	dbm "github.com/tendermint/tm-db"
 
 	abciTypes "github.com/consideritdone/landslidecore/abci/types"
 	"github.com/consideritdone/landslidecore/config"
@@ -97,10 +96,10 @@ type VM struct {
 
 	tmLogger log.Logger
 
-	blockStoreDB dbm.DB
+	blockStoreDB database.Database
 	blockStore   *store.BlockStore
 
-	stateDB    dbm.DB
+	stateDB    database.Database
 	stateStore sm.Store
 	tmState    *sm.State
 
@@ -127,9 +126,9 @@ type VM struct {
 	multiGatherer metrics.MultiGatherer
 
 	txIndexer      txindex.TxIndexer
-	txIndexerDB    dbm.DB
+	txIndexerDB    database.Database
 	blockIndexer   indexer.BlockIndexer
-	blockIndexerDB dbm.DB
+	blockIndexerDB database.Database
 	indexerService *txindex.IndexerService
 
 	rpcConfig *cfg.RPCConfig
@@ -160,10 +159,10 @@ func (vm *VM) Initialize(
 
 	baseDB := dbManager.Current().Database
 
-	vm.blockStoreDB = Database{prefixdb.NewNested(blockStoreDBPrefix, baseDB)}
+	vm.blockStoreDB = prefixdb.NewNested(blockStoreDBPrefix, baseDB)
 	vm.blockStore = store.NewBlockStore(vm.blockStoreDB)
 
-	vm.stateDB = Database{prefixdb.NewNested(stateDBPrefix, baseDB)}
+	vm.stateDB = prefixdb.NewNested(stateDBPrefix, baseDB)
 	vm.stateStore = sm.NewStore(vm.stateDB)
 
 	if err := vm.initGenesis(genesisBytes); err != nil {
@@ -205,9 +204,9 @@ func (vm *VM) Initialize(
 
 	vm.rpcConfig = config.DefaultRPCConfig()
 
-	vm.txIndexerDB = Database{prefixdb.NewNested(txIndexerDBPrefix, baseDB)}
+	vm.txIndexerDB = prefixdb.NewNested(txIndexerDBPrefix, baseDB)
 	vm.txIndexer = txidxkv.NewTxIndex(vm.txIndexerDB)
-	vm.blockIndexerDB = Database{prefixdb.NewNested(blockIndexerDBPrefix, baseDB)}
+	vm.blockIndexerDB = prefixdb.NewNested(blockIndexerDBPrefix, baseDB)
 	vm.blockIndexer = blockidxkv.New(vm.blockIndexerDB)
 	vm.indexerService = txindex.NewIndexerService(vm.txIndexer, vm.blockIndexer, eventBus)
 	vm.indexerService.SetLogger(vm.tmLogger.With("module", "txindex"))

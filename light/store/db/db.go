@@ -3,10 +3,9 @@ package db
 import (
 	"encoding/binary"
 	"fmt"
+	"github.com/ava-labs/avalanchego/database"
 	"regexp"
 	"strconv"
-
-	dbm "github.com/tendermint/tm-db"
 
 	tmsync "github.com/consideritdone/landslidecore/libs/sync"
 	"github.com/consideritdone/landslidecore/light/store"
@@ -19,7 +18,7 @@ var (
 )
 
 type dbs struct {
-	db     dbm.DB
+	db     database.Database
 	prefix string
 
 	mtx  tmsync.RWMutex
@@ -28,7 +27,7 @@ type dbs struct {
 
 // New returns a Store that wraps any DB (with an optional prefix in case you
 // want to use one DB with many light clients).
-func New(db dbm.DB, prefix string) store.Store {
+func New(db database.Database, prefix string) store.Store {
 
 	size := uint16(0)
 	bz, err := db.Get(sizeKey)
