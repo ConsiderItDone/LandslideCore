@@ -5,15 +5,14 @@ package trust
 
 import (
 	"fmt"
+	"github.com/consideritdone/landslidecore/database"
 	"io/ioutil"
 	"os"
 	"testing"
 
+	"github.com/consideritdone/landslidecore/libs/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	dbm "github.com/tendermint/tm-db"
-
-	"github.com/consideritdone/landslidecore/libs/log"
 )
 
 func TestTrustMetricStoreSaveLoad(t *testing.T) {
@@ -21,7 +20,7 @@ func TestTrustMetricStoreSaveLoad(t *testing.T) {
 	require.NoError(t, err)
 	defer os.Remove(dir)
 
-	historyDB, err := dbm.NewDB("trusthistory", "goleveldb", dir)
+	historyDB, err := database.NewDB("trusthistory", "goleveldb", dir)
 	require.NoError(t, err)
 
 	// 0 peers saved
@@ -84,7 +83,7 @@ func TestTrustMetricStoreSaveLoad(t *testing.T) {
 }
 
 func TestTrustMetricStoreConfig(t *testing.T) {
-	historyDB, err := dbm.NewDB("", "memdb", "")
+	historyDB, err := database.NewDB("", "memdb", "")
 	require.NoError(t, err)
 
 	config := MetricConfig{
@@ -109,7 +108,7 @@ func TestTrustMetricStoreConfig(t *testing.T) {
 }
 
 func TestTrustMetricStoreLookup(t *testing.T) {
-	historyDB, err := dbm.NewDB("", "memdb", "")
+	historyDB, err := database.NewDB("", "memdb", "")
 	require.NoError(t, err)
 
 	store := NewTrustMetricStore(historyDB, DefaultConfig())
@@ -132,7 +131,7 @@ func TestTrustMetricStoreLookup(t *testing.T) {
 }
 
 func TestTrustMetricStorePeerScore(t *testing.T) {
-	historyDB, err := dbm.NewDB("", "memdb", "")
+	historyDB, err := database.NewDB("", "memdb", "")
 	require.NoError(t, err)
 
 	store := NewTrustMetricStore(historyDB, DefaultConfig())

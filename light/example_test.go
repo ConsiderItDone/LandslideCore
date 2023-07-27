@@ -3,13 +3,14 @@ package light_test
 import (
 	"context"
 	"fmt"
+	"github.com/ava-labs/avalanchego/database/leveldb"
+	"github.com/ava-labs/avalanchego/utils/logging"
+	"github.com/prometheus/client_golang/prometheus"
 	"io/ioutil"
 	stdlog "log"
 	"os"
 	"testing"
 	"time"
-
-	dbm "github.com/tendermint/tm-db"
 
 	"github.com/consideritdone/landslidecore/abci/example/kvstore"
 	"github.com/consideritdone/landslidecore/libs/log"
@@ -46,7 +47,9 @@ func ExampleClient_Update() {
 		stdlog.Fatal(err)
 	}
 
-	db, err := dbm.NewGoLevelDB("light-client-db", dbDir)
+	name := "light-client-db"
+	logger := logging.NewLogger(name)
+	db, err := leveldb.New(dbDir, []byte{}, logger, name, prometheus.NewRegistry())
 	if err != nil {
 		stdlog.Fatal(err)
 	}
@@ -114,7 +117,9 @@ func ExampleClient_VerifyLightBlockAtHeight() {
 		stdlog.Fatal(err)
 	}
 
-	db, err := dbm.NewGoLevelDB("light-client-db", dbDir)
+	name := "light-client-db"
+	logger := logging.NewLogger(name)
+	db, err := leveldb.New(dbDir, []byte{}, logger, name, prometheus.NewRegistry())
 	if err != nil {
 		stdlog.Fatal(err)
 	}

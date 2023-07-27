@@ -15,8 +15,6 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	dbm "github.com/tendermint/tm-db"
-
 	abcicli "github.com/consideritdone/landslidecore/abci/client"
 	"github.com/consideritdone/landslidecore/abci/example/kvstore"
 	abci "github.com/consideritdone/landslidecore/abci/types"
@@ -135,7 +133,7 @@ func TestReactorWithEvidence(t *testing.T) {
 	css := make([]*State, nValidators)
 	logger := consensusLogger()
 	for i := 0; i < nValidators; i++ {
-		stateDB := dbm.NewMemDB() // each state needs its own db
+		stateDB := memdb.New() // each state needs its own db
 		stateStore := sm.NewStore(stateDB)
 		state, _ := stateStore.LoadFromDBOrGenesisDoc(genDoc)
 		thisConfig := ResetConfig(fmt.Sprintf("%s_%d", testName, i))
@@ -149,7 +147,7 @@ func TestReactorWithEvidence(t *testing.T) {
 		// duplicate code from:
 		// css[i] = newStateWithConfig(thisConfig, state, privVals[i], app)
 
-		blockDB := dbm.NewMemDB()
+		blockDB := memdb.New()
 		blockStore := store.NewBlockStore(blockDB)
 
 		// one for mempool, one for consensus

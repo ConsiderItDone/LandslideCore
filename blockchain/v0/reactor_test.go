@@ -2,6 +2,7 @@ package v0
 
 import (
 	"fmt"
+	"github.com/ava-labs/avalanchego/database/memdb"
 	"os"
 	"sort"
 	"testing"
@@ -9,8 +10,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	dbm "github.com/tendermint/tm-db"
 
 	abci "github.com/consideritdone/landslidecore/abci/types"
 	cfg "github.com/consideritdone/landslidecore/config"
@@ -68,8 +67,8 @@ func newBlockchainReactor(
 		panic(fmt.Errorf("error start app: %w", err))
 	}
 
-	blockDB := dbm.NewMemDB()
-	stateDB := dbm.NewMemDB()
+	blockDB := memdb.New()
+	stateDB := memdb.New()
 	stateStore := sm.NewStore(stateDB)
 	blockStore := store.NewBlockStore(blockDB)
 
@@ -82,7 +81,7 @@ func newBlockchainReactor(
 	// NOTE we have to create and commit the blocks first because
 	// pool.height is determined from the store.
 	fastSync := true
-	db := dbm.NewMemDB()
+	db := memdb.New()
 	stateStore = sm.NewStore(db)
 	blockExec := sm.NewBlockExecutor(stateStore, log.TestingLogger(), proxyApp.Consensus(),
 		mock.Mempool{}, sm.EmptyEvidencePool{})

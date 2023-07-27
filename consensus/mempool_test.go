@@ -10,8 +10,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	dbm "github.com/tendermint/tm-db"
-
 	"github.com/consideritdone/landslidecore/abci/example/code"
 	abci "github.com/consideritdone/landslidecore/abci/types"
 	mempl "github.com/consideritdone/landslidecore/mempool"
@@ -112,7 +110,7 @@ func deliverTxsRange(cs *State, start, end int) {
 
 func TestMempoolTxConcurrentWithCommit(t *testing.T) {
 	state, privVals := randGenesisState(1, false, 10)
-	blockDB := dbm.NewMemDB()
+	blockDB := memdb.New()
 	stateStore := sm.NewStore(blockDB)
 	cs := newStateWithConfigAndBlockStore(config, state, privVals[0], NewCounterApplication(), blockDB)
 	err := stateStore.Save(state)
@@ -137,7 +135,7 @@ func TestMempoolTxConcurrentWithCommit(t *testing.T) {
 func TestMempoolRmBadTx(t *testing.T) {
 	state, privVals := randGenesisState(1, false, 10)
 	app := NewCounterApplication()
-	blockDB := dbm.NewMemDB()
+	blockDB := memdb.New()
 	stateStore := sm.NewStore(blockDB)
 	cs := newStateWithConfigAndBlockStore(config, state, privVals[0], app, blockDB)
 	err := stateStore.Save(state)

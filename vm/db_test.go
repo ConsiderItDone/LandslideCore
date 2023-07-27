@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/ava-labs/avalanchego/database"
 	"github.com/ava-labs/avalanchego/database/prefixdb"
-	dbm "github.com/tendermint/tm-db"
 	"math/rand"
 	"sync"
 	"testing"
@@ -26,7 +25,7 @@ func TestMemDB(t *testing.T) {
 // Run generates concurrent reads and writes to db so the race detector can
 // verify concurrent operations are properly synchronized.
 // The contents of db are garbage after Run returns.
-func Run(t *testing.T, db dbm.DB) {
+func Run(t *testing.T, db database.Database) {
 	t.Helper()
 
 	const numWorkers = 10
