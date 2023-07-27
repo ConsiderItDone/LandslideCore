@@ -2,15 +2,17 @@ package commands
 
 import (
 	"fmt"
+	"github.com/ava-labs/avalanchego/database"
 
 	"github.com/spf13/cobra"
 
-	dbm "github.com/tendermint/tm-db"
-
 	cfg "github.com/consideritdone/landslidecore/config"
+	landslidedb "github.com/consideritdone/landslidecore/database"
 	"github.com/consideritdone/landslidecore/state"
 	"github.com/consideritdone/landslidecore/store"
 )
+
+type dbCreator func(name string, dir string) (database.Database, error)
 
 var RollbackStateCmd = &cobra.Command{
 	Use:   "rollback",
@@ -53,20 +55,21 @@ func RollbackState(config *cfg.Config) (int64, []byte, error) {
 }
 
 func loadStateAndBlockStore(config *cfg.Config) (*store.BlockStore, state.Store, error) {
-	dbType := dbm.BackendType(config.DBBackend)
-
-	// Get BlockStore
-	blockStoreDB, err := dbm.NewDB("blockstore", dbType, config.DBDir())
+	blockStoreDBName := "blockstore"
+	blockStoreDB, err := landslidedb.NewDB(blockStoreDBName, config.DBBackend, config.DBDir())
 	if err != nil {
 		return nil, nil, err
 	}
+	stateDBName := "state"
+	stateDB, err := landslidedb.NewDB(stateDBName, config.DBBackend, config.DBDir())
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Get BlockStore
 	blockStore := store.NewBlockStore(blockStoreDB)
 
 	// Get StateStore
-	stateDB, err := dbm.NewDB("state", dbType, config.DBDir())
-	if err != nil {
-		return nil, nil, err
-	}
 	stateStore := state.NewStore(stateDB)
 
 	return blockStore, stateStore, nil

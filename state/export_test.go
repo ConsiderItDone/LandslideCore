@@ -1,8 +1,7 @@
 package state
 
 import (
-	dbm "github.com/tendermint/tm-db"
-
+	"github.com/ava-labs/avalanchego/database"
 	abci "github.com/consideritdone/landslidecore/abci/types"
 	tmstate "github.com/consideritdone/landslidecore/proto/tendermint/state"
 	tmproto "github.com/consideritdone/landslidecore/proto/tendermint/types"
@@ -42,7 +41,7 @@ func ValidateValidatorUpdates(abciUpdates []abci.ValidatorUpdate, params tmproto
 
 // SaveValidatorsInfo is an alias for the private saveValidatorsInfo method in
 // store.go, exported exclusively and explicitly for testing.
-func SaveValidatorsInfo(db dbm.DB, height, lastHeightChanged int64, valSet *types.ValidatorSet) error {
+func SaveValidatorsInfo(db database.Database, height, lastHeightChanged int64, valSet *types.ValidatorSet) error {
 	stateStore := dbStore{db}
 	return stateStore.saveValidatorsInfo(height, lastHeightChanged, valSet)
 }

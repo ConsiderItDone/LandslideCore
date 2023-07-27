@@ -4,9 +4,6 @@ import (
 	"crypto/rand"
 	"testing"
 
-	"github.com/stretchr/testify/require"
-	dbm "github.com/tendermint/tm-db"
-
 	"github.com/consideritdone/landslidecore/crypto"
 	"github.com/consideritdone/landslidecore/crypto/tmhash"
 	tmstate "github.com/consideritdone/landslidecore/proto/tendermint/state"
@@ -15,6 +12,7 @@ import (
 	"github.com/consideritdone/landslidecore/state/mocks"
 	"github.com/consideritdone/landslidecore/types"
 	"github.com/consideritdone/landslidecore/version"
+	"github.com/stretchr/testify/require"
 )
 
 func TestRollback(t *testing.T) {
@@ -82,7 +80,7 @@ func TestRollback(t *testing.T) {
 }
 
 func TestRollbackNoState(t *testing.T) {
-	stateStore := state.NewStore(dbm.NewMemDB())
+	stateStore := state.NewStore(memdb.New())
 	blockStore := &mocks.BlockStore{}
 
 	_, _, err := state.Rollback(blockStore, stateStore)
@@ -115,7 +113,7 @@ func TestRollbackDifferentStateHeight(t *testing.T) {
 }
 
 func setupStateStore(t *testing.T, height int64) state.Store {
-	stateStore := state.NewStore(dbm.NewMemDB())
+	stateStore := state.NewStore(memdb.New())
 	valSet, _ := types.RandValidatorSet(5, 10)
 
 	params := types.DefaultConsensusParams()

@@ -3,9 +3,8 @@ package state_test
 import (
 	"bytes"
 	"fmt"
+	"github.com/ava-labs/avalanchego/database"
 	"time"
-
-	dbm "github.com/tendermint/tm-db"
 
 	abci "github.com/consideritdone/landslidecore/abci/types"
 	"github.com/consideritdone/landslidecore/crypto"
@@ -93,7 +92,7 @@ func makeTxs(height int64) (txs []types.Tx) {
 	return txs
 }
 
-func makeState(nVals, height int) (sm.State, dbm.DB, map[string]types.PrivValidator) {
+func makeState(nVals, height int) (sm.State, database.Database, map[string]types.PrivValidator) {
 	vals := make([]types.GenesisValidator, nVals)
 	privVals := make(map[string]types.PrivValidator, nVals)
 	for i := 0; i < nVals; i++ {
@@ -114,7 +113,7 @@ func makeState(nVals, height int) (sm.State, dbm.DB, map[string]types.PrivValida
 		AppHash:    nil,
 	})
 
-	stateDB := dbm.NewMemDB()
+	stateDB := memdb.New()
 	stateStore := sm.NewStore(stateDB)
 	if err := stateStore.Save(s); err != nil {
 		panic(err)

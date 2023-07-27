@@ -5,6 +5,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/ava-labs/avalanchego/database"
+	"github.com/ava-labs/avalanchego/database/prefixdb"
+	landslidedb "github.com/consideritdone/landslidecore/database"
 	"net"
 	"net/http"
 	_ "net/http/pprof" // nolint: gosec // securely exposed on separate, optional port
@@ -15,8 +18,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/cors"
-
-	dbm "github.com/tendermint/tm-db"
 
 	abci "github.com/consideritdone/landslidecore/abci/types"
 	bcv0 "github.com/consideritdone/landslidecore/blockchain/v0"
@@ -93,13 +94,12 @@ type DBContext struct {
 }
 
 // DBProvider takes a DBContext and returns an instantiated DB.
-type DBProvider func(*DBContext) (dbm.DB, error)
+type DBProvider func(*DBContext) (database.Database, error)
 
 // DefaultDBProvider returns a database using the DBBackend and DBDir
 // specified in the ctx.Config.
-func DefaultDBProvider(ctx *DBContext) (dbm.DB, error) {
-	dbType := dbm.BackendType(ctx.Config.DBBackend)
-	return dbm.NewDB(ctx.ID, dbType, ctx.Config.DBDir())
+func DefaultDBProvider(ctx *DBContext) (database.Database, error) {
+	return landslidedb.NewDB(ctx.ID, ctx.Config.DBBackend, ctx.Config.DBDir())
 }
 
 // GenesisDocProvider returns a GenesisDoc.
@@ -256,8 +256,8 @@ type Node struct {
 	prometheusSrv     *http.Server
 }
 
-func initDBs(config *cfg.Config, dbProvider DBProvider) (blockStore *store.BlockStore, stateDB dbm.DB, err error) {
-	var blockStoreDB dbm.DB
+func initDBs(config *cfg.Config, dbProvider DBProvider) (blockStore *store.BlockStore, stateDB database.Database, err error) {
+	var blockStoreDB database.Database
 	blockStoreDB, err = dbProvider(&DBContext{"blockstore", config})
 	if err != nil {
 		return
@@ -310,7 +310,7 @@ func createAndStartIndexerService(
 		}
 
 		txIndexer = kv.NewTxIndex(store)
-		blockIndexer = blockidxkv.New(dbm.NewPrefixDB(store, []byte("block_events")))
+		blockIndexer = blockidxkv.New(prefixdb.New(store, []byte("block_events")))
 	default:
 		txIndexer = &null.TxIndex{}
 		blockIndexer = &blockidxnull.BlockerIndexer{}
@@ -400,7 +400,7 @@ func createMempoolAndMempoolReactor(config *cfg.Config, proxyApp proxy.AppConns,
 }
 
 func createEvidenceReactor(config *cfg.Config, dbProvider DBProvider,
-	stateDB dbm.DB, blockStore *store.BlockStore, logger log.Logger) (*evidence.Reactor, *evidence.Pool, error) {
+	stateDB database.Database, blockStore *store.BlockStore, logger log.Logger) (*evidence.Reactor, *evidence.Pool, error) {
 
 	evidenceDB, err := dbProvider(&DBContext{"evidence", config})
 	if err != nil {
@@ -1361,7 +1361,7 @@ var (
 // result to the database. On success this also returns the genesis doc loaded
 // through the given provider.
 func LoadStateFromDBOrGenesisDocProvider(
-	stateDB dbm.DB,
+	stateDB database.Database,
 	genesisDocProvider GenesisDocProvider,
 ) (sm.State, *types.GenesisDoc, error) {
 	// Get genesis doc
@@ -1384,7 +1384,7 @@ func LoadStateFromDBOrGenesisDocProvider(
 }
 
 // panics if failed to unmarshal bytes
-func loadGenesisDoc(db dbm.DB) (*types.GenesisDoc, error) {
+func loadGenesisDoc(db database.Database) (*types.GenesisDoc, error) {
 	b, err := db.Get(genesisDocKey)
 	if err != nil {
 		panic(err)
@@ -1401,7 +1401,7 @@ func loadGenesisDoc(db dbm.DB) (*types.GenesisDoc, error) {
 }
 
 // panics if failed to marshal the given genesis document
-func saveGenesisDoc(db dbm.DB, genDoc *types.GenesisDoc) {
+func saveGenesisDoc(db database.Database, genDoc *types.GenesisDoc) {
 	b, err := tmjson.Marshal(genDoc)
 	if err != nil {
 		panic(fmt.Sprintf("Failed to save genesis doc due to marshaling error: %v", err))

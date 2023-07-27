@@ -1,13 +1,12 @@
 package state_test
 
 import (
+	"github.com/consideritdone/landslidecore/database"
 	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	dbm "github.com/tendermint/tm-db"
 
 	tmrand "github.com/consideritdone/landslidecore/libs/rand"
 	sm "github.com/consideritdone/landslidecore/state"
@@ -31,7 +30,7 @@ func TestTxFilter(t *testing.T) {
 	}
 
 	for i, tc := range testCases {
-		stateDB, err := dbm.NewDB("state", "memdb", os.TempDir())
+		stateDB, err := database.NewDB("state", "memdb", os.TempDir())
 		require.NoError(t, err)
 		stateStore := sm.NewStore(stateDB)
 		state, err := stateStore.LoadFromDBOrGenesisDoc(genDoc)

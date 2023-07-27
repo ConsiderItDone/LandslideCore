@@ -4,10 +4,11 @@ import (
 	"context"
 	"crypto/rand"
 	"fmt"
+	"github.com/ava-labs/avalanchego/database/leveldb"
+	"github.com/ava-labs/avalanchego/utils/logging"
+	"github.com/prometheus/client_golang/prometheus"
 	"io/ioutil"
 	"testing"
-
-	dbm "github.com/tendermint/tm-db"
 
 	abci "github.com/consideritdone/landslidecore/abci/types"
 	"github.com/consideritdone/landslidecore/libs/pubsub/query"
@@ -20,7 +21,10 @@ func BenchmarkTxSearch(b *testing.B) {
 		b.Errorf("failed to create temporary directory: %s", err)
 	}
 
-	db, err := dbm.NewGoLevelDB("benchmark_tx_search_test", dbDir)
+	name := "benchmark_tx_search_test"
+	logger := logging.NewLogger(name)
+	db, err := leveldb.New(dbDir, []byte{}, logger, name, prometheus.NewRegistry())
+
 	if err != nil {
 		b.Errorf("failed to create database: %s", err)
 	}

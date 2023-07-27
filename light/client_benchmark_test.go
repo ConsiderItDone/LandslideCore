@@ -5,8 +5,6 @@ import (
 	"testing"
 	"time"
 
-	dbm "github.com/tendermint/tm-db"
-
 	"github.com/consideritdone/landslidecore/libs/log"
 	"github.com/consideritdone/landslidecore/light"
 	"github.com/consideritdone/landslidecore/light/provider"
@@ -37,7 +35,7 @@ func BenchmarkSequence(b *testing.B) {
 		},
 		benchmarkFullNode,
 		[]provider.Provider{benchmarkFullNode},
-		dbs.New(dbm.NewMemDB(), chainID),
+		dbs.New(memdb.New(), chainID),
 		light.Logger(log.TestingLogger()),
 		light.SequentialVerification(),
 	)
@@ -65,7 +63,7 @@ func BenchmarkBisection(b *testing.B) {
 		},
 		benchmarkFullNode,
 		[]provider.Provider{benchmarkFullNode},
-		dbs.New(dbm.NewMemDB(), chainID),
+		dbs.New(memdb.New(), chainID),
 		light.Logger(log.TestingLogger()),
 	)
 	if err != nil {
@@ -93,7 +91,7 @@ func BenchmarkBackwards(b *testing.B) {
 		},
 		benchmarkFullNode,
 		[]provider.Provider{benchmarkFullNode},
-		dbs.New(dbm.NewMemDB(), chainID),
+		dbs.New(memdb.New(), chainID),
 		light.Logger(log.TestingLogger()),
 	)
 	if err != nil {

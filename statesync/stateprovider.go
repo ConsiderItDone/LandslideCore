@@ -3,10 +3,9 @@ package statesync
 import (
 	"context"
 	"fmt"
+	"github.com/ava-labs/avalanchego/database/memdb"
 	"strings"
 	"time"
-
-	dbm "github.com/tendermint/tm-db"
 
 	"github.com/consideritdone/landslidecore/libs/log"
 	tmsync "github.com/consideritdone/landslidecore/libs/sync"
@@ -73,7 +72,7 @@ func NewLightClientStateProvider(
 	}
 
 	lc, err := light.NewClient(ctx, chainID, trustOptions, providers[0], providers[1:],
-		lightdb.New(dbm.NewMemDB(), ""), light.Logger(logger), light.MaxRetryAttempts(5))
+		lightdb.New(memdb.New(), ""), light.Logger(logger), light.MaxRetryAttempts(5))
 	if err != nil {
 		return nil, err
 	}

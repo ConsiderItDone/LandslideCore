@@ -5,11 +5,11 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"github.com/ava-labs/avalanchego/database"
 	"strconv"
 	"strings"
 
 	"github.com/gogo/protobuf/proto"
-	dbm "github.com/tendermint/tm-db"
 
 	abci "github.com/consideritdone/landslidecore/abci/types"
 	"github.com/consideritdone/landslidecore/libs/pubsub/query"
@@ -26,11 +26,11 @@ var _ txindex.TxIndexer = (*TxIndex)(nil)
 
 // TxIndex is the simplest possible indexer, backed by key-value storage (levelDB).
 type TxIndex struct {
-	store dbm.DB
+	store database.Database
 }
 
 // NewTxIndex creates new KV indexer.
-func NewTxIndex(store dbm.DB) *TxIndex {
+func NewTxIndex(store database.Database) *TxIndex {
 	return &TxIndex{
 		store: store,
 	}
@@ -66,7 +66,7 @@ func (txi *TxIndex) Get(hash []byte) (*abci.TxResult, error) {
 // Any event with an empty type is not indexed.
 func (txi *TxIndex) AddBatch(b *txindex.Batch) error {
 	storeBatch := txi.store.NewBatch()
-	defer storeBatch.Close()
+	defer storeBatch.Reset()
 
 	for _, result := range b.Ops {
 		hash := types.Tx(result.Tx).Hash()
@@ -78,7 +78,7 @@ func (txi *TxIndex) AddBatch(b *txindex.Batch) error {
 		}
 
 		// index by height (always)
-		err = storeBatch.Set(keyForHeight(result), hash)
+		err = storeBatch.Put(keyForHeight(result), hash)
 		if err != nil {
 			return err
 		}
@@ -88,13 +88,13 @@ func (txi *TxIndex) AddBatch(b *txindex.Batch) error {
 			return err
 		}
 		// index by hash (always)
-		err = storeBatch.Set(hash, rawBytes)
+		err = storeBatch.Put(hash, rawBytes)
 		if err != nil {
 			return err
 		}
 	}
 
-	return storeBatch.WriteSync()
+	return storeBatch.Write()
 }
 
 // Index indexes a single transaction using the given list of events. Each key
@@ -103,7 +103,7 @@ func (txi *TxIndex) AddBatch(b *txindex.Batch) error {
 // Any event with an empty type is not indexed.
 func (txi *TxIndex) Index(result *abci.TxResult) error {
 	b := txi.store.NewBatch()
-	defer b.Close()
+	defer b.Reset()
 
 	hash := types.Tx(result.Tx).Hash()
 
@@ -114,7 +114,7 @@ func (txi *TxIndex) Index(result *abci.TxResult) error {
 	}
 
 	// index by height (always)
-	err = b.Set(keyForHeight(result), hash)
+	err = b.Put(keyForHeight(result), hash)
 	if err != nil {
 		return err
 	}
@@ -124,15 +124,15 @@ func (txi *TxIndex) Index(result *abci.TxResult) error {
 		return err
 	}
 	// index by hash (always)
-	err = b.Set(hash, rawBytes)
+	err = b.Put(hash, rawBytes)
 	if err != nil {
 		return err
 	}
 
-	return b.WriteSync()
+	return b.Write()
 }
 
-func (txi *TxIndex) indexEvents(result *abci.TxResult, hash []byte, store dbm.Batch) error {
+func (txi *TxIndex) indexEvents(result *abci.TxResult, hash []byte, store database.Batch) error {
 	for _, event := range result.Result.Events {
 		// only index events with a non-empty type
 		if len(event.Type) == 0 {
@@ -147,7 +147,7 @@ func (txi *TxIndex) indexEvents(result *abci.TxResult, hash []byte, store dbm.Ba
 			// index if `index: true` is set
 			compositeTag := fmt.Sprintf("%s.%s", event.Type, string(attr.Key))
 			if attr.GetIndex() {
-				err := store.Set(keyForEvent(compositeTag, attr.Value, result), hash)
+				err := store.Put(keyForEvent(compositeTag, attr.Value, result), hash)
 				if err != nil {
 					return err
 				}
@@ -312,13 +312,10 @@ func (txi *TxIndex) match(
 
 	switch {
 	case c.Op == query.OpEqual:
-		it, err := dbm.IteratePrefix(txi.store, startKeyBz)
-		if err != nil {
-			panic(err)
-		}
-		defer it.Close()
+		it := txi.store.NewIteratorWithPrefix(startKey(startKeyBz))
+		defer it.Release()
 
-		for ; it.Valid(); it.Next() {
+		for ; it.Error() == nil && len(it.Key()) > 0; it.Next() {
 			tmpHashes[string(it.Value())] = it.Value()
 
 			// Potentially exit early.
@@ -335,13 +332,10 @@ func (txi *TxIndex) match(
 	case c.Op == query.OpExists:
 		// XXX: can't use startKeyBz here because c.Operand is nil
 		// (e.g. "account.owner/<nil>/" won't match w/ a single row)
-		it, err := dbm.IteratePrefix(txi.store, startKey(c.CompositeKey))
-		if err != nil {
-			panic(err)
-		}
-		defer it.Close()
+		it := txi.store.NewIteratorWithPrefix(startKey(c.CompositeKey))
+		defer it.Release()
 
-		for ; it.Valid(); it.Next() {
+		for ; it.Error() == nil && len(it.Key()) > 0; it.Next() {
 			tmpHashes[string(it.Value())] = it.Value()
 
 			// Potentially exit early.
@@ -359,13 +353,10 @@ func (txi *TxIndex) match(
 		// XXX: startKey does not apply here.
 		// For example, if startKey = "account.owner/an/" and search query = "account.owner CONTAINS an"
 		// we can't iterate with prefix "account.owner/an/" because we might miss keys like "account.owner/Ulan/"
-		it, err := dbm.IteratePrefix(txi.store, startKey(c.CompositeKey))
-		if err != nil {
-			panic(err)
-		}
-		defer it.Close()
+		it := txi.store.NewIteratorWithPrefix(startKey(c.CompositeKey))
+		defer it.Release()
 
-		for ; it.Valid(); it.Next() {
+		for ; it.Error() == nil && len(it.Key()) > 0; it.Next() {
 			if !isTagKey(it.Key()) {
 				continue
 			}
@@ -439,14 +430,11 @@ func (txi *TxIndex) matchRange(
 	lowerBound := qr.LowerBoundValue()
 	upperBound := qr.UpperBoundValue()
 
-	it, err := dbm.IteratePrefix(txi.store, startKey)
-	if err != nil {
-		panic(err)
-	}
-	defer it.Close()
+	it := txi.store.NewIteratorWithPrefix(startKey)
+	defer it.Release()
 
 LOOP:
-	for ; it.Valid(); it.Next() {
+	for ; it.Error() == nil && len(it.Key()) > 0; it.Next() {
 		if !isTagKey(it.Key()) {
 			continue
 		}

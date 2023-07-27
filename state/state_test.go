@@ -3,6 +3,8 @@ package state_test
 import (
 	"bytes"
 	"fmt"
+	"github.com/ava-labs/avalanchego/database"
+	landslidedb "github.com/consideritdone/landslidecore/database"
 	"math"
 	"math/big"
 	"os"
@@ -10,8 +12,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	dbm "github.com/tendermint/tm-db"
 
 	abci "github.com/consideritdone/landslidecore/abci/types"
 	cfg "github.com/consideritdone/landslidecore/config"
@@ -25,10 +25,9 @@ import (
 )
 
 // setupTestCase does setup common to all test cases.
-func setupTestCase(t *testing.T) (func(t *testing.T), dbm.DB, sm.State) {
+func setupTestCase(t *testing.T) (func(t *testing.T), database.Database, sm.State) {
 	config := cfg.ResetTestRoot("state_")
-	dbType := dbm.BackendType(config.DBBackend)
-	stateDB, err := dbm.NewDB("state", dbType, config.DBDir())
+	stateDB, err := landslidedb.NewDB("state", config.DBBackend, config.DBDir())
 	stateStore := sm.NewStore(stateDB)
 	require.NoError(t, err)
 	state, err := stateStore.LoadFromDBOrGenesisFile(config.GenesisFile())

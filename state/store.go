@@ -3,9 +3,7 @@ package state
 import (
 	"errors"
 	"fmt"
-
-	"github.com/gogo/protobuf/proto"
-	dbm "github.com/tendermint/tm-db"
+	"github.com/ava-labs/avalanchego/database"
 
 	abci "github.com/consideritdone/landslidecore/abci/types"
 	tmmath "github.com/consideritdone/landslidecore/libs/math"
@@ -13,6 +11,7 @@ import (
 	tmstate "github.com/consideritdone/landslidecore/proto/tendermint/state"
 	tmproto "github.com/consideritdone/landslidecore/proto/tendermint/types"
 	"github.com/consideritdone/landslidecore/types"
+	"github.com/gogo/protobuf/proto"
 )
 
 const (
@@ -74,13 +73,13 @@ type Store interface {
 
 // dbStore wraps a db (github.com/tendermint/tm-db)
 type dbStore struct {
-	db dbm.DB
+	db database.Database
 }
 
 var _ Store = (*dbStore)(nil)
 
 // NewStore creates the dbStore of the state pkg.
-func NewStore(db dbm.DB) Store {
+func NewStore(db database.Database) Store {
 	return dbStore{db}
 }
 
@@ -179,7 +178,7 @@ func (store dbStore) save(state State, key []byte) error {
 		state.LastHeightConsensusParamsChanged, state.ConsensusParams); err != nil {
 		return err
 	}
-	err := store.db.SetSync(key, state.Bytes())
+	err := store.db.Put(key, state.Bytes())
 	if err != nil {
 		return err
 	}
@@ -212,7 +211,7 @@ func (store dbStore) Bootstrap(state State) error {
 		return err
 	}
 
-	return store.db.SetSync(stateKey, state.Bytes())
+	return store.db.Put(stateKey, state.Bytes())
 }
 
 // PruneStates deletes states between the given heights (including from, excluding to). It is not
@@ -250,7 +249,7 @@ func (store dbStore) PruneStates(from int64, to int64) error {
 	}
 
 	batch := store.db.NewBatch()
-	defer batch.Close()
+	defer batch.Reset()
 	pruned := uint64(0)
 
 	// We have to delete in reverse order, to avoid deleting previous heights that have validator
@@ -279,7 +278,7 @@ func (store dbStore) PruneStates(from int64, to int64) error {
 				if err != nil {
 					return err
 				}
-				err = batch.Set(calcValidatorsKey(h), bz)
+				err = batch.Put(calcValidatorsKey(h), bz)
 				if err != nil {
 					return err
 				}
@@ -309,7 +308,7 @@ func (store dbStore) PruneStates(from int64, to int64) error {
 					return err
 				}
 
-				err = batch.Set(calcConsensusParamsKey(h), bz)
+				err = batch.Put(calcConsensusParamsKey(h), bz)
 				if err != nil {
 					return err
 				}
@@ -333,13 +332,13 @@ func (store dbStore) PruneStates(from int64, to int64) error {
 			if err != nil {
 				return err
 			}
-			batch.Close()
+			batch.Reset()
 			batch = store.db.NewBatch()
-			defer batch.Close()
+			defer batch.Reset()
 		}
 	}
 
-	err = batch.WriteSync()
+	err = batch.Write()
 	if err != nil {
 		return err
 	}
@@ -406,7 +405,7 @@ func (store dbStore) SaveABCIResponses(height int64, abciResponses *tmstate.ABCI
 		return err
 	}
 
-	err = store.db.SetSync(calcABCIResponsesKey(height), bz)
+	err = store.db.Put(calcABCIResponsesKey(height), bz)
 	if err != nil {
 		return err
 	}
@@ -464,7 +463,7 @@ func lastStoredHeightFor(height, lastHeightChanged int64) int64 {
 }
 
 // CONTRACT: Returned ValidatorsInfo can be mutated.
-func loadValidatorsInfo(db dbm.DB, height int64) (*tmstate.ValidatorsInfo, error) {
+func loadValidatorsInfo(db database.Database, height int64) (*tmstate.ValidatorsInfo, error) {
 	buf, err := db.Get(calcValidatorsKey(height))
 	if err != nil {
 		return nil, err
@@ -513,7 +512,7 @@ func (store dbStore) saveValidatorsInfo(height, lastHeightChanged int64, valSet 
 		return err
 	}
 
-	err = store.db.Set(calcValidatorsKey(height), bz)
+	err = store.db.Put(calcValidatorsKey(height), bz)
 	if err != nil {
 		return err
 	}
@@ -588,7 +587,7 @@ func (store dbStore) saveConsensusParamsInfo(nextHeight, changeHeight int64, par
 		return err
 	}
 
-	err = store.db.Set(calcConsensusParamsKey(nextHeight), bz)
+	err = store.db.Put(calcConsensusParamsKey(nextHeight), bz)
 	if err != nil {
 		return err
 	}

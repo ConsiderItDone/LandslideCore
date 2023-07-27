@@ -4,19 +4,18 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"github.com/ava-labs/avalanchego/database"
 	"sync"
 	"sync/atomic"
 	"time"
-
-	"github.com/gogo/protobuf/proto"
-	gogotypes "github.com/gogo/protobuf/types"
-	dbm "github.com/tendermint/tm-db"
 
 	clist "github.com/consideritdone/landslidecore/libs/clist"
 	"github.com/consideritdone/landslidecore/libs/log"
 	tmproto "github.com/consideritdone/landslidecore/proto/tendermint/types"
 	sm "github.com/consideritdone/landslidecore/state"
 	"github.com/consideritdone/landslidecore/types"
+	"github.com/gogo/protobuf/proto"
+	gogotypes "github.com/gogo/protobuf/types"
 )
 
 const (
@@ -28,7 +27,7 @@ const (
 type Pool struct {
 	logger log.Logger
 
-	evidenceStore dbm.DB
+	evidenceStore database.Database
 	evidenceList  *clist.CList // concurrent linked-list of evidence
 	evidenceSize  uint32       // amount of pending evidence
 
@@ -51,7 +50,7 @@ type Pool struct {
 
 // NewPool creates an evidence pool. If using an existing evidence store,
 // it will add all pending evidence to the concurrent list.
-func NewPool(evidenceDB dbm.DB, stateDB sm.Store, blockStore BlockStore) (*Pool, error) {
+func NewPool(evidenceDB database.Database, stateDB sm.Store, blockStore BlockStore) (*Pool, error) {
 
 	state, err := stateDB.Load()
 	if err != nil {
@@ -305,7 +304,7 @@ func (evpool *Pool) addPendingEvidence(ev types.Evidence) error {
 
 	key := keyPending(ev)
 
-	err = evpool.evidenceStore.Set(key, evBytes)
+	err = evpool.evidenceStore.Put(key, evBytes)
 	if err != nil {
 		return fmt.Errorf("can't persist evidence: %w", err)
 	}
@@ -344,7 +343,7 @@ func (evpool *Pool) markEvidenceAsCommitted(evidence types.EvidenceList) {
 			continue
 		}
 
-		if err := evpool.evidenceStore.Set(key, evBytes); err != nil {
+		if err := evpool.evidenceStore.Put(key, evBytes); err != nil {
 			evpool.logger.Error("Unable to save committed evidence", "err", err, "key(height/hash)", key)
 		}
 	}
@@ -365,12 +364,9 @@ func (evpool *Pool) listEvidence(prefixKey byte, maxBytes int64) ([]types.Eviden
 		evList    tmproto.EvidenceList // used for calculating the bytes size
 	)
 
-	iter, err := dbm.IteratePrefix(evpool.evidenceStore, []byte{prefixKey})
-	if err != nil {
-		return nil, totalSize, fmt.Errorf("database error: %v", err)
-	}
-	defer iter.Close()
-	for ; iter.Valid(); iter.Next() {
+	iter := evpool.evidenceStore.NewIteratorWithPrefix([]byte{prefixKey})
+	defer iter.Release()
+	for ; iter.Error() == nil && len(iter.Key()) > 0; iter.Next() {
 		var evpb tmproto.Evidence
 		err := evpb.Unmarshal(iter.Value())
 		if err != nil {
@@ -401,14 +397,10 @@ func (evpool *Pool) listEvidence(prefixKey byte, maxBytes int64) ([]types.Eviden
 }
 
 func (evpool *Pool) removeExpiredPendingEvidence() (int64, time.Time) {
-	iter, err := dbm.IteratePrefix(evpool.evidenceStore, []byte{baseKeyPending})
-	if err != nil {
-		evpool.logger.Error("Unable to iterate over pending evidence", "err", err)
-		return evpool.State().LastBlockHeight, evpool.State().LastBlockTime
-	}
-	defer iter.Close()
+	iter := evpool.evidenceStore.NewIteratorWithPrefix([]byte{baseKeyPending})
+	defer iter.Release()
 	blockEvidenceMap := make(map[string]struct{})
-	for ; iter.Valid(); iter.Next() {
+	for ; iter.Error() == nil && len(iter.Key()) > 0; iter.Next() {
 		ev, err := bytesToEv(iter.Value())
 		if err != nil {
 			evpool.logger.Error("Error in transition evidence from protobuf", "err", err)

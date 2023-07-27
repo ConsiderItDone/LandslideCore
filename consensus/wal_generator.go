@@ -4,12 +4,11 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"github.com/ava-labs/avalanchego/database/memdb"
 	"io"
 	"path/filepath"
 	"testing"
 	"time"
-
-	db "github.com/tendermint/tm-db"
 
 	"github.com/consideritdone/landslidecore/abci/example/kvstore"
 	cfg "github.com/consideritdone/landslidecore/config"
@@ -45,7 +44,7 @@ func WALGenerateNBlocks(t *testing.T, wr io.Writer, numBlocks int) (err error) {
 	if err != nil {
 		return fmt.Errorf("failed to read genesis file: %w", err)
 	}
-	blockStoreDB := db.NewMemDB()
+	blockStoreDB := memdb.New()
 	stateDB := blockStoreDB
 	stateStore := sm.NewStore(stateDB)
 	state, err := sm.MakeGenesisState(genDoc)
