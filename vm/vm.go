@@ -10,7 +10,6 @@ import (
 
 	"github.com/ava-labs/avalanchego/api/metrics"
 	"github.com/ava-labs/avalanchego/database"
-	"github.com/ava-labs/avalanchego/database/manager"
 	"github.com/ava-labs/avalanchego/database/prefixdb"
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/snow"
@@ -86,8 +85,8 @@ var (
 )
 
 type VM struct {
-	ctx       *snow.Context
-	dbManager manager.Manager
+	ctx *snow.Context
+	db  database.Database
 
 	toEngine chan<- common.Message
 
@@ -142,7 +141,7 @@ func NewVM(app abciTypes.Application) *VM {
 func (vm *VM) Initialize(
 	_ context.Context,
 	chainCtx *snow.Context,
-	dbManager manager.Manager,
+	db database.Database,
 	genesisBytes []byte,
 	upgradeBytes []byte,
 	configBytes []byte,
@@ -152,16 +151,14 @@ func (vm *VM) Initialize(
 ) error {
 	vm.ctx = chainCtx
 	vm.tmLogger = log.NewTMLogger(vm.ctx.Log)
-	vm.dbManager = dbManager
+	vm.db = db
 
 	vm.toEngine = toEngine
 
-	baseDB := dbManager.Current().Database
-
-	vm.blockStoreDB = Database{prefixdb.NewNested(blockStoreDBPrefix, baseDB)}
+	vm.blockStoreDB = Database{prefixdb.NewNested(blockStoreDBPrefix, vm.db)}
 	vm.blockStore = store.NewBlockStore(vm.blockStoreDB)
 
-	vm.stateDB = Database{prefixdb.NewNested(stateDBPrefix, baseDB)}
+	vm.stateDB = Database{prefixdb.NewNested(stateDBPrefix, vm.db)}
 	vm.stateStore = sm.NewStore(vm.stateDB)
 
 	if err := vm.initGenesis(genesisBytes); err != nil {
@@ -201,9 +198,9 @@ func (vm *VM) Initialize(
 	}
 	vm.eventBus = eventBus
 
-	vm.txIndexerDB = Database{prefixdb.NewNested(txIndexerDBPrefix, baseDB)}
+	vm.txIndexerDB = Database{prefixdb.NewNested(txIndexerDBPrefix, vm.db)}
 	vm.txIndexer = txidxkv.NewTxIndex(vm.txIndexerDB)
-	vm.blockIndexerDB = Database{prefixdb.NewNested(blockIndexerDBPrefix, baseDB)}
+	vm.blockIndexerDB = Database{prefixdb.NewNested(blockIndexerDBPrefix, vm.db)}
 	vm.blockIndexer = blockidxkv.New(vm.blockIndexerDB)
 	vm.indexerService = txindex.NewIndexerService(vm.txIndexer, vm.blockIndexer, eventBus)
 	vm.indexerService.SetLogger(vm.tmLogger.With("module", "txindex"))
@@ -615,12 +612,16 @@ func (vm *VM) Version(ctx context.Context) (string, error) {
 	return Version.String(), nil
 }
 
-func (vm *VM) CreateStaticHandlers(ctx context.Context) (map[string]*common.HTTPHandler, error) {
-	//TODO implement me
-	return nil, nil
+func (*VM) CreateStaticHandlers(context.Context) (map[string]http.Handler, error) {
+	server := rpc.NewServer()
+	server.RegisterCodec(json.NewCodec(), "application/json")
+	server.RegisterCodec(json.NewCodec(), "application/json;charset=UTF-8")
+	return map[string]http.Handler{
+		"": server,
+	}, server.RegisterService(&StaticService{}, Name)
 }
 
-func (vm *VM) CreateHandlers(_ context.Context) (map[string]*common.HTTPHandler, error) {
+func (vm *VM) CreateHandlers(_ context.Context) (map[string]http.Handler, error) {
 	mux := http.NewServeMux()
 	rpcLogger := vm.tmLogger.With("module", "rpc-server")
 	rpcserver.RegisterRPCFuncs(mux, rpccore.Routes, rpcLogger)
@@ -632,12 +633,10 @@ func (vm *VM) CreateHandlers(_ context.Context) (map[string]*common.HTTPHandler,
 		return nil, err
 	}
 
-	return map[string]*common.HTTPHandler{
-		"/rpc": {
-			LockOptions: common.WriteLock,
-			Handler:     server,
-		},
-	}, nil
+	//TODO: Think about 			LockOptions: common.WriteLock,
+	return map[string]http.Handler{
+		"/rpc": server,
+	}, server.RegisterService(NewService(vm), Name)
 }
 
 func (vm *VM) ProxyApp() proxy.AppConns {
@@ -684,3 +683,19 @@ func (vm *VM) Disconnected(_ context.Context, id ids.NodeID) error {
 }
 
 func (vm *VM) HealthCheck(ctx context.Context) (interface{}, error) { return nil, nil }
+
+func (*VM) VerifyHeightIndex(context.Context) error {
+	return nil
+}
+
+func (vm *VM) GetBlockIDAtHeight(_ context.Context, height uint64) (ids.ID, error) {
+	blkHeight := int64(height)
+	validatedHeight, err := getHeight(vm.blockStore, &blkHeight)
+	if err != nil {
+		return ids.Empty, err
+	}
+	blk := vm.blockStore.LoadBlock(validatedHeight)
+	var id ids.ID
+	copy(id[:], blk.Hash())
+	return id, nil
+}
