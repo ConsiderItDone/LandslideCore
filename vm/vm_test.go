@@ -4,17 +4,16 @@ import (
 	"context"
 	_ "embed"
 	"fmt"
+	"github.com/ava-labs/avalanchego/database/memdb"
 	"os"
 	"testing"
 
 	"github.com/consideritdone/landslidecore/abci/example/kvstore"
 
-	"github.com/ava-labs/avalanchego/database/manager"
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/snow"
 	"github.com/ava-labs/avalanchego/snow/engine/common"
 	"github.com/ava-labs/avalanchego/utils/logging"
-	"github.com/ava-labs/avalanchego/version"
 	"github.com/ava-labs/avalanchego/vms/components/chain"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -45,11 +44,7 @@ func newKVTestVM() (*VM, *snow.Context, chan common.Message, error) {
 }
 
 func newTestVM(app atypes.Application) (*VM, *snow.Context, chan common.Message, error) {
-	dbManager := manager.NewMemDB(&version.Semantic{
-		Major: 1,
-		Minor: 0,
-		Patch: 0,
-	})
+	db := memdb.New()
 	msgChan := make(chan common.Message, 1)
 	vm := NewVM(app)
 	snowCtx := snow.DefaultContextTest()
@@ -62,7 +57,7 @@ func newTestVM(app atypes.Application) (*VM, *snow.Context, chan common.Message,
 		),
 	)
 	snowCtx.ChainID = blockchainID
-	err := vm.Initialize(context.TODO(), snowCtx, dbManager, []byte(genesis), nil, nil, msgChan, nil, nil)
+	err := vm.Initialize(context.TODO(), snowCtx, db, []byte(genesis), nil, nil, msgChan, nil, nil)
 
 	return vm, snowCtx, msgChan, err
 }
