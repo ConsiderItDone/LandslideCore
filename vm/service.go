@@ -727,8 +727,13 @@ func (s *LocalService) Status(ctx *rpctypes.Context) (*ctypes.ResultStatus, erro
 
 	result := &ctypes.ResultStatus{
 		NodeInfo: p2p.DefaultNodeInfo{
-			DefaultNodeID: p2p.ID(s.vm.chainCtx.NodeID.String()),
+			DefaultNodeID: p2p.ID(fmt.Sprintf("%x", s.vm.chainCtx.NodeID.Bytes())),
+			ListenAddr:    fmt.Sprintf("/ext/bc/%s/rpc", s.vm.chainCtx.ChainID.String()),
 			Network:       fmt.Sprintf("%d", s.vm.chainCtx.NetworkID),
+			// TODO: correct data
+			Channels: []byte("channels"),
+			// TODO: correct data
+			Moniker: "moniker",
 		},
 		SyncInfo: ctypes.SyncInfo{
 			LatestBlockHash:     latestBlockHash,
