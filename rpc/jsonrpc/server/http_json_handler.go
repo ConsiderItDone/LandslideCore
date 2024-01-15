@@ -17,7 +17,7 @@ import (
 // HTTP + JSON handler
 
 // jsonrpc calls grab the given method's function info and runs reflect.Call
-func makeJSONRPCHandler(funcMap map[string]*RPCFunc, logger log.Logger) http.HandlerFunc {
+func MakeJSONRPCHandler(funcMap map[string]*RPCFunc, logger log.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		b, err := ioutil.ReadAll(r.Body)
 		if err != nil {
@@ -67,13 +67,14 @@ func makeJSONRPCHandler(funcMap map[string]*RPCFunc, logger log.Logger) http.Han
 				)
 				continue
 			}
-			if len(r.URL.Path) > 1 {
-				responses = append(
-					responses,
-					types.RPCInvalidRequestError(request.ID, fmt.Errorf("path %s is invalid", r.URL.Path)),
-				)
-				continue
-			}
+			// TODO: need to rever this change
+			//if len(r.URL.Path) > 1 {
+			//	responses = append(
+			//		responses,
+			//		types.RPCInvalidRequestError(request.ID, fmt.Errorf("path %s is invalid", r.URL.Path)),
+			//	)
+			//	continue
+			//}
 			rpcFunc, ok := funcMap[request.Method]
 			if !ok || rpcFunc.ws {
 				responses = append(responses, types.RPCMethodNotFoundError(request.ID))

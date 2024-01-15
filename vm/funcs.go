@@ -14,7 +14,6 @@ import (
 	tmstate "github.com/consideritdone/landslidecore/proto/tendermint/state"
 	"github.com/consideritdone/landslidecore/proxy"
 	"github.com/consideritdone/landslidecore/rpc/client"
-	coretypes "github.com/consideritdone/landslidecore/rpc/core/types"
 	"github.com/consideritdone/landslidecore/state"
 	"github.com/consideritdone/landslidecore/store"
 	"github.com/consideritdone/landslidecore/types"
@@ -371,8 +370,8 @@ func WaitForHeight(c Service, h int64, waiter client.Waiter) error {
 	}
 	delta := int64(1)
 	for delta > 0 {
-		r := new(coretypes.ResultStatus)
-		if err := c.Status(nil, nil, r); err != nil {
+		r, err := c.Status(nil)
+		if err != nil {
 			return err
 		}
 		delta = h - r.SyncInfo.LatestBlockHeight
