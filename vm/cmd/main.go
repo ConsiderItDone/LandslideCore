@@ -3,9 +3,10 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/consideritdone/landslidecore/abci/example/counter"
-	landslideCoreVM "github.com/consideritdone/landslidecore/vm"
 	"os"
+
+	"github.com/consideritdone/landslidecore/abci/example/counter"
+	"github.com/consideritdone/landslidecore/vm"
 
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/avalanchego/utils/ulimit"
@@ -13,13 +14,13 @@ import (
 )
 
 func main() {
-
 	if err := ulimit.Set(ulimit.DefaultFDLimit, logging.NoLog{}); err != nil {
 		fmt.Printf("failed to set fd limit correctly due to: %s", err)
 		os.Exit(1)
 	}
 
-	vm := landslideCoreVM.NewVM(counter.NewApplication(true))
-
-	rpcchainvm.Serve(context.Background(), vm)
+	rpcchainvm.Serve(
+		context.Background(),
+		vm.New(vm.LocalAppCreator(counter.NewApplication(true))),
+	)
 }

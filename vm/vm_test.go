@@ -15,14 +15,12 @@ import (
 	"github.com/ava-labs/avalanchego/snow/engine/common"
 	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/avalanchego/version"
-	"github.com/ava-labs/avalanchego/vms/components/chain"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/consideritdone/landslidecore/abci/example/counter"
 	atypes "github.com/consideritdone/landslidecore/abci/types"
 	tmrand "github.com/consideritdone/landslidecore/libs/rand"
-	ctypes "github.com/consideritdone/landslidecore/rpc/core/types"
 )
 
 var (
@@ -51,7 +49,7 @@ func newTestVM(app atypes.Application) (*VM, *snow.Context, chan common.Message,
 		Patch: 0,
 	})
 	msgChan := make(chan common.Message, 1)
-	vm := NewVM(app)
+	vm := New(LocalAppCreator(app))
 	snowCtx := snow.DefaultContextTest()
 	snowCtx.Log = logging.NewLogger(
 		fmt.Sprintf("<%s Chain>", blockchainID),
@@ -100,11 +98,7 @@ func TestInitVm(t *testing.T) {
 	assert.Nil(t, blk0)
 
 	// submit first tx (0x00)
-	args := &BroadcastTxArgs{
-		Tx: []byte{0x00},
-	}
-	reply := &ctypes.ResultBroadcastTx{}
-	err = service.BroadcastTxSync(nil, args, reply)
+	reply, err := service.BroadcastTxSync(nil, []byte{0x00})
 	assert.NoError(t, err)
 	assert.Equal(t, atypes.CodeTypeOK, reply.Code)
 
@@ -123,26 +117,18 @@ func TestInitVm(t *testing.T) {
 	err = blk1.Accept(context.Background())
 	assert.NoError(t, err)
 
-	tmBlk1 := blk1.(*chain.BlockWrapper).Block.(*Block).tmBlock
+	tmBlk1 := blk1.(*Block).Block
 
 	t.Logf("Block: %d", blk1.Height())
 	t.Logf("TM Block Tx count: %d", len(tmBlk1.Data.Txs))
 
 	// submit second tx (0x01)
-	args = &BroadcastTxArgs{
-		Tx: []byte{0x01},
-	}
-	reply = &ctypes.ResultBroadcastTx{}
-	err = service.BroadcastTxSync(nil, args, reply)
+	reply, err = service.BroadcastTxSync(nil, []byte{0x01})
 	assert.NoError(t, err)
 	assert.Equal(t, atypes.CodeTypeOK, reply.Code)
 
 	// submit 3rd tx (0x02)
-	args = &BroadcastTxArgs{
-		Tx: []byte{0x02},
-	}
-	reply = &ctypes.ResultBroadcastTx{}
-	err = service.BroadcastTxSync(nil, args, reply)
+	reply, err = service.BroadcastTxSync(nil, []byte{0x02})
 	assert.NoError(t, err)
 	assert.Equal(t, atypes.CodeTypeOK, reply.Code)
 
@@ -161,7 +147,7 @@ func TestInitVm(t *testing.T) {
 	err = blk2.Accept(context.Background())
 	assert.NoError(t, err)
 
-	tmBlk2 := blk2.(*chain.BlockWrapper).Block.(*Block).tmBlock
+	tmBlk2 := blk2.(*Block).Block
 
 	t.Logf("Block: %d", blk2.Height())
 	t.Logf("TM Block Tx count: %d", len(tmBlk2.Data.Txs))
