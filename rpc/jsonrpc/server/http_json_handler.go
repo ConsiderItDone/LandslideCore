@@ -67,14 +67,7 @@ func MakeJSONRPCHandler(funcMap map[string]*RPCFunc, logger log.Logger) http.Han
 				)
 				continue
 			}
-			// TODO: need to rever this change
-			//if len(r.URL.Path) > 1 {
-			//	responses = append(
-			//		responses,
-			//		types.RPCInvalidRequestError(request.ID, fmt.Errorf("path %s is invalid", r.URL.Path)),
-			//	)
-			//	continue
-			//}
+			logger.Info("R.URL.PATH", "path", r.URL.Path)
 			rpcFunc, ok := funcMap[request.Method]
 			if !ok || rpcFunc.ws {
 				responses = append(responses, types.RPCMethodNotFoundError(request.ID))

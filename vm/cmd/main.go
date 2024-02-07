@@ -19,8 +19,11 @@ func main() {
 		os.Exit(1)
 	}
 
+	//TODO: hardcoded PROXY app, explain the necessity
+	landslideVM := vm.New(vm.LocalAppCreator(counter.NewApplication(true)))
+
 	rpcchainvm.Serve(
 		context.Background(),
-		vm.New(vm.LocalAppCreator(counter.NewApplication(true))),
+		landslideVM,
 	)
 }

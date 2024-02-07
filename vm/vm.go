@@ -535,6 +535,7 @@ func (vm *VM) GetBlock(ctx context.Context, blkID ids.ID) (snowman.Block, error)
 	if b == nil {
 		return nil, errInvalidBlock
 	}
+	//TODO: verify this logic
 	vm.log.Debug("get block", "status", choices.Accepted)
 	return NewBlock(vm, b, choices.Accepted), nil
 }
@@ -608,7 +609,10 @@ func (vm *VM) BuildBlock(ctx context.Context) (snowman.Block, error) {
 	}
 
 	blk := NewBlock(vm, block, choices.Processing)
-	vm.verifiedBlocks[blk.ID()] = blk
+	// Verifies block
+	if err := blk.Verify(ctx); err != nil {
+		return nil, err
+	}
 
 	vm.log.Debug("build block", "id", blk.ID(), "height", blk.Height(), "txs", len(block.Txs))
 	return blk, nil
@@ -629,6 +633,7 @@ func (vm *VM) SetPreference(ctx context.Context, blkID ids.ID) error {
 // a definitionally accepted block, the Genesis block, that will be
 // returned.
 func (vm *VM) LastAccepted(context.Context) (ids.ID, error) {
+	//TODO: check
 	if vm.preferred == ids.Empty {
 		return ids.ID(vm.state.LastBlockID.Hash), nil
 	}
