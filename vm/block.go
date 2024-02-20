@@ -51,7 +51,7 @@ func (block *Block) Accept(context.Context) error {
 func (block *Block) Reject(context.Context) error {
 	block.vm.log.Debug("try to reject block", "block", block.ID())
 	block.st = choices.Rejected
-	panic("implement me")
+	return nil
 }
 
 // Status returns this element's current status.

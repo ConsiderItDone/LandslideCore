@@ -4,10 +4,12 @@ import (
 	"context"
 	_ "embed"
 	"fmt"
-	"os"
-	"testing"
-
 	"github.com/consideritdone/landslidecore/abci/example/kvstore"
+	rpctypes "github.com/consideritdone/landslidecore/rpc/jsonrpc/types"
+	"github.com/consideritdone/landslidecore/types"
+	"os"
+	"reflect"
+	"testing"
 
 	"github.com/ava-labs/avalanchego/database/manager"
 	"github.com/ava-labs/avalanchego/ids"
@@ -151,4 +153,56 @@ func TestInitVm(t *testing.T) {
 
 	t.Logf("Block: %d", blk2.Height())
 	t.Logf("TM Block Tx count: %d", len(tmBlk2.Data.Txs))
+}
+
+func TestRejectBlock(t *testing.T) {
+	tx1 := []byte{0x01}
+	tx2 := []byte{0x02}
+	tx3 := []byte{0x03}
+	txs := []types.Tx{tx1, tx2, tx3}
+	vm, service, _ := mustNewKVTestVm(t)
+
+	blk0, err := vm.BuildBlock(context.Background())
+	assert.ErrorIs(t, err, errNoPendingTxs, "expecting error no txs")
+	assert.Nil(t, blk0)
+
+	for _, tx := range txs {
+		txReply, err := service.BroadcastTxSync(&rpctypes.Context{}, tx)
+		assert.NoError(t, err)
+		assert.Equal(t, atypes.CodeTypeOK, txReply.Code)
+	}
+
+	// build 1st block
+	blk1, err := vm.BuildBlock(context.Background())
+	assert.NoError(t, err)
+	assert.NotNil(t, blk1)
+	assert.NoError(t, blk1.Reject(context.Background()))
+	height1 := int64(blk1.Height())
+
+	// build 1st block
+	blk2, err := vm.BuildBlock(context.Background())
+	assert.NoError(t, err)
+	assert.NotNil(t, blk1)
+	assert.NoError(t, blk1.Accept(context.Background()))
+	height2 := int64(blk2.Height())
+
+	assert.Equal(t, height1, height2)
+
+	reply, err := service.Block(&rpctypes.Context{}, &height2)
+	assert.NoError(t, err)
+	if assert.NotNil(t, reply.Block) {
+		assert.EqualValues(t, height2, reply.Block.Height)
+	}
+	assert.EqualValues(t, height2, reply.Block.Height)
+	assert.EqualValues(t, len(txs), len(reply.Block.Txs))
+	for _, tx := range txs {
+		match := false
+		for _, blkTx := range reply.Block.Txs {
+			if reflect.DeepEqual(tx, blkTx) {
+				match = true
+				break
+			}
+		}
+		require.True(t, match)
+	}
 }
