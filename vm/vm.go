@@ -535,7 +535,6 @@ func (vm *VM) GetBlock(ctx context.Context, blkID ids.ID) (snowman.Block, error)
 	if b == nil {
 		return nil, errInvalidBlock
 	}
-	//TODO: verify this logic
 	vm.log.Debug("get block", "status", choices.Accepted)
 	return NewBlock(vm, b, choices.Accepted), nil
 }
@@ -550,7 +549,7 @@ func (vm *VM) ParseBlock(ctx context.Context, blockBytes []byte) (snowman.Block,
 	vm.log.Debug("parse block")
 
 	protoBlock := new(tmproto.Block)
-	if err := protoBlock.Unmarshal(blockBytes[1:]); err != nil {
+	if err := protoBlock.Unmarshal(blockBytes); err != nil {
 		vm.log.Error("can't parse block", "err", err)
 		return nil, err
 	}
@@ -561,7 +560,13 @@ func (vm *VM) ParseBlock(ctx context.Context, blockBytes []byte) (snowman.Block,
 		return nil, err
 	}
 
-	blk := NewBlock(vm, block, choices.Status(uint32(blockBytes[0])))
+	blk := NewBlock(vm, block, choices.Processing)
+	if b, err := vm.GetBlock(ctx, blk.ID()); err == nil {
+		vm.log.Debug("parsed block", "id", blk.ID(), "status", b.Status().String())
+		// If we have seen this block before, return it with the most up-to-date
+		// info
+		return b, nil
+	}
 	vm.log.Debug("parsed block", "id", blk.ID(), "status", blk.Status().String())
 	if _, ok := vm.verifiedBlocks[blk.ID()]; !ok {
 		vm.verifiedBlocks[blk.ID()] = blk
