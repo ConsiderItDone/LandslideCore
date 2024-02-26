@@ -52,17 +52,9 @@ func (block *Block) Accept(context.Context) error {
 func (block *Block) Reject(context.Context) error {
 	block.vm.log.Debug(fmt.Sprintf("Rejecting block %s (%s) at height %d", block.ID().Hex(), block.ID(), block.Height()))
 	block.status = choices.Rejected
-	//TODO: wrap
-	// put actual block to cache, so we can directly fetch it from cache
-	s.blkCache.Put(blkID, blk)
-
-	// put wrapped block bytes into database
-	s.blockDB.Put(blkID[:], wrappedBytes)
 	// Delete this block from verified blocks as it's rejected
 	delete(block.vm.verifiedBlocks, block.ID())
-	panic("implement me")
-	// Commit changes to database
-	return block.vm.state.Commit()
+	return nil
 }
 
 // Status returns this element's current status.
