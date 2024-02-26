@@ -18,12 +18,12 @@ var (
 
 type Block struct {
 	*types.Block
-	st choices.Status
-	vm *VM
+	status choices.Status
+	vm     *VM
 }
 
-func NewBlock(vm *VM, block *types.Block, st choices.Status) *Block {
-	return &Block{Block: block, vm: vm, st: st}
+func NewBlock(vm *VM, block *types.Block, status choices.Status) *Block {
+	return &Block{Block: block, vm: vm, status: status}
 }
 
 // ID returns a unique ID for this element.
@@ -39,8 +39,9 @@ func (block *Block) ID() ids.ID {
 //
 // This element will be accepted by every correct node in the network.
 func (block *Block) Accept(context.Context) error {
-	block.vm.log.Debug("try to accept block", "block", block.ID())
-	block.st = choices.Accepted
+	block.vm.log.Debug(fmt.Sprintf("Accepting block %s (%s) at height %d", block.ID().Hex(), block.ID(), block.Height()))
+	block.status = choices.Accepted
+	// Delete this block from verified blocks as it's accepted
 	delete(block.vm.verifiedBlocks, block.ID())
 	return block.vm.applyBlock(block)
 }
@@ -49,9 +50,11 @@ func (block *Block) Accept(context.Context) error {
 //
 // This element will not be accepted by any correct node in the network.
 func (block *Block) Reject(context.Context) error {
-	block.vm.log.Debug("try to reject block", "block", block.ID())
-	block.st = choices.Rejected
-	panic("implement me")
+	block.vm.log.Debug(fmt.Sprintf("Rejecting block %s (%s) at height %d", block.ID().Hex(), block.ID(), block.Height()))
+	block.status = choices.Rejected
+	// Delete this block from verified blocks as it's rejected
+	delete(block.vm.verifiedBlocks, block.ID())
+	return nil
 }
 
 // Status returns this element's current status.
@@ -64,7 +67,7 @@ func (block *Block) Reject(context.Context) error {
 //
 // TODO: Consider allowing Status to return an error.
 func (block *Block) Status() choices.Status {
-	return block.st
+	return block.status
 }
 
 // Parent returns the ID of this block's parent.
@@ -81,7 +84,13 @@ func (block *Block) Parent() ids.ID {
 // If nil is returned, it is guaranteed that either Accept or Reject will be
 // called on this block, unless the VM is shut down.
 func (block *Block) Verify(context.Context) error {
-	return block.ValidateBasic()
+	err := block.ValidateBasic()
+	if err != nil {
+		return err
+	}
+	// Put that block to verified blocks in memory
+	block.vm.verifiedBlocks[block.ID()] = block
+	return nil
 }
 
 // Bytes returns the binary representation of this block.
@@ -97,7 +106,7 @@ func (block *Block) Bytes() []byte {
 	if err != nil {
 		panic(fmt.Sprintf("can't serialize block: %s", err))
 	}
-	return append([]byte{uint8(block.st)}, data...)
+	return data
 }
 
 // Height returns the height of this block in the chain.

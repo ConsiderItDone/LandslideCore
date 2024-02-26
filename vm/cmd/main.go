@@ -19,8 +19,10 @@ func main() {
 		os.Exit(1)
 	}
 
+	landslideVM := vm.New(vm.LocalAppCreator(counter.NewApplication(true)))
+
 	rpcchainvm.Serve(
 		context.Background(),
-		vm.New(vm.LocalAppCreator(counter.NewApplication(true))),
+		landslideVM,
 	)
 }

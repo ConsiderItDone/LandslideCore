@@ -549,7 +549,7 @@ func (vm *VM) ParseBlock(ctx context.Context, blockBytes []byte) (snowman.Block,
 	vm.log.Debug("parse block")
 
 	protoBlock := new(tmproto.Block)
-	if err := protoBlock.Unmarshal(blockBytes[1:]); err != nil {
+	if err := protoBlock.Unmarshal(blockBytes); err != nil {
 		vm.log.Error("can't parse block", "err", err)
 		return nil, err
 	}
@@ -560,7 +560,13 @@ func (vm *VM) ParseBlock(ctx context.Context, blockBytes []byte) (snowman.Block,
 		return nil, err
 	}
 
-	blk := NewBlock(vm, block, choices.Status(uint32(blockBytes[0])))
+	blk := NewBlock(vm, block, choices.Processing)
+	if b, err := vm.GetBlock(ctx, blk.ID()); err == nil {
+		vm.log.Debug("parsed block", "id", blk.ID(), "status", b.Status().String())
+		// If we have seen this block before, return it with the most up-to-date
+		// info
+		return b, nil
+	}
 	vm.log.Debug("parsed block", "id", blk.ID(), "status", blk.Status().String())
 	if _, ok := vm.verifiedBlocks[blk.ID()]; !ok {
 		vm.verifiedBlocks[blk.ID()] = blk
@@ -608,7 +614,10 @@ func (vm *VM) BuildBlock(ctx context.Context) (snowman.Block, error) {
 	}
 
 	blk := NewBlock(vm, block, choices.Processing)
-	vm.verifiedBlocks[blk.ID()] = blk
+	// Verifies block
+	if err := blk.Verify(ctx); err != nil {
+		return nil, err
+	}
 
 	vm.log.Debug("build block", "id", blk.ID(), "height", blk.Height(), "txs", len(block.Txs))
 	return blk, nil
@@ -629,10 +638,7 @@ func (vm *VM) SetPreference(ctx context.Context, blkID ids.ID) error {
 // a definitionally accepted block, the Genesis block, that will be
 // returned.
 func (vm *VM) LastAccepted(context.Context) (ids.ID, error) {
-	if vm.preferred == ids.Empty {
-		return ids.ID(vm.state.LastBlockID.Hash), nil
-	}
-	return vm.preferred, nil
+	return ids.ID(vm.state.LastBlockID.Hash), nil
 }
 
 func (vm *VM) applyBlock(block *Block) error {
