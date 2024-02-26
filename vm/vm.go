@@ -633,11 +633,7 @@ func (vm *VM) SetPreference(ctx context.Context, blkID ids.ID) error {
 // a definitionally accepted block, the Genesis block, that will be
 // returned.
 func (vm *VM) LastAccepted(context.Context) (ids.ID, error) {
-	//TODO: check
-	if vm.preferred == ids.Empty {
-		return ids.ID(vm.state.LastBlockID.Hash), nil
-	}
-	return vm.preferred, nil
+	return ids.ID(vm.state.LastBlockID.Hash), nil
 }
 
 func (vm *VM) applyBlock(block *Block) error {
